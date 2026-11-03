@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs>
+ <style>
+    .m{fill:url(#gs);stroke:#3c4347;stroke-width:5;stroke-linejoin:round;paint-order:stroke}
+    .ml{fill:none;stroke:url(#gs);stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
+    .g{fill:#6fb8ff;opacity:.55}
+    .d{fill:#3c4347}
+    .dk{fill:#202426}
+    .dl{fill:none;stroke:#3c4347;stroke-linecap:round}
+    .s{fill:#6fb8ff}
+    .sl{fill:none;stroke:#6fb8ff;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+    .w{fill:#ffffff}
+    </style>
+ <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#dff3ff"/><stop offset=".45" stop-color="#d8f0ff"/><stop offset="1" stop-color="#525b61"/>
+ </linearGradient>
+ <radialGradient id="halo" cx=".5" cy=".5" r=".5">
+  <stop offset="0" stop-color="#6fb8ff" stop-opacity=".75"/><stop offset=".6" stop-color="#6fb8ff" stop-opacity=".25"/><stop offset="1" stop-color="#6fb8ff" stop-opacity="0"/>
+ </radialGradient>
+ <linearGradient id="gs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f4fbff"/></linearGradient>
+ <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+ <radialGradient id="vig" cx=".5" cy=".42" r=".6"><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient>
+ <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+  <feMorphology in="SourceAlpha" operator="dilate" radius="2" result="d"/>
+  <feGaussianBlur in="d" stdDeviation="7" result="b"/>
+  <feFlood flood-color="#e6f5ff"/><feComposite in2="b" operator="in" result="g"/>
+  <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="sb"/><feOffset in="sb" dy="4" result="so"/>
+  <feFlood flood-color="#000" flood-opacity=".45"/><feComposite in2="so" operator="in" result="sh"/>
+  <feMerge><feMergeNode in="g"/><feMergeNode in="sh"/><feMergeNode in="SourceGraphic"/></feMerge>
+ </filter>
+ <clipPath id="c"><circle cx="128" cy="128" r="127"/></clipPath>
+</defs>
+<g clip-path="url(#c)">
+ <circle cx="128" cy="128" r="128" fill="url(#bg)"/>
+ <circle cx="128" cy="124" r="104" fill="url(#halo)"/>
+ <g filter="url(#glow)"><path class="sl" d="M128,236 L128,206" style="stroke-width:5"/><path class="sl" d="M70,226 L84,200" style="stroke-width:5"/><path class="sl" d="M186,226 L172,200" style="stroke-width:5"/><g transform="translate(74.30642496536481,137.0) rotate(-60) scale(0.55)"><path class="m" d="M0,-92 C40,-60 34,30 4,72 L-4,72 C-34,30 -40,-60 0,-92 Z"/><path class="dl" d="M0,-80 L0,92" style="stroke-width:4"/><path class="dl" d="M2,-40 L26,-56 M2,-10 L30,-26 M-2,-24 L-26,-40 M-2,6 L-28,-8 M2,22 L24,8" style="stroke-width:3;opacity:.5"/></g><g transform="translate(97.0,114.3064249653648) rotate(-30) scale(0.55)"><path class="m" d="M0,-92 C40,-60 34,30 4,72 L-4,72 C-34,30 -40,-60 0,-92 Z"/><path class="dl" d="M0,-80 L0,92" style="stroke-width:4"/><path class="dl" d="M2,-40 L26,-56 M2,-10 L30,-26 M-2,-24 L-26,-40 M-2,6 L-28,-8 M2,22 L24,8" style="stroke-width:3;opacity:.5"/></g><g transform="translate(128.0,106.0) rotate(0) scale(0.55)"><path class="m" d="M0,-92 C40,-60 34,30 4,72 L-4,72 C-34,30 -40,-60 0,-92 Z"/><path class="dl" d="M0,-80 L0,92" style="stroke-width:4"/><path class="dl" d="M2,-40 L26,-56 M2,-10 L30,-26 M-2,-24 L-26,-40 M-2,6 L-28,-8 M2,22 L24,8" style="stroke-width:3;opacity:.5"/></g><g transform="translate(159.0,114.3064249653648) rotate(30) scale(0.55)"><path class="m" d="M0,-92 C40,-60 34,30 4,72 L-4,72 C-34,30 -40,-60 0,-92 Z"/><path class="dl" d="M0,-80 L0,92" style="stroke-width:4"/><path class="dl" d="M2,-40 L26,-56 M2,-10 L30,-26 M-2,-24 L-26,-40 M-2,6 L-28,-8 M2,22 L24,8" style="stroke-width:3;opacity:.5"/></g><g transform="translate(181.6935750346352,137.0) rotate(60) scale(0.55)"><path class="m" d="M0,-92 C40,-60 34,30 4,72 L-4,72 C-34,30 -40,-60 0,-92 Z"/><path class="dl" d="M0,-80 L0,92" style="stroke-width:4"/><path class="dl" d="M2,-40 L26,-56 M2,-10 L30,-26 M-2,-24 L-26,-40 M-2,6 L-28,-8 M2,22 L24,8" style="stroke-width:3;opacity:.5"/></g></g>
+ <circle cx="128" cy="128" r="128" fill="url(#vig)"/>
+ <ellipse cx="128" cy="58" rx="96" ry="48" fill="url(#gloss)"/>
+</g>
+</svg>

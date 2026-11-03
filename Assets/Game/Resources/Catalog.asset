@@ -1,0 +1,249 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9282dee09b7134846acb22e049e5d532, type: 3}
+  m_Name: Catalog
+  m_EditorClassIdentifier: Assembly-CSharp::NovaBlade.Catalog
+  models:
+  - id: toybot
+    prefab: {fileID: -2295210395951047170, guid: 2a8c1dd6f68abf249b8105bf598f4513, type: 3}
+  - id: candle
+    prefab: {fileID: -2295210395951047170, guid: b66c9b4710670ab4ebb0b0f4661d9f86, type: 3}
+  - id: bat
+    prefab: {fileID: -2295210395951047170, guid: 03810b964d3bb1145b47c9810c64db86, type: 3}
+  - id: mushroom
+    prefab: {fileID: -2295210395951047170, guid: 29e979fa9b2a7374294d6db172fcfdd3, type: 3}
+  - id: scibot
+    prefab: {fileID: -2295210395951047170, guid: 3030cc056bfd18044ad0cebf60ad444f, type: 3}
+  - id: rat
+    prefab: {fileID: -2295210395951047170, guid: dad6b9769b74ec743a16bd77c48cd8bd, type: 3}
+  - id: spider
+    prefab: {fileID: -2295210395951047170, guid: 5b63a3b3227a805469a915b53c09cced, type: 3}
+  - id: wick
+    prefab: {fileID: -2295210395951047170, guid: 0c7bff9a14c3fb9419e1f5306b259b40, type: 3}
+  - id: cat
+    prefab: {fileID: -2295210395951047170, guid: b4e4cda79fd67b041b70aba6dc32856f, type: 3}
+  - id: reaper
+    prefab: {fileID: -2295210395951047170, guid: 8fdf35a323e92b0449d0d2d200f10f2d, type: 3}
+  - id: captain
+    prefab: {fileID: -2295210395951047170, guid: d0a1d6c3b621f8a4d831da21b68d30d6, type: 3}
+  - id: w_lava
+    prefab: {fileID: -2295210395951047170, guid: 19a4b06051897f745897cf44f3178789, type: 3}
+  - id: w_fantasy
+    prefab: {fileID: -2295210395951047170, guid: 1f52d5ca32102ca41883ca4866362b04, type: 3}
+  - id: w_plague
+    prefab: {fileID: -2295210395951047170, guid: b86c95b753361a74382539e6c5247260, type: 3}
+  - id: w_fiery
+    prefab: {fileID: -2295210395951047170, guid: 6cae7495d8ce2414398a9cb61e3db7d5, type: 3}
+  - id: w_daggers
+    prefab: {fileID: -2295210395951047170, guid: abb0398d193db0b40a784e378870aa2d, type: 3}
+  - id: w_winged
+    prefab: {fileID: -2295210395951047170, guid: 9b269ac0ce27a3c458e170620664605f, type: 3}
+  - id: w_gold1
+    prefab: {fileID: -2295210395951047170, guid: 13d4f0b7317184646bfa4c3928f88e86, type: 3}
+  - id: w_gold2
+    prefab: {fileID: -2295210395951047170, guid: a4ffd4e6aac0a8546a53e36f91f2c06d, type: 3}
+  - id: q_goblin
+    prefab: {fileID: 2242888416370347441, guid: b394479019a0e7740bc741828d5f7eba, type: 3}
+  - id: q_orc
+    prefab: {fileID: 2242888416370347441, guid: ac6ac9461d45ea941a8011b78a8ea3ec, type: 3}
+  - id: q_skeleton
+    prefab: {fileID: 2242888416370347441, guid: 28401e699486eff478243f18c0360ccb, type: 3}
+  - id: q_zombie
+    prefab: {fileID: 2242888416370347441, guid: ee158d58be05581438675ac3f291b1ed, type: 3}
+  - id: q_giant
+    prefab: {fileID: 2242888416370347441, guid: 698628f2008e58445a85c5cdb365d9fe, type: 3}
+  - id: q_blue_demon
+    prefab: {fileID: 2242888416370347441, guid: 2b44b963037b5f54c81021ec083af63a, type: 3}
+  - id: q_ghost
+    prefab: {fileID: 2242888416370347441, guid: 8ee8ae02d724e654093c459babe09204, type: 3}
+  - id: q_dragon
+    prefab: {fileID: 2242888416370347441, guid: a68813f8eb29b0c48b24eecf6ab40fa4, type: 3}
+  - id: column
+    prefab: {fileID: 1559262965466976, guid: 127dec628923b2348b8fe712130aac25, type: 3}
+  - id: fire_pit
+    prefab: {fileID: -4214782735267518701, guid: b07f436555421a74a8b83e114d0f01f5, type: 3}
+  - id: tower_p1
+    prefab: {fileID: -1947148309536009720, guid: d40893e085e2b1541976b9e02a7a78ee, type: 3}
+  - id: tower_p2
+    prefab: {fileID: -7549004942061177581, guid: 12440e765e3bb3f419b2775d78d9d362, type: 3}
+  - id: tower_p3
+    prefab: {fileID: -5299486271241892296, guid: 5dfa1aefe182ac0478c4ed2ce7e978a4, type: 3}
+  - id: tower_f1
+    prefab: {fileID: -7168983576315783635, guid: 9012ad68e06600c4daee44a874403d9c, type: 3}
+  - id: tower_f2
+    prefab: {fileID: -2555660227342212416, guid: b6b64209d3a4d1c49bfb1d43186e648c, type: 3}
+  - id: tower_f3
+    prefab: {fileID: 1907332437143893668, guid: 52818f96589816142bee5bb788557579, type: 3}
+  fx:
+  - id: hit_red
+    prefab: {fileID: 4021103657954561961, guid: 5c755f9bc5253ea418e919994537dcc7, type: 3}
+  - id: hit_yellow
+    prefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
+  - id: ground_hit
+    prefab: {fileID: 3432958286849152088, guid: 87ee7299dd44ed747af24dbb91bcd33b, type: 3}
+  - id: death
+    prefab: {fileID: 7226888052703040409, guid: 7ec363c8df426644ea85f8d6d570561c, type: 3}
+  - id: boss_death
+    prefab: {fileID: 4593184484909914552, guid: 2e1e9506f5904a64b81744324fb7cd50, type: 3}
+  - id: poof
+    prefab: {fileID: 9157105887711914197, guid: c4f829cb7dd4b864caf8832ec5b1ee55, type: 3}
+  - id: aura
+    prefab: {fileID: 3280519133390621005, guid: a71be3e7990efb040a07565c43cbb198, type: 3}
+  - id: electric
+    prefab: {fileID: 9027514048236820045, guid: effb650189dc5714e9e9801b1cfb3991, type: 3}
+  - id: explosion
+    prefab: {fileID: 8194992990867289339, guid: 99bc28c0d45f51c4fbac01080b73edc7, type: 3}
+  - id: fire_small
+    prefab: {fileID: 6294508013172393196, guid: 043176b6a68be2b43b073aaaa4782c7d, type: 3}
+  - id: souls
+    prefab: {fileID: 5642766282230003982, guid: b5c8ca7ed10b61e499cce8ec3b6e2e4c, type: 3}
+  - id: wind
+    prefab: {fileID: 3696007233179127096, guid: c248f95ffea8b8543bc7ad0fffe0216d, type: 3}
+  - id: glows
+    prefab: {fileID: 4364354964670000192, guid: 3801a320e9ae1bf44a14efa194c86c3f, type: 3}
+  - id: trail_fire
+    prefab: {fileID: 2360655870356088562, guid: 57a776ff377f3c44e8403e2067a4d41f, type: 3}
+  - id: trail_ice
+    prefab: {fileID: 5318118474938795680, guid: 69d8f05fda8421849a84b27b8c0d773d, type: 3}
+  - id: trail_plain
+    prefab: {fileID: 6710139492206580332, guid: 95b8d3d65b5d7f1409c4ed1723887826, type: 3}
+  - id: vx_fire
+    prefab: {fileID: 2613462060424995206, guid: 101a8868c1adc5b40bdaf7526f47b7b5, type: 3}
+  - id: vx_void
+    prefab: {fileID: 1367619002952535313, guid: 664c64bbb000f5e428ca3b8f7e0ea923, type: 3}
+  - id: vx_cosmos
+    prefab: {fileID: 2653153344604433488, guid: f6bbcfa7e746d0340bd78dd22f35b3b3, type: 3}
+  - id: vx_nature
+    prefab: {fileID: 2393817908272368249, guid: 26169785b8e30c944a512729256a05cd, type: 3}
+  - id: vx_ice
+    prefab: {fileID: 1864572845640764174, guid: a64a37f3dcfb87f44a8c6236b5d49b20, type: 3}
+  - id: vx_electric
+    prefab: {fileID: 5818205763518135594, guid: 395d5ec7f996d364f94e11cfb40736d3, type: 3}
+  - id: vx_water
+    prefab: {fileID: 1826059589380599827, guid: 07a0367c119e4ca408ec23af0e377799, type: 3}
+  - id: vx_dark
+    prefab: {fileID: 8597731318025692521, guid: ae6bdf3417a5d6047a559654858dac31, type: 3}
+  - id: mx_heal_circle
+    prefab: {fileID: 7986504087968017091, guid: 12a56ee4630040c4eb17ae9707ed4cef, type: 3}
+  - id: mx_healing
+    prefab: {fileID: 9017484664307500583, guid: 1245b8d2997d5b34fb1637be70a7eb05, type: 3}
+  - id: mx_buff
+    prefab: {fileID: 7155335147208632822, guid: 97c43495f80a3244fad1301dfafbe252, type: 3}
+  - id: mx_shield
+    prefab: {fileID: 1289543790355709915, guid: b99922c2f59b1a542bdd06ae8bee47ae, type: 3}
+  - id: mx_shield_gold
+    prefab: {fileID: 6424583148328831481, guid: d2ffbc8b168cdf74a9dbb7c6c1cfdf2f, type: 3}
+  - id: mx_ground
+    prefab: {fileID: 4994997792314849709, guid: 3dd50886582244645be87adb42aa8528, type: 3}
+  - id: mx_holy_hit
+    prefab: {fileID: 2944396702758532163, guid: e190bf97c041e58448af6b043116cba0, type: 3}
+  - id: mx_electro_hit
+    prefab: {fileID: 2965222256817593503, guid: a164e676dbbd6e54587237e619372c98, type: 3}
+  - id: mx_magic_circle
+    prefab: {fileID: 3744133877081091469, guid: a2a060732547fe64581bb0cb3c2bdf1d, type: 3}
+  clips:
+  - id: idle
+    length: 7.55
+    hit: 0.63333344
+  - id: run
+    length: 0.6
+    hit: 0.53333336
+  - id: atk0
+    length: 2.3333335
+    hit: 1.2333335
+  - id: atk1
+    length: 3.5333335
+    hit: 2.6333323
+  - id: atk2
+    length: 2.1333334
+    hit: 1.066667
+  - id: spin
+    length: 1.8666668
+    hit: 1.1000003
+  - id: cast
+    length: 2.7
+    hit: 1.1333336
+  - id: guard
+    length: 1.8333334
+    hit: 0.6000001
+  - id: roll
+    length: 2.3666668
+    hit: 0.5
+  - id: death
+    length: 3.9
+    hit: 0.3
+  - id: hurt
+    length: 1.6000001
+    hit: 0.6666668
+  - id: leap
+    length: 2.3666668
+    hit: 0.46666667
+  - id: jump
+    length: 0.8333334
+    hit: 0.7333335
+  - id: crouch
+    length: 0.9333334
+    hit: 0.43333334
+  - id: walk
+    length: 1.3666668
+    hit: 1.1666669
+  - id: strafeL
+    length: 1.1
+    hit: 0.033333335
+  - id: strafeR
+    length: 1.1666667
+    hit: 0.6000001
+  - id: blockidle
+    length: 0.9666667
+    hit: 0.3
+  - id: blockhit
+    length: 0.86666673
+    hit: 0.16666667
+  - id: heavy
+    length: 1.8000001
+    hit: 0.7666669
+  - id: jumpatk
+    length: 2.1666667
+    hit: 0.46666667
+  - id: kick
+    length: 1.7333335
+    hit: 0.033333335
+  - id: counter
+    length: 1.5000001
+    hit: 0.6000001
+  - id: backstep
+    length: 1.6333334
+    hit: 0.4
+  - id: bowdraw
+    length: 1.0333334
+    hit: 0.36666667
+  - id: bowshot
+    length: 0.70000005
+    hit: 0.2
+  - id: cast1
+    length: 2.3000002
+    hit: 0.80000025
+  - id: cast2
+    length: 2.1666667
+    hit: 0.63333344
+  - id: sblock
+    length: 1.4000001
+    hit: 1.066667
+  - id: sblockhit
+    length: 0.7666667
+    hit: 0.4
+  heroController: {fileID: 9100000, guid: b6e67bfdd24fc0b419fd032b751d92a2, type: 2}
+  grassMat: {fileID: 2100000, guid: fe17b0a0e987bf140b846558ced4502a, type: 2}
+  telegraphMat: {fileID: 0}
+  glowMat: {fileID: 2100000, guid: cd2385c3b2d0f50439dc3df43540dc01, type: 2}
+  trailMat: {fileID: 0}
+  grassMeshes: []

@@ -1,0 +1,14 @@
+Library/
+Temp/
+Logs/
+UserSettings/
+Builds/
+obj/
+*.csproj
+*.sln
+.vs/
+.vscode/
+*.log
+# raw source downloads (models are prepared into Assets by the Blender scripts in home-redar/nova-blade)
+/heroes/
+/rare-premium/

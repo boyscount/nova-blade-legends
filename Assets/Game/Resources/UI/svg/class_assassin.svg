@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><defs>
+<linearGradient id="sil" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="236">
+ <stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#dfe5ec"/>
+ <stop offset=".55" stop-color="#a9b3c0"/><stop offset=".8" stop-color="#7c8696"/><stop offset="1" stop-color="#5b6473"/></linearGradient>
+<linearGradient id="silH" x1="0" y1="0" x2="1" y2="0">
+ <stop offset="0" stop-color="#8a94a3"/><stop offset=".45" stop-color="#ffffff"/><stop offset=".55" stop-color="#cfd6df"/><stop offset="1" stop-color="#6c7584"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+ <stop offset="0" stop-color="#fff4c0"/><stop offset=".45" stop-color="#f3c24c"/><stop offset="1" stop-color="#9a6516"/></linearGradient>
+<linearGradient id="grip" x1="0" y1="0" x2="1" y2="0">
+ <stop offset="0" stop-color="#2e2620"/><stop offset=".5" stop-color="#5a4a3c"/><stop offset="1" stop-color="#241d18"/></linearGradient>
+<linearGradient id="linen" gradientUnits="userSpaceOnUse" x1="0" y1="150" x2="0" y2="236">
+ <stop offset="0" stop-color="#fbf4e4"/><stop offset=".6" stop-color="#d9cba8"/><stop offset="1" stop-color="#a8977a"/></linearGradient>
+<radialGradient id="blue" cx=".5" cy=".5" r=".5">
+ <stop offset="0" stop-color="#ffffff"/><stop offset=".25" stop-color="#bfe8ff"/><stop offset=".55" stop-color="#4fb4ff" stop-opacity=".75"/><stop offset="1" stop-color="#2a7cff" stop-opacity="0"/></radialGradient>
+<radialGradient id="orb" cx=".38" cy=".32" r=".7">
+ <stop offset="0" stop-color="#ffffff"/><stop offset=".3" stop-color="#9fe0ff"/><stop offset=".75" stop-color="#2f8cff"/><stop offset="1" stop-color="#1a3fae"/></radialGradient>
+<radialGradient id="green" cx=".5" cy=".5" r=".5">
+ <stop offset="0" stop-color="#f0fff0"/><stop offset=".3" stop-color="#9dffb0"/><stop offset=".6" stop-color="#3fe07a" stop-opacity=".6"/><stop offset="1" stop-color="#1fb85a" stop-opacity="0"/></radialGradient>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity=".45"/></filter>
+<filter id="blur"><feGaussianBlur stdDeviation="6"/></filter>
+</defs><g filter="url(#sh)"><g transform="rotate(-38 128 128)"><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><path d="M128 22 C140 50 144 90 142 148 L114 148 C112 90 116 50 128 22 Z"/></g><g fill="url(#silH)"><path d="M128 22 C140 50 144 90 142 148 L114 148 C112 90 116 50 128 22 Z"/></g><path d="M128 40 L128 142" stroke="#7d8796" stroke-width="4" stroke-linecap="round"/><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><path d="M96 146 Q128 160 160 146 L160 160 Q128 170 96 160 Z"/></g><g fill="url(#gold)"><path d="M96 146 Q128 160 160 146 L160 160 Q128 170 96 160 Z"/></g><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><rect x="119" y="162" width="18" height="44" rx="5"/></g><g fill="url(#grip)"><rect x="119" y="162" width="18" height="44" rx="5"/></g><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><path d="M128 204 L140 216 L128 230 L116 216 Z"/></g><g fill="url(#gold)"><path d="M128 204 L140 216 L128 230 L116 216 Z"/></g></g><g transform="rotate(38 128 128)"><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><path d="M128 22 C140 50 144 90 142 148 L114 148 C112 90 116 50 128 22 Z"/></g><g fill="url(#silH)"><path d="M128 22 C140 50 144 90 142 148 L114 148 C112 90 116 50 128 22 Z"/></g><path d="M128 40 L128 142" stroke="#7d8796" stroke-width="4" stroke-linecap="round"/><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><path d="M96 146 Q128 160 160 146 L160 160 Q128 170 96 160 Z"/></g><g fill="url(#gold)"><path d="M96 146 Q128 160 160 146 L160 160 Q128 170 96 160 Z"/></g><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><rect x="119" y="162" width="18" height="44" rx="5"/></g><g fill="url(#grip)"><rect x="119" y="162" width="18" height="44" rx="5"/></g><g fill="#1f242d" stroke="#1f242d" stroke-width="10" stroke-linejoin="round"><path d="M128 204 L140 216 L128 230 L116 216 Z"/></g><g fill="url(#gold)"><path d="M128 204 L140 216 L128 230 L116 216 Z"/></g></g></g></svg>

@@ -1,0 +1,33 @@
+using UnityEngine;
+
+namespace NovaBlade
+{
+    // The river valley stage: a winding river across the arena with two wooden bridges.
+    // Ground() is shared by the terrain builder and by every character, so wading heroes sink into the water.
+    public static class River
+    {
+        public static bool Active;
+        public const float HalfW = 2.6f, Depth = .75f, WaterY = -.32f;
+        public static readonly float[] BridgeX = { -9f, 8.5f };
+        public static float Z(float x) => -4 + Mathf.Sin(x * .12f) * 2.5f;   // river centre line
+
+        public static bool OnBridge(float x, float z)
+        {
+            foreach (var bx in BridgeX) if (Mathf.Abs(x - bx) < 1.7f && Mathf.Abs(z - Z(bx)) < HalfW + 1.6f) return true;
+            return false;
+        }
+        // terrain height (0 = normal ground); bridges hold characters just above the water
+        public static float Bed(float x, float z)
+        {
+            float d = Mathf.Abs(z - Z(x));
+            return -Depth * Mathf.SmoothStep(0, 1, Mathf.InverseLerp(HalfW + 1.4f, HalfW - .6f, d));
+        }
+        public static float Ground(float x, float z)
+        {
+            if (!Active) return 0;
+            if (OnBridge(x, z)) return .2f;
+            return Bed(x, z);
+        }
+        public static bool InWater(float x, float z) => Active && !OnBridge(x, z) && Bed(x, z) < WaterY + .05f;
+    }
+}

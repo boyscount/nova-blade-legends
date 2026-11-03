@@ -1,0 +1,545 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace NovaBlade
+{
+    // The player: movement, 3-hit combo, dodge roll, 12 skills, damage. Rigged heroes play Mixamo clips through a
+    // Humanoid avatar; the toy robot hovers and swings a floating sword in code.
+    public class Hero : MonoBehaviour, ITarget
+    {
+        public float Rad => .45f; public bool Down => dead; public int Team => 0;
+        public void Take(float dmg, Vector3 from) => Hurt(dmg, from);
+        public HeroDef def; public SwordDef sword; public string ModelId;   // sword = stats, ModelId = what is shown (weapon skin)
+        public float mp = 100, mpMax = 100;   // power: each skill costs some, refills over time
+        public static float SkillCost(float cd) => Mathf.Round(Mathf.Clamp(cd * 2.6f, 15, 40));
+        public float hp = 1, max = 1, face, inv, buffT, shieldT, dodgeCD;
+        public readonly float[] cds = new float[3];
+        public bool dead;
+        public enum St { Idle, Atk, Skill, Dodge, Hurt, Dead }
+        public St state;
+        public string skillId;
+        GameObject model, swordGo, bubble;
+        Animator anim; Look look; SwordTrail trail;
+        Transform socket, pivot, holder, tipT, baseT;
+        float buf, chain, hurtT, flashT, spin, kbx, kbz; int lastI = -1;
+        (int i, float t, float d, float ht, bool hit) atk; bool inAtk;
+        Vector2 dodgeDir; float dodgeT;
+        Coroutine skillCo;
+        Main G => Main.G;
+        public Vector3 Pos => transform.position;
+
+        // ---------- equip / visuals ----------
+        public void Equip()
+        {
+            var s = G.save;
+            def = Data.Heroes.FirstOrDefault(h => h.id == s.hero) ?? Data.Heroes[0];
+            sword = Data.Swords.FirstOrDefault(w => w.id == s.sword) ?? Data.Swords[0];
+            if (!Shop.Owns(ItemKind.Weapon, sword.id)) sword = Data.Swords[0];
+            bool lobby = G.mode == Main.Mode.Lobby;
+            if (lobby && G.pvSword != null) sword = Data.Swords.First(w => w.id == G.pvSword);
+            if (model) Destroy(model);
+            if (def.rig)
+            {
+                model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform);
+                anim = model.GetComponentInChildren<Animator>();
+                socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
+                holder = model.transform; pivot = null;
+            }
+            else
+            {
+                model = new GameObject("toybot"); model.transform.SetParent(transform, false);
+                holder = Instantiate(Catalog.I.Model("toybot"), model.transform).transform;
+                pivot = new GameObject("pivot").transform; pivot.SetParent(model.transform, false); pivot.localPosition = new Vector3(0, .62f, 0);
+                socket = new GameObject("socket").transform; socket.SetParent(pivot, false); socket.localPosition = new Vector3(.62f, 0, 0);
+                anim = null;
+            }
+            foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            int skinIdx = Mathf.Clamp(G.Skin(def.id), 0, def.skins.Length - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{def.id}:{skinIdx}")) skinIdx = 0;
+            if (lobby && G.pvSkin >= 0) skinIdx = Mathf.Clamp(G.pvSkin, 0, def.skins.Length - 1);
+            look = new Look(model); var sk = def.skins[skinIdx]; look.Set(sk.tint, sk.glow);
+            // the weapon's stats stay "sword"; a weapon skin only swaps the model that is shown
+            ModelId = lobby && G.pvWeaponSkin != null ? G.pvWeaponSkin : Shop.ModelFor(sword);
+            var mdef = Data.Swords.First(w => w.id == ModelId);
+            // sword: weapon models run along the glTF X axis from the grip (mirrored by glTFast); find which way the blade points
+            swordGo = Instantiate(Catalog.I.Model(ModelId), socket ? socket : model.transform);
+            swordGo.transform.localPosition = Vector3.zero; swordGo.transform.localRotation = Quaternion.identity;
+            if (!def.rig) { swordGo.transform.localScale = Vector3.one * .85f; swordGo.transform.localRotation = Quaternion.Euler(0, 180, 0); }
+            if (def.rig && ModelId == "w_daggers") swordGo.transform.localScale = Vector3.one * 1.15f;
+            swordGo.SetActive(def.blade);   // bows, staves and fists: the weapon's stats still count, its sword model is not shown
+            float sign = BladeSign(swordGo);
+            tipT = new GameObject("tip").transform; tipT.SetParent(swordGo.transform, false); tipT.localPosition = new Vector3(sign * mdef.m * .9f, 0, 0);
+            baseT = new GameObject("base").transform; baseT.SetParent(swordGo.transform, false); baseT.localPosition = new Vector3(sign * mdef.m * .25f, 0, 0);
+            if (!trail) trail = gameObject.AddComponent<SwordTrail>();
+            trail.tipT = tipT; trail.baseT = baseT; trail.color = sword.color;
+            state = St.Idle; Play("idle", .1f);
+        }
+        static float BladeSign(GameObject sw)
+        {
+            float sum = 0;
+            foreach (var mf in sw.GetComponentsInChildren<MeshFilter>()) { var c = sw.transform.InverseTransformPoint(mf.transform.TransformPoint(mf.sharedMesh.bounds.center)); sum += c.x; }
+            return sum < 0 ? -1 : 1;
+        }
+
+        public void PlaceLobby() { transform.position = new Vector3(0, def.rig ? 0 : .35f, 0); face = 0; transform.rotation = Quaternion.identity; }
+        public void ResetForGame()
+        {
+            mp = mpMax;
+            transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = def.hp; dead = false; state = St.Idle; inv = 1;
+            buffT = shieldT = dodgeCD = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
+            if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
+            Play("idle", .05f);
+            if (G.soul) { if (!soul) soul = gameObject.AddComponent<SoulController>(); soul.Begin(this); } else if (soul) soul.End();
+        }
+
+        public SoulController soul;   // Soulslike mode driver (Main.soul)
+        public void PlayAnim(string st, float fade = .1f, float speed = 1, float from = 0) => Play(st, fade, speed, from);
+        public void Step(Vector3 d) => MoveBy(d.x, d.z);
+        void Play(string st, float fade = .1f, float speed = 1, float from = 0)
+        {
+            if (!anim) return;
+            anim.SetFloat("Speed", speed);
+            anim.CrossFadeInFixedTime(st, fade, 0, from);
+        }
+        string curLoop;
+        void Loop(string st, float speed = 1) { if (!anim) return; anim.SetFloat("Speed", speed); if (curLoop == st && !anim.IsInTransition(0) && anim.GetCurrentAnimatorStateInfo(0).IsName(st)) return; curLoop = st; anim.CrossFadeInFixedTime(st, .15f); }
+
+        // ---------- input ----------
+        Vector3? clickGoal; ITarget clickFoe;   // web on a PC: right-click destination / target
+        Vector2 Move()
+        {
+            var j = G.ui.Joy; var kb = Keyboard.current;
+            if (G.ui.WebPc)
+            {   // arrow keys still steer; otherwise walk to the clicked spot or into range of the clicked enemy
+                float ax = kb == null ? 0 : (kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0), az = kb == null ? 0 : (kb.downArrowKey.isPressed ? 1 : 0) - (kb.upArrowKey.isPressed ? 1 : 0);
+                if (ax != 0 || az != 0) { clickGoal = null; clickFoe = null; var v = new Vector2(-ax, az).normalized; return v; }
+                if (clickFoe != null && clickFoe.Down) clickFoe = null;
+                var goal = clickFoe != null ? clickFoe.Pos : clickGoal; if (goal == null) return Vector2.zero;
+                var d = Main.Flat(goal.Value - Pos); float stop = clickFoe != null ? AtkRange + clickFoe.Rad - .2f : .25f;
+                if (d.magnitude <= stop) { if (clickFoe == null) clickGoal = null; return Vector2.zero; }
+                return new Vector2(d.x, d.z).normalized;
+            }
+            if (kb != null)
+            {
+                float x = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
+                float z = (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0) - (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0);
+                if (x != 0 || z != 0) j = new Vector2(x, z).normalized;
+            }
+            j.x = -j.x;   // camera faces -Z, so screen-right is world -X
+            return Vector2.ClampMagnitude(j, 1);
+        }
+        float AtkRange => def.ranged ? 10 : 1.9f * sword.len;
+        bool ClickAttacking => clickFoe != null && !clickFoe.Down && Main.Flat(clickFoe.Pos - Pos).magnitude <= AtkRange + clickFoe.Rad;
+        void ReadKeys()
+        {
+            var kb = Keyboard.current; var ui = G.ui;
+            if (ui.WebPc)
+            {
+                if (kb != null)
+                {
+                    if (kb.qKey.wasPressedThisFrame || kb.digit1Key.wasPressedThisFrame) ui.skP[0] = true;
+                    if (kb.wKey.wasPressedThisFrame || kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
+                    if (kb.eKey.wasPressedThisFrame || kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
+                    if (kb.rKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame) ui.dodgeP = true;
+                    if (kb.aKey.wasPressedThisFrame || kb.jKey.wasPressedThisFrame) ui.atkP = true;
+                    if (kb.sKey.wasPressedThisFrame) { clickGoal = null; clickFoe = null; }   // S = stop
+                }
+                var m = Mouse.current;
+                if (m != null && m.rightButton.isPressed && !ui.PointerOverUi && Camera.main)
+                {   // held right button keeps steering, like a MOBA
+                    var ray = Camera.main.ScreenPointToRay(m.position.ReadValue());
+                    if (new Plane(Vector3.up, Vector3.zero).Raycast(ray, out float t))
+                    {
+                        var p = ray.GetPoint(t); ITarget best = null; float bd = 1.8f;
+                        foreach (var o in G.Opponents(0)) { float dd = Main.Flat(o.Pos - p).magnitude - o.Rad; if (dd < bd) { bd = dd; best = o; } }
+                        if (m.rightButton.wasPressedThisFrame) Fx.Ring(best != null ? best.Pos : p, best != null ? 1.2f : .7f, best != null ? new Color(1, .3f, .25f) : new Color(.4f, 1, .6f), .35f, .12f);
+                        clickFoe = best; clickGoal = best == null ? p : null;
+                    }
+                }
+                if (m != null && m.leftButton.wasPressedThisFrame && !ui.PointerOverUi) ui.atkP = true;
+                return;
+            }
+            if (kb != null)
+            {
+                if (kb.jKey.wasPressedThisFrame) ui.atkP = true;
+                if (kb.uKey.wasPressedThisFrame || kb.digit1Key.wasPressedThisFrame) ui.skP[0] = true;
+                if (kb.iKey.wasPressedThisFrame || kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
+                if (kb.oKey.wasPressedThisFrame || kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
+                if (kb.spaceKey.wasPressedThisFrame || kb.kKey.wasPressedThisFrame || kb.leftShiftKey.wasPressedThisFrame) ui.dodgeP = true;
+            }
+            var ms = Mouse.current;
+            if (ms != null && ms.leftButton.wasPressedThisFrame && !ui.PointerOverUi) ui.atkP = true;
+        }
+        bool AtkHeld => G.ui.atkHold || ClickAttacking || (Keyboard.current?.jKey.isPressed ?? false) || (Mouse.current != null && Mouse.current.leftButton.isPressed && !G.ui.PointerOverUi);
+
+        // ---------- helpers ----------
+        public float AtkPow => 100 * def.atk * sword.dmg * (buffT > 0 ? 1.5f : 1);
+        void FaceTo(Foe f) { if (f) face = Main.Ang(f.Pos - Pos); }
+        void AimAuto(float r = 6)
+        {
+            var mv = Move();
+            if (mv.magnitude > .3f) { face = Mathf.Atan2(mv.x, mv.y); var e = G.Nearest(Pos, 2.5f); if (e && Mathf.Abs(Main.AngDiff(face, Main.Ang(e.Pos - Pos))) < .9f) FaceTo(e); }
+            else FaceTo(G.Nearest(Pos, r));
+        }
+        void MoveBy(float dx, float dz) { transform.position = G.Clamp(Pos + new Vector3(dx, 0, dz)); }
+        public void Heal(float v, bool quiet = false)
+        {
+            v = Mathf.Round(Mathf.Min(v, max - hp)); if (v <= 0) return; hp += v;
+            if (!quiet || v > 15) G.Number(Pos + Vector3.up * 2, "+" + v, "heal");
+        }
+
+        public void Hurt(float dmg, Vector3 from)
+        {
+            if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
+            if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
+            float d = CombatRules.Current.ModifyDamage(dmg) * (1 + (G.stage - 1) * .15f); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
+            d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
+            look.Flash(.5f); flashT = .12f; G.Number(Pos + Vector3.up * 2.1f, "-" + d, "hurt");
+            Fx.Spawn("hit_red", Pos + Vector3.up * 1.1f, .8f, 2);
+            if (hp <= 0) { hp = 0; Die(); return; }
+            if (G.soul && soul) { if (d > max * .06f && !soul.Blocking) { soul.OnHurt(); Play("hurt", .06f, 1.4f); } return; }
+            if (d > max * .06f && state != St.Skill && state != St.Dodge)
+            {
+                state = St.Hurt; hurtT = .32f; inAtk = false; Play("hurt", .06f, 1.4f);
+                var away = Main.Flat(Pos - from).normalized; kbx = away.x * 6; kbz = away.z * 6;
+            }
+        }
+        void Zap()
+        {
+            var e = G.Nearest(Pos, 4); if (!e) return;
+            e.Damage(AtkPow * .5f, Pos, new Main.Hit { col = new Color(.37f, .96f, 1) });
+            Fx.Beam(Pos + Vector3.up, e.Pos + Vector3.up * e.h * .5f, new Color(.37f, .96f, 1), .12f, .06f);
+        }
+        void Die()
+        {
+            dead = true; state = St.Dead; inAtk = false; if (skillCo != null) StopCoroutine(skillCo); skillCo = null;
+            Play("death", .1f, 1.1f, 1.4f); Fx.Dust(Pos, .9f, 12);
+            if (G.lane) Invoke(nameof(Respawn), 6f); else Invoke(nameof(Lose), 2.6f);
+        }
+        void Lose() { if (G.mode == Main.Mode.Game) G.Finish(false); }
+        // lane mode: back at our base after a short wait
+        void Respawn()
+        {
+            if (!G.lane || G.mode != Main.Mode.Game) return;
+            transform.position = new Vector3(0, 0, Lane.SpawnZ); dead = false; hp = max; inv = 2; state = St.Idle; Play("idle", .05f);
+            Fx.Ring(Pos, 2, Lane.TeamColor(0) / 2.2f, .6f); G.ui.Banner("กลับสู่สนาม", "");
+        }
+
+        // ---------- combo ----------
+        void StartAtk(int i)
+        {
+            if (def.ranged)
+            {   // archers draw and loose, casters alternate one- and two-hand casts; the shot leaves at ht
+                AimAuto(11); float rd = (i == 2 ? .8f : .55f) / sword.spd;
+                atk = (i, 0, rd, rd * .5f, false); inAtk = true; state = St.Atk; buf = 0;
+                Play(def.cls == "archer" ? (i == 2 ? "bowdraw" : "bowshot") : i == 2 ? "cast2" : "cast1", .06f, 1.25f * sword.spd); return;
+            }
+            AimAuto(5); float ts = 1.3f * sword.spd;
+            float d, ht, from = 0;
+            if (def.rig)
+            {
+                var c = Catalog.I.Clip("atk" + i);
+                from = Mathf.Max(0, c.hit - .4f); float end = Mathf.Min(c.length, c.hit + .3f);
+                d = (end - from) / ts; ht = (c.hit - from) / ts;
+            }
+            else { d = new[] { .42f, .42f, .56f }[i] / sword.spd; ht = d * .45f; }
+            atk = (i, 0, d, ht, false); inAtk = true; state = St.Atk; buf = 0;
+            Play("atk" + i, .06f, ts, from);
+        }
+        void MeleeHit(int i)
+        {
+            if (def.ranged)
+            {
+                bool bow = def.cls == "archer"; var col = bow ? new Color(.9f, .97f, 1) : def.cls == "cleric" ? new Color(1, .85f, .45f) : sword.color;
+                var o = Pos + Vector3.up * 1.3f + Main.Dir(face) * .6f; float mul = new[] { 1f, 1.1f, 1.6f }[i];
+                for (int k = i == 2 ? -1 : 0; k <= (i == 2 ? 1 : 0); k++)
+                {
+                    float a = face + k * .18f;
+                    Shot.Fire(o, Main.Dir(a) * (bow ? 24 : 16), AtkPow * mul * (i == 2 ? .7f : 1), col, bow ? "feather" : "orb", .75f, pierce: i == 2, kb: 1);
+                }
+                return;
+            }
+            float reach = (1.9f + (i == 2 ? .6f : 0)) * sword.len + (def.rig ? 0 : .3f);
+            int n = G.HitArea(Pos + Main.Dir(face) * .2f, reach, AtkPow * new[] { 1f, 1.15f, 1.8f }[i], new Main.Hit { face = face, half = i == 2 ? 1.6f : 1.25f, kb = i == 2 ? 5 : 2, melee = true });
+            Fx.Slash(Pos + Vector3.up, face + (i == 1 ? .3f : -.3f), sword.color, reach + .2f, i == 2 ? 3.4f : 2.6f);
+            if (n > 0) { G.hitStop = i == 2 ? .08f : .045f; G.shake = Mathf.Max(G.shake, i == 2 ? .2f : .08f); }
+        }
+
+        // ---------- update ----------
+        void Update()
+        {
+            if (G == null || def == null) return;
+            if (G.mode == Main.Mode.Lobby) { LobbyIdle(); return; }
+            if (G.mode != Main.Mode.Game && G.mode != Main.Mode.Result) return;
+            float dt = Time.deltaTime; var ui = G.ui;
+            inv -= dt; dodgeCD -= dt; buffT -= dt; shieldT -= dt; chain -= dt; for (int i = 0; i < 3; i++) cds[i] -= dt;
+            if (flashT > 0) { flashT -= dt; if (flashT <= 0) look.Flash(0); }
+            if (bubble) { bubble.SetActive(shieldT > 0); bubble.transform.position = Pos + Vector3.up * (def.rig ? 1 : .65f); }
+            trail.on = def.blade && (state == St.Atk || (state == St.Skill && skillId != "shield" && skillId != "cry" && skillId != "missile" && skillId != "heal" && skillId != "laser"));
+            if (dead || G.mode != Main.Mode.Game) { ui.ConsumeInputs(); return; }
+            if (G.soul && soul)
+            {   // Soulslike mode: the SoulController drives movement, actions and animation
+                soul.Tick(dt);
+                trail.on = def.blade && soul.act is SoulController.Act.Light or SoulController.Act.Heavy or SoulController.Act.Counter or SoulController.Act.Finisher or SoulController.Act.Kick;
+                var sp = transform.position; sp.y = Mathf.Lerp(sp.y, River.Ground(sp.x, sp.z), Mathf.Min(1, dt * 12)); transform.position = sp;
+                transform.rotation = Quaternion.Euler(0, face * Mathf.Rad2Deg, 0);
+                return;
+            }
+            ReadKeys();
+            var mv = Move();
+            if (kbx != 0 || kbz != 0) { MoveBy(kbx * dt, kbz * dt); kbx *= Mathf.Exp(-dt * 9); kbz *= Mathf.Exp(-dt * 9); if (Mathf.Abs(kbx) < .05f) kbx = kbz = 0; }
+            if (ui.dodgeP) { ui.dodgeP = false; if (dodgeCD <= 0 && state != St.Skill) StartDodge(mv); }
+            mp = Mathf.Min(mpMax, mp + 7 * Time.deltaTime);
+            for (int i = 0; i < 3; i++) if (ui.skP[i])
+            {
+                ui.skP[i] = false; if (cds[i] > 0 || state == St.Skill || state == St.Dodge) continue;
+                float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, "พลังไม่พอ", "hurt"); continue; }
+                mp -= cost; CastSkill(i);
+            }
+            if (ui.atkP) { buf = .3f; ui.atkP = false; }
+            if (AtkHeld) buf = Mathf.Max(buf, .12f); buf -= dt;
+
+            if (state == St.Dodge)
+            {
+                dodgeT += dt; float s = 12.5f * (1 - dodgeT / .45f * .5f); MoveBy(dodgeDir.x * s * dt, dodgeDir.y * s * dt);
+                if (Random.value < .7f) Fx.Burst(Pos + Vector3.up * .8f, 2, new Color(.62f, .9f, 1), 1, .6f, 0);
+                if (dodgeT >= .45f) state = St.Idle;
+            }
+            else if (state == St.Hurt) { hurtT -= dt; if (hurtT <= 0) state = St.Idle; }
+            else if (state == St.Atk)
+            {
+                atk.t += dt;
+                if (atk.t < atk.ht) { var f = Main.Dir(face) * ((atk.i == 2 ? 4 : 1.6f) * dt); MoveBy(f.x, f.z); }
+                if (!atk.hit && atk.t >= atk.ht) { atk.hit = true; MeleeHit(atk.i); }
+                if (atk.hit && buf > 0 && atk.t >= atk.ht + .06f) StartAtk((atk.i + 1) % 3);
+                else if (atk.t >= atk.d) { state = St.Idle; chain = .35f; lastI = atk.i; inAtk = false; }
+                else if (atk.hit && mv.magnitude > .3f && atk.t > atk.ht + .12f) { state = St.Idle; inAtk = false; }
+            }
+            if (state == St.Idle)
+            {
+                if (buf > 0) StartAtk(chain > 0 ? (lastI + 1) % 3 : 0);
+                else if (mv.magnitude > .08f)
+                {
+                    float sp = def.spd * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
+                    if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
+                    MoveBy(n.x * sp * dt, n.y * sp * dt);
+                    face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);
+                    Loop("run", Mathf.Max(.6f, mv.magnitude) * 1.05f);
+                }
+                else Loop("idle");
+            }
+            if (!def.rig) ToyBot(dt, mv);
+            else { var gp = transform.position; gp.y = Mathf.Lerp(gp.y, River.Ground(gp.x, gp.z), Mathf.Min(1, dt * 12)); transform.position = gp; }
+            transform.rotation = Quaternion.Euler(0, (face + spin) * Mathf.Rad2Deg, 0);
+            bool blink = inv > 0 && state != St.Dodge && state != St.Skill && Mathf.FloorToInt(inv * 24) % 2 == 1;
+            if (model.activeSelf == blink) model.SetActive(!blink);
+        }
+        void LobbyIdle() { if (!def.rig) { transform.position = new Vector3(transform.position.x, .35f + Mathf.Sin(Time.time * 3) * .08f, transform.position.z); pivot.localRotation = Quaternion.Euler(0, .35f * Mathf.Rad2Deg, 0); socket.localRotation = Quaternion.Euler(0, 0, 57); } }
+
+        void ToyBot(float dt, Vector2 mv)
+        {
+            float pv = .35f, tilt = 1f, lean = 0;
+            if (state == St.Atk) { float k = atk.t / atk.d; int i = atk.i; pv = i == 2 ? .4f - k * Mathf.PI * 2 : i == 0 ? .6f - k * 3.8f : -3.2f + k * 3.8f; tilt = .15f; lean = .25f; }
+            else if (state == St.Skill && skillId != "shield") { pv = -Mathf.PI / 2; tilt = .05f; lean = -.15f; }
+            else if (mv.magnitude > .1f) lean = .22f;
+            float cur = pivot.localEulerAngles.y * Mathf.Deg2Rad; cur += Main.AngDiff(cur, -pv) * (state == St.Atk ? 1 : Mathf.Min(1, dt * 8));
+            pivot.localRotation = Quaternion.Euler(0, cur * Mathf.Rad2Deg, 0);
+            socket.localRotation = Quaternion.Slerp(socket.localRotation, Quaternion.Euler(0, 0, tilt * Mathf.Rad2Deg), Mathf.Min(1, dt * 14));
+            holder.localRotation = Quaternion.Slerp(holder.localRotation, Quaternion.Euler(lean * Mathf.Rad2Deg, 0, 0), Mathf.Min(1, dt * 8));
+            var p = transform.position; p.y = Mathf.Max(River.Ground(p.x, p.z), River.Active ? River.WaterY : 0) + .35f + Mathf.Sin(Time.time * 3) * .08f; transform.position = p;
+        }
+
+        void StartDodge(Vector2 mv)
+        {
+            float a = mv.magnitude > .2f ? Mathf.Atan2(mv.x, mv.y) : face; face = a; dodgeDir = new Vector2(Mathf.Sin(a), Mathf.Cos(a)); dodgeT = 0;
+            dodgeCD = 1.1f; inv = Mathf.Max(inv, .48f); inAtk = false; state = St.Dodge;
+            Play("roll", .04f, 2.2f, .93f); Fx.Burst(Pos + Vector3.up * .5f, 14, new Color(.62f, .9f, 1), 3, .5f, 1, .14f, true);
+        }
+
+        // ---------- skills ----------
+        void CastSkill(int i)
+        {
+            skillId = def.skills[i]; cds[i] = Data.Skill(skillId).cd; inAtk = false; AimAuto(9); state = St.Skill;
+            skillCo = StartCoroutine(Run(skillId));
+        }
+        IEnumerator Run(string id)
+        {
+            IEnumerator body = id switch
+            {
+                "whirl" => Whirl(), "slam" => Leap(9, 5, "leap", 1.6f, 1.5f, 3.8f, 3.2f, new Color(1, .78f, .35f)), "cry" => Cry(),
+                "iaido" => Iaido(), "petal" => Petal(), "dance" => Dance(),
+                "feather" => Feather(), "dive" => Leap(10, 6, "jump", .95f, .8f, 3.4f, 2.8f, new Color(.62f, .9f, 1), true), "gale" => Gale(),
+                "laser" => Laser(), "missile" => Missile(), "heal" => Heal(), _ => Shield(),
+            };
+            yield return body;
+            spin = 0; state = St.Idle; skillCo = null;
+        }
+        IEnumerator Wait(float s) { float t = 0; while (t < s) { t += Time.deltaTime; yield return null; } }
+
+        IEnumerator Whirl()
+        {
+            Play("spin", .06f, 1.04f); Fx.Spawn(sword.burn == "fire" ? "trail_fire" : sword.slow ? "trail_ice" : "trail_plain", Pos + Vector3.up, 1.6f, 2).transform.SetParent(transform);
+            float t = 0, tick = 0;
+            while (t < 1.8f)
+            {
+                float dt = Time.deltaTime; t += dt; var mv = Move(); MoveBy(mv.x * def.spd * .7f * dt, mv.y * def.spd * .7f * dt); spin += dt * 10;
+                tick -= dt; if (tick <= 0) { tick = .22f; G.HitArea(Pos, 2.9f * sword.len, AtkPow * .55f, new Main.Hit { kb = 2.5f, melee = true }); Fx.Ring(Pos, 3 * sword.len, sword.color, .25f, .1f); }
+                yield return null;
+            }
+        }
+        IEnumerator Leap(float maxD, float defD, string clip, float ts, float impactClip, float r, float mul, Color col, bool feathers = false)
+        {
+            var e = G.Nearest(Pos, maxD); var s = Pos; var tgt = Pos + Main.Dir(face) * defD;
+            if (e) { FaceTo(e); tgt = Pos + Main.Dir(face) * Mathf.Max(0, Main.Flat(e.Pos - Pos).magnitude - 1); }
+            Play(clip, .06f, ts); float impact = impactClip / ts, dur = Catalog.I.Clip(clip).length / ts; if (clip == "leap") dur = Mathf.Min(dur, impact + .45f);
+            float t = 0; bool done = false;
+            while (t < dur)
+            {
+                t += Time.deltaTime; float k = Mathf.Clamp01((t - .15f) / (impact - .2f)); k = k < .5f ? 2 * k * k : 1 - Mathf.Pow(-2 * k + 2, 2) / 2;
+                var p = Vector3.Lerp(s, tgt, k); transform.position = new Vector3(p.x, transform.position.y, p.z); if (t < impact) inv = Mathf.Max(inv, .1f);
+                if (!done && t >= impact)
+                {
+                    done = true; G.HitArea(Pos, r, AtkPow * mul, new Main.Hit { kb = 8 });
+                    Fx.Ring(Pos, r + .2f, col, .5f, .25f); if (!Fx.Spawn("mx_ground", Pos, .9f, 3)) Fx.Spawn("ground_hit", Pos, 1.4f, 3); Fx.Burst(Pos + Vector3.up * .2f, 50, col, 8, .6f, 1.2f, .16f, true);
+                    G.shake = .45f; G.hitStop = .08f;
+                    if (feathers) for (int i = 0; i < 10; i++) { float a = i / 10f * Mathf.PI * 2; Shot.Fire(Pos + Vector3.up * .8f, Main.Dir(a) * 12, AtkPow * .5f, new Color(.85f, .94f, 1), "feather", .5f, pierce: true); }
+                }
+                yield return null;
+            }
+        }
+        IEnumerator Cry()
+        {
+            Play("cast", .08f, 1.3f, .25f); Fx.Burst(Pos + Vector3.up * 1.6f, 20, new Color(1, .3f, .37f), 2, .8f, -.3f);
+            yield return Wait(.68f);
+            buffT = 7; Fx.Ring(Pos, 4.5f, new Color(1, .3f, .37f), .6f, .3f); Fx.Ring(Pos, 2.4f, new Color(1, .45f, .4f), .8f, .12f); Attach("mx_buff", 7);
+            G.HitArea(Pos, 4.2f, AtkPow * .8f, new Main.Hit { kb = 6 }); G.shake = .25f;
+            yield return Wait(.27f);
+        }
+        IEnumerator Iaido()
+        {
+            Play("atk2", .04f, 1.6f, Mathf.Max(0, Catalog.I.Clip("atk2").hit - .4f)); var f = Main.Dir(face); var s = Pos; var hit = new HashSet<Foe>(); inv = Mathf.Max(inv, .6f);
+            float t = 0; bool fx = false;
+            while (t < .55f)
+            {
+                t += Time.deltaTime; float k = Mathf.Clamp01((t - .05f) / .22f); k = k < .5f ? 2 * k * k : 1 - Mathf.Pow(-2 * k + 2, 2) / 2;
+                var n = s + f * k * 7.5f; MoveBy(n.x - Pos.x, n.z - Pos.z);
+                Fx.Burst(Pos + Vector3.up, 3, new Color(1, .37f, .7f), 1.5f, .5f, 0);
+                G.HitArea(Pos, 1.6f, AtkPow * 2.4f, new Main.Hit { skip = hit, kb = 3, melee = true });
+                if (t > .3f && !fx) { fx = true; Fx.Slash((s + Pos) / 2 + Vector3.up, face + Mathf.PI / 2, new Color(1, .37f, .7f), 4.2f, .5f, .35f); if (hit.Count > 0) { G.hitStop = .1f; G.shake = .25f; } }
+                yield return null;
+            }
+        }
+        IEnumerator Petal()
+        {
+            Play("atk1", .06f, 1.3f, Mathf.Max(0, Catalog.I.Clip("atk1").hit - .4f)); int n = 0; float t = 0;
+            while (t < .7f)
+            {
+                t += Time.deltaTime;
+                for (int i = 0; i < 3; i++) { float a = face + Random.Range(-.75f, .75f); Fx.Burst(Pos + Vector3.up + Main.Dir(a) * Random.Range(.5f, 5.5f), 1, Random.value < .5f ? new Color(1, .54f, .78f) : new Color(1, .82f, .9f), 2, .5f, .3f); }
+                if (n < 3 && t > .12f + n * .18f) { n++; G.HitArea(Pos, 6.8f, AtkPow * .95f, new Main.Hit { face = face, half = .75f, kb = 1.5f, col = new Color(1, .54f, .78f) }); }
+                yield return null;
+            }
+        }
+        IEnumerator Dance()
+        {
+            var tg = G.Live.OrderBy(e => (e.Pos - Pos).sqrMagnitude).Where(e => Main.Flat(e.Pos - Pos).magnitude < 10).Take(6).ToList();
+            inv = Mathf.Max(inv, tg.Count * .2f + .3f);
+            for (int i = 0; i < Mathf.Max(1, tg.Count); i++)
+            {
+                if (i < tg.Count && tg[i] && tg[i].alive)
+                {
+                    var e = tg[i]; float a = Main.Ang(Pos - e.Pos) + Random.Range(-1f, 1f);
+                    Fx.Burst(Pos + Vector3.up, 12, new Color(1, .37f, .54f), 2, .5f, 0);
+                    var p = e.Pos + Main.Dir(a) * 1.2f; MoveBy(p.x - Pos.x, p.z - Pos.z); FaceTo(e);
+                }
+                var c = Catalog.I.Clip("atk" + (i % 3)); Play("atk" + (i % 3), .03f, 2.6f, Mathf.Max(0, c.hit - .25f));
+                G.HitArea(Pos, 2.4f, AtkPow * 1.7f, new Main.Hit { face = face, half = 1.2f, kb = 2, melee = true });
+                Fx.Slash(Pos + Vector3.up, face, new Color(1, .37f, .54f), 2.4f, 2.8f); G.hitStop = .04f;
+                yield return Wait(.2f);
+            }
+        }
+        IEnumerator Feather()
+        {
+            Play("atk0", .06f, 1.8f, Mathf.Max(0, Catalog.I.Clip("atk0").hit - .3f)); yield return Wait(.12f);
+            for (int i = -3; i <= 3; i++) { float a = face + i * .16f; Shot.Fire(Pos + Vector3.up * 1.2f + Main.Dir(a) * .6f, Main.Dir(a) * 17, AtkPow * 1.05f, new Color(.85f, .94f, 1), "feather", .8f, pierce: true, kb: 1.2f); }
+            yield return Wait(.3f);
+        }
+        IEnumerator Gale()
+        {
+            Play("guard", .08f, 1, .3f);
+            foreach (var e in G.Live) if (!e.isBoss && e.d.kind != "tower" && Main.Flat(e.Pos - Pos).magnitude < 8.5f) e.pull = .6f;
+            Fx.Cylinder(Pos, 2.6f, .4f, 3.2f, new Color(.5f, .85f, 1, .45f), .9f, (go, k) => { go.transform.Rotate(0, 900 * Time.deltaTime, 0); float s = 1.4f - k * .6f; go.transform.localScale = new Vector3(s, 1, s); });
+            Fx.Ring(Pos, 3.2f, new Color(.5f, .85f, 1), .6f, .1f);
+            float t = 0; bool done = false;
+            while (t < .9f)
+            {
+                t += Time.deltaTime; Fx.Burst(Pos + new Vector3(Random.Range(-3f, 3f), Random.Range(.2f, 2.5f), Random.Range(-3f, 3f)), 2, new Color(.5f, .85f, 1), 3, .5f, 0);
+                if (!done && t > .65f) { done = true; Play("cast", .06f, 1.3f, 1.0f); G.HitArea(Pos, 3.4f, AtkPow * 2.2f, new Main.Hit { kb = 7 }); Fx.Ring(Pos, 3.6f, new Color(.5f, .85f, 1), .4f); G.shake = .25f; G.hitStop = .05f; }
+                yield return null;
+            }
+        }
+        IEnumerator Laser()
+        {
+            if (def.rig) Play("cast1", .08f, .7f);
+            var go = new GameObject("laser"); var lr = go.AddComponent<LineRenderer>(); lr.positionCount = 2; lr.sharedMaterial = new Material(Catalog.I.glowMat); lr.sharedMaterial.SetColor("_Color", new Color(2.6f, .5f, .5f));
+            float t = 0, tick = 0;
+            while (t < 1.5f)
+            {
+                float dt = Time.deltaTime; t += dt; var mv = Move(); if (mv.magnitude > .2f) face += Mathf.Clamp(Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)), -2.2f * dt, 2.2f * dt);
+                var f = Main.Dir(face); var o = Pos + f * .55f; o.y = def.rig ? 1.3f : .75f; lr.SetPosition(0, o); lr.SetPosition(1, o + f * 10); lr.widthMultiplier = .3f + Mathf.Sin(t * 40) * .05f;
+                tick -= dt;
+                if (tick <= 0)
+                {
+                    tick = .11f;
+                    foreach (var e in G.Live.ToList()) { var r = Main.Flat(e.Pos - o); float along = Vector3.Dot(r, f), perp = Mathf.Abs(r.x * f.z - r.z * f.x); if (along > 0 && along < 10 && perp < .6f + e.rad) e.Damage(AtkPow * .42f, Pos, new Main.Hit { col = new Color(1, .23f, .23f), kb = .6f }); }
+                }
+                Fx.Burst(o, 1, new Color(1, .23f, .23f), 2, .4f, 0);
+                yield return null;
+            }
+            Destroy(lr.sharedMaterial); Destroy(go);
+        }
+        IEnumerator Missile()
+        {
+            if (def.rig) Play("cast2", .08f, 1.3f);
+            for (int n = 0; n < 8; n++)
+            {
+                float a = face + (n % 2 == 1 ? 1 : -1) * (1.2f + n * .08f);
+                Shot.Fire(Pos + Vector3.up * 1.1f, Main.Dir(a) * 9 + Vector3.up * 3, AtkPow * 1.1f, new Color(1, .78f, .35f), "missile", 2.2f, homing: 5, aoe: 1.4f, grav: 3, trail: true);
+                yield return Wait(.06f);
+            }
+            yield return Wait(.07f);
+        }
+        IEnumerator Shield()
+        {
+            shieldT = 5; if (def.rig) Play("cast1", .08f, 1.4f);
+            if (def.rig && Attach(def.cls == "cleric" ? "mx_shield_gold" : "mx_shield", 5))
+            {   // heroes get the magic shield effect; the glass bubble stays for the robot
+                Fx.Ring(Pos, 2.5f, new Color(.37f, .96f, 1), .5f); yield return Wait(.2f); yield break;
+            }
+            if (!bubble)
+            {
+                bubble = GameObject.CreatePrimitive(PrimitiveType.Sphere); Destroy(bubble.GetComponent<Collider>()); bubble.transform.localScale = Vector3.one * 2.2f;
+                var m = new Material(Catalog.I.glowMat); m.SetFloat("_UseVC", 0); m.SetColor("_Color", new Color(.1f, .5f, .6f)); bubble.GetComponent<Renderer>().sharedMaterial = m;
+            }
+            bubble.SetActive(true); Fx.Ring(Pos, 2.5f, new Color(.37f, .96f, 1), .5f); Fx.Spawn("electric", Pos + Vector3.up * .6f, 1, 2);
+            yield return Wait(.2f);
+        }
+
+        IEnumerator Heal()
+        {
+            Play("cast2", .08f, 1.2f); Fx.Burst(Pos + Vector3.up * 1.5f, 16, new Color(1, .9f, .55f), 1.5f, .9f, -.3f);
+            yield return Wait(.5f);
+            float amt = max * .3f; hp = Mathf.Min(max, hp + amt); G.Number(Pos + Vector3.up * 2.2f, "+" + Mathf.RoundToInt(amt), "heal");
+            Fx.Ring(Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(Pos + Vector3.up * .3f, 30, new Color(1, .9f, .5f), 2.5f, 1, -.6f, .1f, true);
+            Fx.Spawn("mx_heal_circle", Pos + Vector3.up * .05f, 1.1f, 3); Attach("mx_healing", 2.5f);
+            yield return Wait(.3f);
+        }
+
+        // effect that follows the hero for a while (auras, shields)
+        bool Attach(string fx, float life) { var go = Fx.Spawn(fx, Pos, 1, life); if (!go) return false; go.transform.SetParent(transform, true); return true; }
+
+        void OnDestroy() { if (bubble) Destroy(bubble); }
+    }
+}

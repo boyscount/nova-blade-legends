@@ -1,0 +1,81 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace NovaBlade
+{
+    // Dense grass drawn with GPU instancing: a few curved-blade clump meshes scattered over the stage
+    // (CozyFishing/Grass shader: wind waves, per-clump tint, light through blades). Bare on the dirt paths.
+    [ExecuteAlways]
+    public class GrassField : MonoBehaviour
+    {
+        public Material material;
+        public Color baseCol = new(.06f, .14f, .04f), midCol = new(.22f, .38f, .1f), tipCol = new(.55f, .62f, .26f);
+        public float radius = 30, height = .38f, spacing = .42f, pathClear = 1.1f;
+        public int seed = 7;
+        public bool river;   // skip the river channel (River stage)
+        public float clearRadius; public Vector4 channel;   // a stage's own river to keep clear: z = x(offset) + sin(px * z(freq)) * y(amp), half width w (w = 0: none)   // keep a plaza of this radius free of grass
+        readonly List<Mesh> meshes = new(); readonly List<List<Matrix4x4>> mats = new();
+        RenderParams rp;
+        public Mesh DebugMesh => meshes.Count > 0 ? meshes[0] : null;
+
+        void Start() => Build();
+        public void Build()
+        {
+            meshes.Clear(); mats.Clear();
+            bool mobile = Application.isMobilePlatform;
+            var rnd = new System.Random(seed);
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            for (int v = 0; v < 4; v++) { meshes.Add(Clump(rnd, mobile ? 11 : 18, height, v)); mats.Add(new List<Matrix4x4>()); }
+            float step = spacing * (mobile ? 1.35f : 1);
+            for (float x = -radius; x < radius; x += step)
+                for (float z = -radius; z < radius; z += step)
+                {
+                    float px = x + R(-step, step) * .45f, pz = z + R(-step, step) * .45f; float r = Mathf.Sqrt(px * px + pz * pz);
+                    if (r > radius) continue;
+                    float d = Path(px, pz) + Noise(px, pz) * .6f; if (d < pathClear) continue; if (clearRadius > 0 && Mathf.Sqrt(px * px + pz * pz) < clearRadius + Noise(px, pz) * 1.5f) continue; if (channel.w > 0 && Mathf.Abs(pz - (channel.x + Mathf.Sin(px * channel.z) * channel.y)) < channel.w) continue;
+                    if (river && (River.Bed(px, pz) < -.08f || River.OnBridge(px, pz))) continue;
+                    float clump = Noise(px * .12f, pz * .12f);
+                    float s = R(.7f, 1.25f) * (.6f + .8f * clump) * Mathf.Clamp01((d - pathClear) / .8f + .3f);
+                    mats[rnd.Next(4)].Add(Matrix4x4.TRS(new Vector3(px, 0, pz), Quaternion.Euler(0, R(0, 360), 0), new Vector3(s, s * R(.8f, 1.25f), s)));
+                }
+            rp = new RenderParams(material) { shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false, lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.BlendProbes, worldBounds = new Bounds(Vector3.zero, Vector3.one * radius * 3) };
+        }
+        public static float Path(float x, float z) => Mathf.Min(Mathf.Abs(Mathf.Sqrt(x * x + z * z) - 11), Mathf.Abs(x + Mathf.Sin(z * .16f) * 1.6f));
+        static float Noise(float x, float z) => Mathf.PerlinNoise(x * .37f + 11.3f, z * .37f + 7.1f);
+
+        Mesh Clump(System.Random rnd, int blades, float h, int variant)
+        {
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            var v = new List<Vector3>(); var n = new List<Vector3>(); var c = new List<Color>(); var t = new List<int>();
+            for (int b = 0; b < blades; b++)
+            {
+                float a = R(0, Mathf.PI * 2), lean = R(.1f, .45f), len = h * R(.55f, 1.25f), w = R(.014f, .026f);
+                // clump palettes: plain, sun-dried, cool, lush (meadow colour variety)
+                var shade = variant == 1 ? new Color(1.15f, 1.08f, .75f) : variant == 2 ? new Color(.88f, 1.02f, .98f) : variant == 3 ? new Color(.92f, 1.12f, .85f) : Color.white;
+                var dir = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)); var side = new Vector3(-dir.z, 0, dir.x); var root = dir * R(0, .09f);
+                int baseI = v.Count; const int seg = 4;
+                for (int i = 0; i <= seg; i++)
+                {
+                    float k = i / (float)seg; var p = root + dir * (lean * len * k * k) + Vector3.up * len * (k - lean * .3f * k * k);
+                    float ww = w * (1 - k * .9f);
+                    v.Add(p - side * ww); v.Add(p + side * ww);
+                    var nm = Vector3.Cross(side, Vector3.up * len + dir * lean * len * 2 * k).normalized; n.Add(nm); n.Add(nm);
+                    var col = (k < .5f ? Color.Lerp(baseCol, midCol, k * 2) : Color.Lerp(midCol, tipCol, (k - .5f) * 2)) * shade; col.a = k; c.Add(col); c.Add(col);
+                    if (i < seg) { int q = baseI + i * 2; t.AddRange(new[] { q, q + 1, q + 2, q + 1, q + 3, q + 2 }); }
+                }
+            }
+            var m = new Mesh(); m.SetVertices(v); m.SetNormals(n); m.SetColors(c); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
+        }
+
+        void Update() => Draw();
+        public void Draw()
+        {
+            if (meshes.Count == 0) Build();
+            for (int i = 0; i < meshes.Count; i++)
+            {
+                var list = mats[i];
+                for (int k = 0; k < list.Count; k += 1023) Graphics.RenderMeshInstanced(rp, meshes[i], 0, list, Mathf.Min(1023, list.Count - k), k);
+            }
+        }
+    }
+}
