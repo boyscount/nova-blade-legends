@@ -67,6 +67,14 @@ namespace NovaBlade
             for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { float fx = Mathf.Clamp01((1 - x / 63f) * 1.35f), fy = Mathf.SmoothStep(0, 1, Mathf.Clamp01(y / 63f * 1.6f)); corner.SetPixel(x, 63 - y, new Color(0, 0, 0, .82f * fx * fx * (3 - 2 * fx) * fy)); }
             corner.Apply(); return corner;
         }
+        // painted 9-slice button frame from Resources/UI/Lobby: sx / sy = untouched corner size in texture pixels, scale = corner size on screen
+        static void Frame(VisualElement b, string art, int sx, int sy, float scale)
+        {
+            var t = Resources.Load<Texture2D>("UI/Lobby/" + art); if (!t) return;
+            b.style.backgroundImage = new StyleBackground(t); b.style.backgroundColor = Color.clear; Border(b, Color.clear, 0);
+            b.style.unitySliceLeft = b.style.unitySliceRight = sx; b.style.unitySliceTop = b.style.unitySliceBottom = sy; b.style.unitySliceScale = scale;
+            b.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 5, color = new Color(0, 0, 0, .85f) };
+        }
         Button Btn(string text, System.Action onClick, bool primary = true)
         {
             var b = new Button(onClick) { text = text }; b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced;
@@ -175,16 +183,16 @@ namespace NovaBlade
             // hero info on a dark fade so it reads over any stage
             var info = Box(); Abs(info, 0, null, null, 0); info.style.width = Length.Percent(42); info.style.paddingLeft = 44; info.style.paddingRight = 60; info.style.paddingTop = 140; info.style.paddingBottom = 34;
             info.style.backgroundImage = new StyleBackground(Corner()); lobby.Add(info);
-            heroT = L("", 24, Gold, true); Shadow(heroT); info.Add(heroT);
+            heroT = L("", touchUi ? 29 : 24, Gold, true); Shadow(heroT); info.Add(heroT);
             heroN = L("", 72, Color.white, true); heroN.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 10, color = new Color(0, 0, 0, .9f) }; heroN.style.marginTop = -4; info.Add(heroN);
-            heroD = L("", 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
+            heroD = L("", touchUi ? 27 : 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
             var st = Box(); st.style.marginTop = 12; info.Add(st); stats = new VisualElement[4];
             string[] names = { "พลังชีวิต", "โจมตี", "ความเร็ว", "ระยะ" };
             for (int i = 0; i < 4; i++)
             {
                 var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.alignItems = Align.Center; row.style.marginTop = 6;
                 int si = i; var ic = Box(); ic.style.width = ic.style.height = 28; ic.style.marginRight = 10; ic.generateVisualContent += ctx => StatIcon(ctx, si, 28); row.Add(ic);
-                var n = L(names[i], 21, Color.white, true); n.style.width = 112; Shadow(n); row.Add(n);
+                var n = L(names[i], touchUi ? 25 : 21, Color.white, true); n.style.width = touchUi ? 130 : 112; Shadow(n); row.Add(n);
                 var track = Box(new Color(0, 0, 0, .55f), 6); track.style.width = 260; track.style.height = 12; Border(track, new Color(1, 1, 1, .14f));
                 stats[i] = Box(GoldLo, 6); stats[i].style.height = Length.Percent(100); stats[i].style.backgroundImage = new StyleBackground(Grad(GoldLo, GoldHi, false));   // deep amber at the start, bright gold at the tip
                 track.Add(stats[i]); row.Add(track); st.Add(row);
@@ -227,8 +235,8 @@ namespace NovaBlade
                     var img = Box(); Abs(img, 0, 0, 0, 0); img.style.backgroundImage = new StyleBackground(png); ic.Add(img);
                 }
                 else ic.generateVisualContent += ctx => ClassIcon(ctx, kk.id, ic.resolvedStyle.width, clsFilter == kk.id);
-                var th = L(k.th, 18, Ink, true); th.name = "th"; Shadow(th, 3, .6f); b.Add(th);
-                var en = L(k.en, 13, Muted); en.name = "en"; b.Add(en);
+                var th = L(k.th, touchUi ? 23 : 18, Ink, true); th.name = "th"; Shadow(th, 3, .6f); b.Add(th);
+                var en = L(k.en, touchUi ? 16 : 13, Muted); en.name = "en"; b.Add(en);
                 b.RegisterCallback<ClickEvent>(_ => { clsFilter = kk.id; RenderCards(); });
                 b.schedule.Execute(() => { if (clsFilter == kk.id && tab == "hero") ic.MarkDirtyRepaint(); }).Every(50);   // selected icon glow breathes
                 classRow.Add(b);
@@ -242,10 +250,10 @@ namespace NovaBlade
             var drg = vs.slider.Q("unity-dragger"); drg.style.backgroundColor = new Color(1, .74f, .3f, .85f); Border(drg, new Color(1, .9f, .6f, .9f)); Round(drg, 7); drg.style.left = 1; drg.style.right = 1;
             drg.style.backgroundImage = new StyleBackground(Grad(new Color(1, .86f, .5f), new Color(.85f, .52f, .15f), false));
             cards = sv.contentContainer; cards.style.flexDirection = FlexDirection.Row; cards.style.flexWrap = Wrap.Wrap;
-            detail = L("", 21, new Color(.86f, .88f, .86f)); detail.style.whiteSpace = WhiteSpace.Normal; detail.style.minHeight = touchUi ? 40 : 60; detail.style.flexShrink = 0; detail.style.marginTop = 8; panel.Add(detail);
+            detail = L("", touchUi ? 25 : 21, new Color(.86f, .88f, .86f)); detail.style.whiteSpace = WhiteSpace.Normal; detail.style.minHeight = touchUi ? 40 : 60; detail.style.flexShrink = 0; detail.style.marginTop = 8; panel.Add(detail);
             buyBtn = Btn("", () => AskBuy()); buyBtn.style.fontSize = 22; buyBtn.style.paddingTop = buyBtn.style.paddingBottom = 8; buyBtn.style.marginTop = 4; buyBtn.style.display = DisplayStyle.None; panel.Add(buyBtn);
             VisualElement Pill(string text) { var p = Box(new Color(1, .78f, .35f, .16f), 20); Border(p, new Color(1, .8f, .45f, .7f), 2); p.style.paddingLeft = p.style.paddingRight = 14; p.style.paddingTop = p.style.paddingBottom = touchUi ? 12 : 6; p.style.marginRight = 10; p.Add(L(text, touchUi ? 26 : 21, Gold, true)); return p; }
-            Button Sec(string text, System.Action act) { var b = Btn(text, act, false); b.style.fontSize = touchUi ? 30 : 22; b.style.paddingTop = b.style.paddingBottom = touchUi ? 18 : 9; Round(b, touchUi ? 28 : 22); return b; }
+            Button Sec(string text, System.Action act) { var b = Btn(text, act, false); Frame(b, "btn_mode_frame", 70, 50, touchUi ? .4f : .3f); b.style.fontSize = touchUi ? 30 : 22; b.style.paddingTop = b.style.paddingBottom = touchUi ? 18 : 9; Round(b, touchUi ? 28 : 22); return b; }
             var soulRow = Box(); soulRow.style.flexShrink = 0; soulRow.style.flexDirection = FlexDirection.Row; soulRow.style.alignItems = Align.Center; soulRow.style.marginTop = 10; panel.Add(soulRow);
             soulRow.Add(Pill("โหมด Soulslike")); var sb = Sec("ดวลบอส (มุมกล้องบุคคลที่สาม) ▶", () => G.StartSoul()); sb.style.flexGrow = 1; soulRow.Add(sb);
             var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
@@ -258,7 +266,7 @@ namespace NovaBlade
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
             gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); bottom.Add(cur);
             var play = Btn("เข้าสู่สนามรบ ▶", () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
-            play.style.paddingTop = play.style.paddingBottom = touchUi ? 26 : 16; bottom.Add(play);
+            play.style.paddingTop = play.style.paddingBottom = touchUi ? 30 : 20; Frame(play, "btn_play_frame", 230, 90, touchUi ? .36f : .28f); play.style.paddingLeft = play.style.paddingRight = touchUi ? 90 : 70; bottom.Add(play);
             lobby.schedule.Execute(() =>
             {   // turntable inertia after a flick
                 if (G == null || G.mode != Main.Mode.Lobby || touches.Count > 0 || Mathf.Abs(yawVel) < 2) { if (touches.Count == 0) yawVel = 0; return; }
@@ -360,8 +368,8 @@ namespace NovaBlade
                 bool owned = badge == "ใส่อยู่" || badge == "มีแล้ว"; var bg = Box(owned ? new Color(.1f, .35f, .2f, .9f) : new Color(.35f, .2f, .05f, .92f), 8); Abs(bg, 4, 4); Pad(bg, 3);
                 bg.Add(L(badge, 16, owned ? Green : Gold, true)); pic.Add(bg);
             }
-            c.Add(pic); var l = L(label, 21, on ? new Color(1, .88f, .58f) : Ink, true); l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.whiteSpace = WhiteSpace.Normal; l.style.marginTop = 5; l.style.marginBottom = 2; Shadow(l, 4, .7f); c.Add(l);
-            if (sub != null) { var sl = L(sub, 15, on ? new Color(1, .85f, .6f, .9f) : Muted); sl.style.unityTextAlign = TextAnchor.MiddleCenter; sl.style.marginTop = -2; sl.style.marginBottom = 3; c.Add(sl); }
+            c.Add(pic); var l = L(label, touchUi ? 27 : 21, on ? new Color(1, .88f, .58f) : Ink, true); l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.whiteSpace = WhiteSpace.Normal; l.style.marginTop = 5; l.style.marginBottom = 2; Shadow(l, 4, .7f); c.Add(l);
+            if (sub != null) { var sl = L(sub, touchUi ? 19 : 15, on ? new Color(1, .85f, .6f, .9f) : Muted); sl.style.unityTextAlign = TextAnchor.MiddleCenter; sl.style.marginTop = -2; sl.style.marginBottom = 3; c.Add(sl); }
             if (on) Sparkle(c);
             if (click == null) c.style.opacity = .45f; else c.RegisterCallback<ClickEvent>(_ => click());
             cards.Add(c);

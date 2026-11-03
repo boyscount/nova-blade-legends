@@ -67,9 +67,9 @@ namespace NovaBlade
             var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false;
             var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
             var head = inst.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "head");
-            float hgt = b.size.y; var focus = head ? head.position + Vector3.down * hgt * .04f : new Vector3(b.center.x, b.min.y + hgt * .82f, b.center.z);
-            float frame = hgt * .42f, dist = frame * .5f / Mathf.Tan(cam.fieldOfView * .5f * Mathf.Deg2Rad);
-            cam.transform.position = focus + new Vector3(0, -hgt * .03f, dist); cam.transform.LookAt(focus + Vector3.down * hgt * .05f);
+            float hgt = b.size.y; var focus = head ? head.position + Vector3.up * hgt * .055f : new Vector3(b.center.x, b.min.y + hgt * .88f, b.center.z);   // face: a little above the head bone (it starts at the neck)
+            float frame = hgt * .36f, dist = frame * .5f / Mathf.Tan(cam.fieldOfView * .5f * Mathf.Deg2Rad);
+            cam.transform.position = focus + new Vector3(0, -hgt * .02f, dist); cam.transform.LookAt(focus + Vector3.down * hgt * .07f);
             var big = new RenderTexture(HeroSize, HeroSize, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 }; var prev = cam.targetTexture; cam.targetTexture = big; cam.Render();
             var pa = RenderTexture.active; RenderTexture.active = big; var t2 = new Texture2D(HeroSize, HeroSize, TextureFormat.RGBA32, true); t2.ReadPixels(new Rect(0, 0, HeroSize, HeroSize), 0, 0); t2.Apply(true);
             RenderTexture.active = pa; cam.targetTexture = prev; big.Release(); Object.DestroyImmediate(inst); return t2;
