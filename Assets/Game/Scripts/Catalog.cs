@@ -19,6 +19,7 @@ namespace NovaBlade
         public static Catalog I => inst ? inst : inst = Resources.Load<Catalog>("Catalog");
         public GameObject Model(string id) { foreach (var e in models) if (e.id == id) return e.prefab; return null; }
         public GameObject Fx(string id) { foreach (var e in fx) if (e.id == id) return e.prefab; return null; }
+        public ClipInfo Clip(string set, string id) { if (set != null) foreach (var c in clips) if (c.id == set + ":" + id) return c; return Clip(id); }
         public ClipInfo Clip(string id) { foreach (var c in clips) if (c.id == id) return c; return new ClipInfo { id = id, length = .7f, hit = .35f }; }
     }
 

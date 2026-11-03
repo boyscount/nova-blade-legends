@@ -155,6 +155,17 @@ namespace NovaBlade
                     yield return null;
                 }
             }
+            foreach (int st in new[] { 1, 5 })
+            {   // the rigged bosses: skip straight to the boss and catch a wind-up and a hit
+                save.hero = "monk"; save.best = 5; StartGame(st); yield return null;
+                foreach (var f in foes) if (f) Destroy(f.gameObject); foes.Clear(); wave = Theme.waves.Length; SpawnBoss();
+                for (float bt = 0, bs = 0; bt < 9; bt += Time.unscaledDeltaTime)
+                {
+                    if (Random.value < .08f) ui.atkP = true; hero.hp = Mathf.Max(hero.hp, hero.max * .5f);
+                    if (bs < 2 && bt > 3 + bs * 4) { ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"boss{st}_{bs}.png")); bs++; }
+                    yield return null;
+                }
+            }
             StartLane(3, 3);   // three-lane battle on autopilot
             int ls = 0;
             for (float lt = 0; lt < 30; lt += Time.unscaledDeltaTime)

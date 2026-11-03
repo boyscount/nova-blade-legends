@@ -39,6 +39,54 @@ public static class NovaSetup
         ["bowdraw"] = ("Standing Draw Arrow", false), ["bowshot"] = ("Standing Aim Recoil", false),
         ["cast1"] = ("Standing 1H Magic Attack 01", false), ["cast2"] = ("Standing 2H Cast Spell 01", false), ["sblock"] = ("Sword And Shield Block Idle", true), ["sblockhit"] = ("Sword And Shield Blocked Impact", false),
     };
+    // per-class clips from Animations/new (Mixamo "Ch02_nonPBR@<name>.fbx"): set -> state -> (clip name, loops)
+    public static readonly Dictionary<string, Dictionary<string, (string file, bool loop)>> Sets = new()
+    {
+        ["mage"] = new() { ["idle"] = ("mage_idle", true), ["walk"] = ("mage_walk", true), ["run"] = ("mage_run", true), ["cast2"] = ("mage_cast_big", false) },
+        ["bow"] = new() { ["idle"] = ("bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
+        ["ninja"] = new() { ["idle"] = ("ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
+        ["monk"] = new() { ["idle"] = ("monk_idle", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
+    };
+    public static string SetPath(string clip) => $"{Anim}/new/Ch02_nonPBR@{clip}.fbx";
+    public static AnimationClip SetClip(string clip) => AssetDatabase.LoadAllAssetsAtPath(SetPath(clip)).OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview__"));
+    public static void AnimSets()
+    {
+        var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
+        Directory.CreateDirectory("Assets/Game/Resources/Anim");
+        foreach (var (set, states) in Sets)
+        {
+            foreach (var (st, (file, loop)) in states) Humanoid(SetPath(file), st, loop);
+            var oc = new AnimatorOverrideController(ctrl) { name = set };
+            var pairs = new List<KeyValuePair<AnimationClip, AnimationClip>>(); oc.GetOverrides(pairs);
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                var key = pairs[i].Key; var st = ctrl.layers[0].stateMachine.states.FirstOrDefault(s => s.state.motion == key).state;
+                if (st != null && states.TryGetValue(st.name, out var f)) pairs[i] = new(key, SetClip(f.file));
+            }
+            oc.ApplyOverrides(pairs);
+            var path = $"Assets/Game/Resources/Anim/{set}.overrideController"; if (File.Exists(path)) AssetDatabase.DeleteAsset(path);
+            AssetDatabase.CreateAsset(oc, path); Debug.Log($"[NovaSetup] anim set {set}: {states.Count} clips");
+        }
+        AssetDatabase.SaveAssets();
+    }
+    // Mixamo clip -> Humanoid, played in place (same settings as the shared clips)
+    static void Humanoid(string path, string name, bool loop)
+    {
+        var mi = (ModelImporter)AssetImporter.GetAtPath(path);
+        if (mi == null) { Debug.LogError("[NovaSetup] missing " + path); return; }
+        mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+        mi.importCameras = false; mi.importLights = false; mi.materialImportMode = ModelImporterMaterialImportMode.None;
+        mi.SaveAndReimport();
+        var clips = mi.defaultClipAnimations;
+        foreach (var c in clips)
+        {
+            c.name = name; c.loopTime = loop;
+            c.lockRootRotation = true; c.keepOriginalOrientation = true;
+            c.lockRootHeightY = true; c.keepOriginalPositionY = true; c.heightFromFeet = false;
+            c.lockRootPositionXZ = false; c.keepOriginalPositionXZ = false;
+        }
+        mi.clipAnimations = clips; mi.SaveAndReimport();
+    }
     public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
     // class heroes (auto-rigged by arena_autorig.py): build their avatars and prefabs against the existing controller
     public static readonly string[] ClassHeroes = { "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
@@ -59,6 +107,15 @@ public static class NovaSetup
         foreach (var h in ClassHeroes) BuildHero(h, ctrl);
         AssetDatabase.SaveAssets(); Peek();
         Debug.Log("[NovaSetup] new heroes done");
+    }
+
+    public static readonly string[] Monsters = { "e_skeleton", "e_goblin", "e_orc", "e_zombie", "e_cultist", "e_ghoul", "m_blue", "m_red", "b_lich", "b_treant" };
+    public static void Enemies()
+    {
+        AssetDatabase.ImportAsset(Heroes, ImportAssetOptions.ImportRecursive);
+        var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
+        foreach (var m in Monsters) BuildHero(m, ctrl);
+        AssetDatabase.SaveAssets(); Debug.Log("[NovaSetup] enemies done");
     }
 
     public static void All()

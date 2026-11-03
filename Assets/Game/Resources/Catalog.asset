@@ -51,18 +51,6 @@ MonoBehaviour:
     prefab: {fileID: -2295210395951047170, guid: 13d4f0b7317184646bfa4c3928f88e86, type: 3}
   - id: w_gold2
     prefab: {fileID: -2295210395951047170, guid: a4ffd4e6aac0a8546a53e36f91f2c06d, type: 3}
-  - id: q_goblin
-    prefab: {fileID: 2242888416370347441, guid: b394479019a0e7740bc741828d5f7eba, type: 3}
-  - id: q_orc
-    prefab: {fileID: 2242888416370347441, guid: ac6ac9461d45ea941a8011b78a8ea3ec, type: 3}
-  - id: q_skeleton
-    prefab: {fileID: 2242888416370347441, guid: 28401e699486eff478243f18c0360ccb, type: 3}
-  - id: q_zombie
-    prefab: {fileID: 2242888416370347441, guid: ee158d58be05581438675ac3f291b1ed, type: 3}
-  - id: q_giant
-    prefab: {fileID: 2242888416370347441, guid: 698628f2008e58445a85c5cdb365d9fe, type: 3}
-  - id: q_blue_demon
-    prefab: {fileID: 2242888416370347441, guid: 2b44b963037b5f54c81021ec083af63a, type: 3}
   - id: q_ghost
     prefab: {fileID: 2242888416370347441, guid: 8ee8ae02d724e654093c459babe09204, type: 3}
   - id: q_dragon
@@ -241,6 +229,54 @@ MonoBehaviour:
   - id: sblockhit
     length: 0.7666667
     hit: 0.4
+  - id: mage:idle
+    length: 1.8666668
+    hit: 1.7999996
+  - id: mage:walk
+    length: 1.1333334
+    hit: 0.6666668
+  - id: mage:run
+    length: 0.73333335
+    hit: 0.06666667
+  - id: mage:cast2
+    length: 2.966667
+    hit: 1.2666668
+  - id: bow:idle
+    length: 5.1000004
+    hit: 3.166665
+  - id: bow:walk
+    length: 1.2
+    hit: 0.10000001
+  - id: bow:run
+    length: 0.86666673
+    hit: 0.3
+  - id: ninja:idle
+    length: 2.5333335
+    hit: 1.8333329
+  - id: ninja:walk
+    length: 0.90000004
+    hit: 0.5666667
+  - id: ninja:run
+    length: 0.53333336
+    hit: 0.26666668
+  - id: ninja:atk0
+    length: 1.6666667
+    hit: 0.8333336
+  - id: monk:idle
+    length: 2.966667
+    hit: 1.066667
+  - id: monk:run
+    length: 0.70000005
+    hit: 0.3
+  - id: monk:atk0
+    length: 1.0333334
+    hit: 0.5
+  - id: monk:atk1
+    length: 2.1666667
+    hit: 0.96666706
+  - id: monk:atk2
+    length: 2.5000002
+    hit: 0.866667
   heroController: {fileID: 9100000, guid: b6e67bfdd24fc0b419fd032b751d92a2, type: 2}
   grassMat: {fileID: 2100000, guid: fe17b0a0e987bf140b846558ced4502a, type: 2}
   telegraphMat: {fileID: 0}

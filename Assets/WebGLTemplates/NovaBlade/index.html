@@ -45,6 +45,8 @@
       productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
       productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
       matchWebGLToCanvasSize: true,
+      // the joined data blob has a new URL every visit: keep it out of the IndexedDB cache (the parts sit in the browser cache)
+      cacheControl: function (url) { return url.indexOf("blob:") === 0 ? "no-store" : "must-revalidate"; },
       // phones: render a little below native resolution to keep the frame rate up
       devicePixelRatio: mobile ? Math.min(window.devicePixelRatio || 1, 1.5) : undefined,
       showBanner: function (msg, type) { if (type === "error") { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = msg; } }
@@ -55,10 +57,21 @@
       var el = document.documentElement;
       if (el.requestFullscreen) el.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {}); }).catch(function () {});
     }, { passive: true });
+    // the build sets this when the data file was cut into parts (GitHub Pages: 100 MB per file)
+    var dataParts = 0;
+    function fetchData() {
+      if (!dataParts) return Promise.resolve();
+      var done = 0, urls = [];
+      for (var i = 0; i < dataParts; i++) urls.push(config.dataUrl + ".part" + i);
+      return Promise.all(urls.map(function (u) {
+        return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.arrayBuffer(); })
+          .then(function (b) { done++; document.getElementById("fill").style.width = Math.round(done / dataParts * 80) + "%"; return b; });
+      })).then(function (bufs) { config.dataUrl = URL.createObjectURL(new Blob(bufs)); });
+    }
     var script = document.createElement("script");
     script.src = "Build/{{{ LOADER_FILENAME }}}";
     script.onload = function () {
-      createUnityInstance(canvas, config, function (p) { document.getElementById("fill").style.width = Math.round(p * 100) + "%"; })
+      fetchData().then(function () { return createUnityInstance(canvas, config, function (p) { document.getElementById("fill").style.width = Math.round((dataParts ? 80 + p * 20 : p * 100)) + "%"; }); })
         .then(function () { document.getElementById("load").style.display = "none"; })
         .catch(function (m) { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: " + m; });
     };

@@ -17,6 +17,8 @@ namespace NovaBlade
 
     public static class Data
     {
+        // per-class movement and attack clips (AnimatorOverrideController in Resources/Anim/<set>); null = the shared Great Sword set
+        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" => "mage", "elf" or "hood" => "bow", "ninja" => "ninja", "monk" => "monk", _ => null };
         static Color C(int hex) => new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f);
         static Color G(int hex, float k) => C(hex) * k;
 
@@ -149,12 +151,12 @@ namespace NovaBlade
             new FoeDef { id = "candle", model = "candle", name = Loc.S("เทียนอาถรรพ์", "Cursed Candle"), hp = 280, spd = 2.3f, dmg = 55, range = 9, kind = "ranged", scale = 1.5f, rad = .5f, gold = 8 },
             new FoeDef { id = "bat", model = "bat", name = Loc.S("ค้างคาวปีศาจ", "Demon Bat"), hp = 170, spd = 4.8f, dmg = 30, range = 1.4f, kind = "melee", scale = 1.6f, rad = .5f, gold = 4, fly = true },
             // animated Quaternius characters: scale = height in metres
-            new FoeDef { id = "goblin", model = "q_goblin", name = Loc.S("ก็อบลิน", "Goblin"), hp = 240, spd = 3.8f, dmg = 38, range = 1.5f, kind = "melee", scale = 1.15f, rad = .45f, gold = 5 },
-            new FoeDef { id = "orc", model = "q_orc", name = Loc.S("ออร์ก", "Orc"), hp = 520, spd = 2.8f, dmg = 65, range = 1.8f, kind = "melee", scale = 1.9f, rad = .6f, gold = 9 },
-            new FoeDef { id = "skeleton", model = "q_skeleton", name = Loc.S("โครงกระดูก", "Skeleton"), hp = 320, spd = 3.2f, dmg = 50, range = 1.7f, kind = "melee", scale = 1.8f, rad = .5f, gold = 7 },
-            new FoeDef { id = "zombie", model = "q_zombie", name = Loc.S("ซอมบี้", "Zombie"), hp = 420, spd = 2.2f, dmg = 55, range = 1.6f, kind = "melee", scale = 1.8f, rad = .5f, gold = 7 },
-            new FoeDef { id = "giant", model = "q_giant", name = Loc.S("ยักษ์", "Giant"), hp = 1400, spd = 1.8f, dmg = 110, range = 2.8f, kind = "slam", scale = 3.0f, rad = 1.0f, gold = 20 },
-            new FoeDef { id = "demon", model = "q_blue_demon", name = Loc.S("อสูรน้ำเงิน", "Blue Demon"), hp = 600, spd = 3.0f, dmg = 70, range = 1.9f, kind = "melee", scale = 2.1f, rad = .6f, gold = 12 },
+            new FoeDef { id = "goblin", model = "rig_e_goblin", name = Loc.S("ก็อบลิน", "Goblin"), hp = 240, spd = 3.8f, dmg = 38, range = 1.5f, kind = "melee", scale = .78f, rad = .45f, gold = 5 },
+            new FoeDef { id = "orc", model = "rig_e_orc", name = Loc.S("ออร์ก", "Orc"), hp = 520, spd = 2.8f, dmg = 65, range = 1.8f, kind = "melee", scale = 1.25f, rad = .6f, gold = 9 },
+            new FoeDef { id = "skeleton", model = "rig_e_skeleton", name = Loc.S("โครงกระดูก", "Skeleton"), hp = 320, spd = 3.2f, dmg = 50, range = 1.7f, kind = "melee", scale = 1.05f, rad = .5f, gold = 7 },
+            new FoeDef { id = "zombie", model = "rig_e_zombie", name = Loc.S("ซอมบี้", "Zombie"), hp = 420, spd = 2.2f, dmg = 55, range = 1.6f, kind = "melee", scale = 1.0f, rad = .5f, gold = 7 },
+            new FoeDef { id = "giant", model = "rig_e_ghoul", name = Loc.S("ยักษ์กูล", "Ghoul Giant"), hp = 1400, spd = 1.8f, dmg = 110, range = 2.8f, kind = "slam", scale = 1.75f, rad = 1.0f, gold = 20 },
+            new FoeDef { id = "demon", model = "rig_e_cultist", name = Loc.S("สาวกลัทธิมืด", "Dark Cultist"), hp = 600, spd = 3.0f, dmg = 70, range = 1.9f, kind = "melee", scale = 1.05f, rad = .6f, gold = 12 },
             new FoeDef { id = "ghost", model = "q_ghost", name = Loc.S("วิญญาณ", "Ghost"), hp = 260, spd = 3.6f, dmg = 40, range = 1.6f, kind = "melee", scale = 1.6f, rad = .5f, gold = 6, fly = true },
         };
         public static FoeDef Foe(string id) => System.Array.Find(Foes, f => f.id == id);
@@ -167,7 +169,7 @@ namespace NovaBlade
         {
             new ThemeDef { id = "forest", name = Loc.S("ป่าแสงจันทร์", "Moonlit Forest"), desc = Loc.S("ทุ่งหญ้ากลางป่าลึก แสงเห็ดเรืองยามค่ำ", "A meadow deep in the woods, glowing mushrooms at night"),
                 waves = new[] { new[] { ("rat", 4), ("goblin", 3) }, new[] { ("goblin", 3), ("mushroom", 2), ("candle", 3) }, new[] { ("orc", 3), ("spider", 3), ("mushroom", 2), ("goblin", 3) } },
-                boss = new BossDef { model = "mushroom", name = Loc.S("ราชาเห็ดพิษ", "Toxic Mushroom King"), scale = 3.4f, hp = 8000, tint = C(0xe0ffd0), glow = G(0x2a6a10, .3f), rage = G(0x6a8a00, .5f), color = C(0x9cff5a), summon = "goblin" } },
+                boss = new BossDef { model = "rig_b_treant", name = Loc.S("ราชาพฤกษาเน่า", "Blighted Treant Lord"), scale = 2.3f, hp = 8000, tint = C(0xe0ffd0), glow = G(0x2a6a10, .3f), rage = G(0x6a8a00, .5f), color = C(0x9cff5a), summon = "goblin" } },
             River,
             new ThemeDef { id = "kingdom", name = Loc.S("จัตุรัสอาณาจักร", "Kingdom Square"), desc = Loc.S("ลานกลางเมืองแฟนตาซี บ้านหลังคาส้ม ใบไม้เปลี่ยนสี", "A fantasy town square at dusk, lanterns and orange roofs"),
                 waves = new[] { new[] { ("goblin", 4), ("rat", 3) }, new[] { ("orc", 3), ("goblin", 3), ("spider", 2) }, new[] { ("orc", 3), ("giant", 1), ("goblin", 4), ("candle", 2) } },
@@ -177,7 +179,7 @@ namespace NovaBlade
                 boss = new BossDef { model = "q_dragon", name = Loc.S("มังกรพงไพร", "Forest Dragon"), scale = 4.2f, fly = true, hp = 10000, tint = C(0xd8ffc8), glow = G(0x1a5a10, .3f), rage = G(0x4a9a10, .5f), color = C(0x7aff5a), summon = "goblin" } },
             new ThemeDef { id = "castle", name = Loc.S("ปราสาทร้าง", "Ruined Castle"), desc = Loc.S("ห้องโถงหินมืด แสงคบเพลิงริบหรี่", "Dark stone halls in flickering torchlight"),
                 waves = new[] { new[] { ("skeleton", 4), ("spider", 3) }, new[] { ("skeleton", 3), ("candle", 3), ("bat", 3), ("demon", 1) }, new[] { ("demon", 2), ("giant", 1), ("skeleton", 4), ("bat", 3) } },
-                boss = new BossDef { model = "captain", name = Loc.S("กัปตันกะโหลก", "Skull Captain"), scale = 1, hp = 8500, tint = C(0xf0e8e0), glow = G(0x5a0a08, .3f), rage = G(0xa01010, .5f), color = C(0xff5a3a), summon = "skeleton" } },
+                boss = new BossDef { model = "rig_b_lich", name = Loc.S("ราชาลิช", "Lich King"), scale = 2.0f, hp = 8500, tint = C(0xf0e8e0), glow = G(0x5a0a08, .3f), rage = G(0xa01010, .5f), color = C(0xff5a3a), summon = "skeleton" } },
         };
         public static int ThemeOf(int stage) => (stage - 1) % Themes.Length;
         public const float ArenaR = 22.5f;

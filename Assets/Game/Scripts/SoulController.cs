@@ -121,7 +121,7 @@ namespace NovaBlade
         void Start(Act a, string clip, float speed, float lead)
         {
             act = a; t = 0; hitDone = false; loop = null; comboT = 1f;
-            var c = Catalog.I.Clip(clip); float from = Mathf.Max(0, c.hit - lead), end = Mathf.Min(c.length, c.hit + (a == Act.Light ? .3f : .55f));
+            var c = Catalog.I.Clip(h.animSet, clip); float from = Mathf.Max(0, c.hit - lead), end = Mathf.Min(c.length, c.hit + (a == Act.Light ? .3f : .55f));
             dur = (end - from) / speed; hitT = (c.hit - from) / speed;
             if (lockTarget) h.face = Main.Ang(lockTarget.Pos - h.Pos);
             h.PlayAnim(clip, .06f, speed, from);
@@ -156,7 +156,7 @@ namespace NovaBlade
         {
             dodgeFree = wm.sqrMagnitude > .04f; t = 0; loop = null;
             if (dodgeFree) { dodgeDir = wm.normalized; h.face = Main.Ang(wm); act = Act.Dodge; dur = .55f; h.PlayAnim("roll", .04f, 2.2f, .93f); }
-            else { dodgeDir = -Main.Dir(h.face); act = Act.Dodge; dur = .5f; var c = Catalog.I.Clip("backstep"); h.PlayAnim("backstep", .04f, 1.4f, Mathf.Max(0, c.hit - .3f)); }
+            else { dodgeDir = -Main.Dir(h.face); act = Act.Dodge; dur = .5f; var c = Catalog.I.Clip(h.animSet, "backstep"); h.PlayAnim("backstep", .04f, 1.4f, Mathf.Max(0, c.hit - .3f)); }
             Fx.Burst(h.Pos + Vector3.up * .5f, 12, new Color(.62f, .9f, 1), 3, .5f, 1, .14f, true);
         }
 

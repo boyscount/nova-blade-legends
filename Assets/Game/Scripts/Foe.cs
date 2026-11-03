@@ -18,7 +18,7 @@ namespace NovaBlade
         public int laneIdx = 1;   // which lane this unit walks (three-lane mode)
         public float PowerK => Mathf.Clamp01(1 - skillCD / 6f);   // AI hero power: how close its skill is to ready
         public void Take(float dmg, Vector3 from) => Damage(dmg, from, new Main.Hit { byFoe = true, col = team == 0 ? new Color(1, .4f, .4f) : new Color(1, .85f, .6f) });
-        ITarget tgt; float retarget, skillCD = 4; bool skillWind; Animator anim;
+        string animSet; ITarget tgt; float retarget, skillCD = 4; bool skillWind; Animator anim;
         enum S { Chase, Wind, Rec, Dead } S s = S.Chase;
         string bossMode = "chase"; float bossMt = 2.5f, st2; int bossStage; bool raged;
         Vector3 slamAt; Transform body; Look look; Animation clipAnim; float baseScale;
@@ -34,8 +34,14 @@ namespace NovaBlade
             else if (d.model.StartsWith("hero_"))
             {   // AI hero: the real rigged hero with its Mixamo clips and a random weapon
                 go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + d.model.Substring(5)), transform); anim = go.GetComponentInChildren<Animator>();
+                animSet = Data.AnimSet(d.model.Substring(5)); if (animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
                 var sock = go.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 if (sock) { var w = Data.Swords[Random.Range(0, Data.Swords.Length)]; Instantiate(Catalog.I.Model(w.id), sock); }
+            }
+            else if (d.model.StartsWith("rig_"))
+            {   // realistic monster, auto-rigged like the heroes: Humanoid avatar + the shared clips; its weapon is part of the model
+                var id = d.model == "rig_minion" ? (team == 0 ? "m_blue" : "m_red") : d.model.Substring(4);
+                go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + id), transform); anim = go.GetComponentInChildren<Animator>();
             }
             else go = Instantiate(Catalog.I.Model(d.model), transform);
             body = go.transform;
@@ -80,7 +86,7 @@ namespace NovaBlade
         }
         void PlayAttack()
         {
-            if (anim) { int k = skillWind ? 2 : Random.Range(0, 2); var c = Catalog.I.Clip("atk" + k); anim.SetFloat("Speed", 1.4f); anim.CrossFadeInFixedTime("atk" + k, .06f, 0, Mathf.Max(0, c.hit - .5f)); return; }
+            if (anim) { int k = skillWind ? 2 : Random.Range(0, 2); var c = Catalog.I.Clip(animSet, "atk" + k); anim.SetFloat("Speed", 1.4f); anim.CrossFadeInFixedTime("atk" + k, .06f, 0, Mathf.Max(0, c.hit - .5f)); return; }
             cur = null; Play("Attack", "Punch", "Bite_Front", "Headbutt", "Weapon");
         }
         string animState;
@@ -196,7 +202,7 @@ namespace NovaBlade
             else if (moving && !isBoss && !clipAnim && !anim) { float hp_ = Mathf.Abs(Mathf.Sin(t * sp * 3)); yy += hp_ * .16f; sy = 1 + (hp_ - .5f) * .12f; }
             var p = transform.position; p.y = yy + (d.fly ? Mathf.Max(0, River.Ground(p.x, p.z)) : River.Ground(p.x, p.z)); transform.position = p;
             if (d.kind != "tower") transform.rotation = Quaternion.Euler(0, face * Mathf.Rad2Deg, 0);
-            if (anim && s == S.Chase && stag <= 0) AnimLoop(moving ? "run" : "idle"); else if (anim) animState = null;
+            if (anim && s == S.Chase && stag <= 0 && (!isBoss || bossMode == "chase")) AnimLoop(moving ? "run" : "idle"); else if (anim) animState = null;
             if (clipAnim && cur != null && s != S.Dead) { var cs = clipAnim[cur]; if (cs != null && cs.wrapMode == WrapMode.ClampForever && cs.normalizedTime >= 1 && s != S.Wind) cur = null; }
             if (clipAnim) { if ((s == S.Chase || cur == null) && stag <= 0) { if (moving) Play(sp > 3 ? "Run" : "Walk", "Walk", "Fast_Flying"); else Play("Idle", "Flying_Idle"); } }
             else if (!anim && d.kind != "tower") { body.localRotation = Quaternion.Euler(lean * Mathf.Rad2Deg, 0, 0); float sxz = isBoss ? 1 : Mathf.Sqrt(2 - sy * squash); body.localScale = new Vector3(baseScale * sxz, baseScale * sy * squash, baseScale * sxz); }
@@ -235,7 +241,8 @@ namespace NovaBlade
                     var pool = dd < 5 ? new[] { "sweep", "sweep", "souls", "dash" } : new[] { "souls", "dash", "sweep" };
                     if (adds < 3) pool = pool.Append("summon").ToArray();
                     bossMode = pool[Random.Range(0, pool.Length)]; bossStage = 0;
-                    if (bossMode == "sweep" || bossMode == "souls") PlayAttack();
+                    if (anim) { animState = null; anim.SetFloat("Speed", 1); anim.CrossFadeInFixedTime(bossMode == "sweep" ? "heavy" : bossMode == "dash" ? "roll" : "cast2", .1f); }
+                    else if (bossMode == "sweep" || bossMode == "souls") PlayAttack();
                     if (bossMode == "sweep") { face = want; Fx.Telegraph(Pos, 5, wind, face, 1.1f); st = wind; }
                     else if (bossMode == "souls") { st = .9f * wind; Fx.Ring(Pos, 2.5f, C, .9f); }
                     else if (bossMode == "dash") { st = .45f; Fx.Burst(Pos + Vector3.up * 1.4f, 40, C, 4, .6f, -.2f); }
@@ -244,13 +251,13 @@ namespace NovaBlade
             }
             else if (bossMode == "sweep")
             {
-                st -= dt; if (st > 0) body.localRotation = Quaternion.Euler(0, -30 * (1 - st / wind), 0);
+                st -= dt; if (st > 0 && !anim) body.localRotation = Quaternion.Euler(0, -30 * (1 - st / wind), 0);
                 if (st <= 0 && bossStage == 0)
                 {
                     bossStage = 1; st2 = .35f; if (dd < 5.4f && Mathf.Abs(Main.AngDiff(face, Main.Ang(to))) < 1.15f) hero.Hurt(d.dmg, Pos);
                     Fx.Slash(Pos + Vector3.up * 1.2f, face, C, 5, 2.4f, .3f); Fx.Spawn("ground_hit", Pos + Main.Dir(face) * 2.5f, 1.5f, 2); G.shake = Mathf.Max(G.shake, .25f);
                 }
-                if (bossStage == 1) { st2 -= dt; body.Rotate(0, dt * 900, 0); if (st2 <= 0) { body.localRotation = Quaternion.identity; bossMode = "chase"; bossMt = Random.Range(1.2f, 2.2f) * wind; } }
+                if (bossStage == 1) { st2 -= dt; if (!anim) body.Rotate(0, dt * 900, 0); if (st2 <= 0) { body.localRotation = Quaternion.identity; bossMode = "chase"; bossMt = Random.Range(1.2f, 2.2f) * wind; } }
             }
             else if (bossMode == "souls")
             {

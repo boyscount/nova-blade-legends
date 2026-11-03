@@ -60,6 +60,21 @@ public static class NovaBuild
         var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, "Builds/WebGL", BuildTarget.WebGL, BuildOptions.None);
         Debug.Log($"[NovaBuild] webgl build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
+        SplitData("Builds/WebGL");
+    }
+
+    // GitHub Pages refuses files over 100 MB: cut the data file into 90 MB parts (<name>.part0, .part1, ...);
+    // index.html fetches the parts, joins them into one blob and hands that to the Unity loader
+    static void SplitData(string dir)
+    {
+        const int Part = 90 * 1024 * 1024;
+        var data = Directory.GetFiles(dir + "/Build", "*.data*").FirstOrDefault(f => !f.Contains(".part"));
+        if (data == null || new FileInfo(data).Length <= Part) return;
+        var bytes = File.ReadAllBytes(data); int n = (bytes.Length + Part - 1) / Part;
+        for (int i = 0; i < n; i++) using (var fs = File.Create($"{data}.part{i}")) fs.Write(bytes, i * Part, Mathf.Min(Part, bytes.Length - i * Part));
+        File.Delete(data);
+        var html = File.ReadAllText(dir + "/index.html"); File.WriteAllText(dir + "/index.html", html.Replace("var dataParts = 0;", $"var dataParts = {n};"));
+        Debug.Log($"[NovaBuild] data split into {n} parts ({bytes.Length / 1e6:0} MB)");
     }
 
     // lane towers: present set (team 0) and future set (team 1), mobile low-poly or the reduced PC models
@@ -189,6 +204,21 @@ public static class NovaBuild
             g.Destroy();
             list.Add(new Catalog.ClipInfo { id = k, length = clip.length, hit = hit });
             Debug.Log($"[NovaBuild] clip {k} len {clip.length:0.00} hit {hit:0.00}");
+        }
+        var limbs = new[] { HumanBodyBones.RightHand, HumanBodyBones.LeftHand, HumanBodyBones.RightFoot, HumanBodyBones.LeftFoot }.Select(an.GetBoneTransform).ToArray();
+        foreach (var (set, states) in NovaSetup.Sets) foreach (var (k, (file, _)) in states)
+        {
+            var clip = NovaSetup.SetClip(file); if (!clip) { Debug.LogError("[NovaBuild] missing set clip " + file); continue; }
+            float best = 0, hit = clip.length * .5f; var prev = new Vector3[limbs.Length];
+            var g = PlayableGraph.Create(); var o = AnimationPlayableOutput.Create(g, "o", an); var cp = AnimationClipPlayable.Create(g, clip); o.SetSourcePlayable(cp);
+            for (float t = 0; t <= clip.length; t += 1 / 30f)
+            {
+                cp.SetTime(t); g.Evaluate();
+                for (int i = 0; i < limbs.Length; i++) { var p = limbs[i].position; if (t > 0) { float sp = (p - prev[i]).magnitude; if (sp > best) { best = sp; hit = t; } } prev[i] = p; }
+            }
+            g.Destroy();
+            list.Add(new Catalog.ClipInfo { id = set + ":" + k, length = clip.length, hit = hit });
+            Debug.Log($"[NovaBuild] clip {set}:{k} len {clip.length:0.00} hit {hit:0.00}");
         }
         Object.DestroyImmediate(inst);
         return list;

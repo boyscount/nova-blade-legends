@@ -45,6 +45,7 @@ namespace NovaBlade
             {
                 model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform);
                 anim = model.GetComponentInChildren<Animator>();
+                animSet = Data.AnimSet(def.id); if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
                 // lobby: the idle animation bows the head, which warps the faces of the auto-rigged heroes,
                 // so the head and neck are held at their sculpted rotation (see LateUpdate)
                 lockBones = lobby && anim && !OldRig ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() is var n && (n == "head" || n.Contains("neck"))).ToArray() : null;
@@ -244,7 +245,7 @@ namespace NovaBlade
             float d, ht, from = 0;
             if (def.rig)
             {
-                var c = Catalog.I.Clip("atk" + i);
+                var c = Catalog.I.Clip(animSet, "atk" + i);
                 from = Mathf.Max(0, c.hit - .4f); float end = Mathf.Min(c.length, c.hit + .3f);
                 d = (end - from) / ts; ht = (c.hit - from) / ts;
             }
@@ -341,7 +342,7 @@ namespace NovaBlade
             if (model.activeSelf == blink) model.SetActive(!blink);
         }
         bool OldRig => def.id == "warrior" || def.id == "samurai" || def.id == "harpy";   // hand-rigged heroes keep their idle animation in the lobby
-        Transform[] lockBones; Quaternion[] lockRot;
+        public string animSet; Transform[] lockBones; Quaternion[] lockRot;
         void LateUpdate()
         {
             if (lockBones == null || G.mode != Main.Mode.Lobby) return;
@@ -404,7 +405,7 @@ namespace NovaBlade
         {
             var e = G.Nearest(Pos, maxD); var s = Pos; var tgt = Pos + Main.Dir(face) * defD;
             if (e) { FaceTo(e); tgt = Pos + Main.Dir(face) * Mathf.Max(0, Main.Flat(e.Pos - Pos).magnitude - 1); }
-            Play(clip, .06f, ts); float impact = impactClip / ts, dur = Catalog.I.Clip(clip).length / ts; if (clip == "leap") dur = Mathf.Min(dur, impact + .45f);
+            Play(clip, .06f, ts); float impact = impactClip / ts, dur = Catalog.I.Clip(animSet, clip).length / ts; if (clip == "leap") dur = Mathf.Min(dur, impact + .45f);
             float t = 0; bool done = false;
             while (t < dur)
             {
@@ -430,7 +431,7 @@ namespace NovaBlade
         }
         IEnumerator Iaido()
         {
-            Play("atk2", .04f, 1.6f, Mathf.Max(0, Catalog.I.Clip("atk2").hit - .4f)); var f = Main.Dir(face); var s = Pos; var hit = new HashSet<Foe>(); inv = Mathf.Max(inv, .6f);
+            Play("atk2", .04f, 1.6f, Mathf.Max(0, Catalog.I.Clip(animSet, "atk2").hit - .4f)); var f = Main.Dir(face); var s = Pos; var hit = new HashSet<Foe>(); inv = Mathf.Max(inv, .6f);
             float t = 0; bool fx = false;
             while (t < .55f)
             {
@@ -444,7 +445,7 @@ namespace NovaBlade
         }
         IEnumerator Petal()
         {
-            Play("atk1", .06f, 1.3f, Mathf.Max(0, Catalog.I.Clip("atk1").hit - .4f)); int n = 0; float t = 0;
+            Play("atk1", .06f, 1.3f, Mathf.Max(0, Catalog.I.Clip(animSet, "atk1").hit - .4f)); int n = 0; float t = 0;
             while (t < .7f)
             {
                 t += Time.deltaTime;
@@ -465,7 +466,7 @@ namespace NovaBlade
                     Fx.Burst(Pos + Vector3.up, 12, new Color(1, .37f, .54f), 2, .5f, 0);
                     var p = e.Pos + Main.Dir(a) * 1.2f; MoveBy(p.x - Pos.x, p.z - Pos.z); FaceTo(e);
                 }
-                var c = Catalog.I.Clip("atk" + (i % 3)); Play("atk" + (i % 3), .03f, 2.6f, Mathf.Max(0, c.hit - .25f));
+                var c = Catalog.I.Clip(animSet, "atk" + (i % 3)); Play("atk" + (i % 3), .03f, 2.6f, Mathf.Max(0, c.hit - .25f));
                 G.HitArea(Pos, 2.4f, AtkPow * 1.7f, new Main.Hit { face = face, half = 1.2f, kb = 2, melee = true });
                 Fx.Slash(Pos + Vector3.up, face, new Color(1, .37f, .54f), 2.4f, 2.8f); G.hitStop = .04f;
                 yield return Wait(.2f);
@@ -473,7 +474,7 @@ namespace NovaBlade
         }
         IEnumerator Feather()
         {
-            Play("atk0", .06f, 1.8f, Mathf.Max(0, Catalog.I.Clip("atk0").hit - .3f)); yield return Wait(.12f);
+            Play("atk0", .06f, 1.8f, Mathf.Max(0, Catalog.I.Clip(animSet, "atk0").hit - .3f)); yield return Wait(.12f);
             for (int i = -3; i <= 3; i++) { float a = face + i * .16f; Shot.Fire(Pos + Vector3.up * 1.2f + Main.Dir(a) * .6f, Main.Dir(a) * 17, AtkPow * 1.05f, new Color(.85f, .94f, 1), "feather", .8f, pierce: true, kb: 1.2f); }
             yield return Wait(.3f);
         }
