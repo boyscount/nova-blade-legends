@@ -1,0 +1,12 @@
+Shared style: dark fantasy ARPG HUD, ornate aged brass/bronze metal, engraved details, painterly game UI asset, isolated on transparent background, PNG
+
+hud_bar_frame.png 1600x260 : long ornate brass bottom HUD bar frame with feathered metal wings on both ends, two round orb sockets left and right, six square skill slot openings in a row, thin XP bar track on top with center finial ornament, empty transparent center
+hud_orb_hp.png 256x256 : glowing red liquid inside a perfect sphere, swirling blood-like fluid, dark edges, transparent background
+hud_orb_mp.png 256x256 : glowing teal-cyan mana liquid inside a perfect sphere, swirling fluid, dark edges, transparent background
+hud_orb_glass.png 256x256 : glass sphere reflection overlay only, soft white top highlight and rim light, mostly transparent, empty transparent center
+hud_slot.png 160x160 : square ornate brass skill slot frame, small diamond studs top and bottom, empty transparent center
+hud_slot_selected.png 160x160 : square ornate bright gold skill slot frame with warm golden glow, selected state, empty transparent center
+hud_xp_bar.png 1000x40 : horizontal golden experience bar fill, polished metallic gold with highlight stripe, rounded ends
+minimap_frame.png 600x600 : circular brass compass ring frame with N badge on top, diamond points east west south, green ivy vines wrapped around, empty transparent center
+minimap_paper.png 512x512 : circular old parchment paper texture, aged stains, darker vignette edges, no map details, blank
+btn_pause_round.png 160x160 : round pause button, brass metal ring, dark slate-blue face, two cream pause bars

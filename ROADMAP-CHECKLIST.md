@@ -36,6 +36,8 @@
 | แอป Android (APK / Google Play) | ⬜ | ต้องติดตั้ง Android Build Support ใน Unity Hub (~3–5 GB) และต้องมีเครื่อง Android ไว้ทดสอบ |
 | แอป iPhone (App Store) | ⬜ | ต้องใช้เครื่อง Mac + Xcode + บัญชี Apple Developer ($99/ปี) |
 
+- [ ] **ตอนนี้: เว็บเทสฟรีที่ `https://boyscount.github.io/nova-blade-legends`** (GitHub Pages, branch `gh-pages`) ใช้ทดสอบทั้งมือถือและคอม
+- [ ] **ภายหลัง:** แอป Android + iOS และย้ายเว็บไปโดเมนจริง (GoDaddy) — ใช้โค้ดชุดเดียวกัน build แยกแพลตฟอร์ม
 - [ ] ทดสอบเว็บบนมือถือจริง แล้วดูว่าลื่นไหม (FPS) และเครื่องร้อนไหม
 - [ ] ลดขนาดเว็บ: บีบเทกซ์เจอร์ ตัดโมเดลที่ไม่ใช้ แบ่งโหลดด่านทีหลัง (Addressables)
 - [ ] ตั้งค่าคุณภาพแยกมือถือ (เงา, หญ้า, bloom) ตอนนี้ใช้ preset Mobile ของ URP อยู่แล้ว

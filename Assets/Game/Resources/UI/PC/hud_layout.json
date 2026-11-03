@@ -1,0 +1,67 @@
+{
+  "note": "Pixel coords inside hud_bar_frame.png (1600x260), origin top-left",
+  "orb_hp": {
+    "cx": 175,
+    "cy": 136,
+    "diameter": 204
+  },
+  "orb_mp": {
+    "cx": 1425,
+    "cy": 136,
+    "diameter": 204
+  },
+  "xp_bar": {
+    "x": 300,
+    "y": 34,
+    "w": 1000,
+    "h": 40
+  },
+  "slots": [
+    {
+      "x": 321,
+      "y": 100,
+      "w": 138,
+      "h": 138
+    },
+    {
+      "x": 485,
+      "y": 100,
+      "w": 138,
+      "h": 138
+    },
+    {
+      "x": 649,
+      "y": 100,
+      "w": 138,
+      "h": 138
+    },
+    {
+      "x": 813,
+      "y": 100,
+      "w": 138,
+      "h": 138
+    },
+    {
+      "x": 977,
+      "y": 100,
+      "w": 138,
+      "h": 138
+    },
+    {
+      "x": 1141,
+      "y": 100,
+      "w": 138,
+      "h": 138
+    }
+  ],
+  "slot_draw_order": "icon -> hud_slot(.png|_selected) on same rect; orb liquid -> hud_orb_glass -> hud_bar_frame",
+  "minimap_frame": {
+    "size": 600,
+    "hole_center": [
+      300,
+      300
+    ],
+    "hole_radius": 192,
+    "paper_diameter_in_frame": 404
+  }
+}

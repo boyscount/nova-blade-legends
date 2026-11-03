@@ -163,7 +163,7 @@ public static class NovaSetup
 
     static void BuildHero(string id, AnimatorController ctrl)
     {
-        var src = AssetDatabase.LoadAssetAtPath<GameObject>($"{Heroes}/{id}.glb");
+        var src = NovaBuild.Model($"{Heroes}/{id}.glb");
         if (!src) { Debug.LogError("[NovaSetup] no model " + id); return; }
         var go = (GameObject)Object.Instantiate(src);
         go.name = id;

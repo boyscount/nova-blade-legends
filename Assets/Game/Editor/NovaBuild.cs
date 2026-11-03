@@ -29,9 +29,29 @@ public static class NovaBuild
     // Windows player for local testing: Builds/Win/NovaBlade.exe (run with -novashot <dir> for automatic screenshots)
     // Web build for phones and desktop browsers: Builds/WebGL (ASTC textures for phones, full-screen template)
     [MenuItem("Nova Blade/Build WebGL (phones)")]
+    // web build only: scenery textures at 512 px and character/other textures at most 1024 (WebGL platform override),
+    // compressed meshes for the Fantasy Kingdom set; keeps each file of the web build under GitHub Pages' 100 MB limit
+    static void WebSlim()
+    {
+        int n = 0;
+        foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets" }))
+        {
+            var path = AssetDatabase.GUIDToAssetPath(guid); if (path.Contains("/Resources/UI/") || path.Contains("NovaBlade_SkillIcons")) continue;
+            if (!(AssetImporter.GetAtPath(path) is TextureImporter ti)) continue;
+            bool scenery = path.Contains("/Models/Nature/") || path.StartsWith("Assets/Art/") || path.Contains("Polytope") || path.Contains("/ThirdParty/") || path.Contains("/Textures/PBR/") || path.Contains("/Models/Props/");
+            int want = scenery ? 512 : 1024; var ps = ti.GetPlatformTextureSettings("WebGL");
+            if (ps.overridden && ps.maxTextureSize <= want) continue;
+            ps.overridden = true; ps.maxTextureSize = want; ps.format = TextureImporterFormat.Automatic; ps.textureCompression = TextureImporterCompression.Compressed;
+            ti.SetPlatformTextureSettings(ps); ti.SaveAndReimport(); n++;
+        }
+        foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { "Assets/Art" }))
+            if (AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)) is ModelImporter mi && mi.meshCompression != ModelImporterMeshCompression.High) { mi.meshCompression = ModelImporterMeshCompression.High; mi.SaveAndReimport(); n++; }
+        Debug.Log($"[NovaBuild] web slim: {n} assets adjusted");
+    }
+
     public static void BuildWebGL()
     {
-        Towers(Cat(), false);
+        WebSlim(); Towers(Cat(), false);
         PlayerSettings.WebGL.template = "PROJECT:NovaBlade";
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli; PlayerSettings.WebGL.decompressionFallback = true;
         PlayerSettings.WebGL.dataCaching = true; PlayerSettings.WebGL.memoryGrowthMode = WebGLMemoryGrowthMode.Geometric; PlayerSettings.WebGL.maximumMemorySize = 2048;
@@ -74,12 +94,16 @@ public static class NovaBuild
         // animated Quaternius enemies: legacy Animation component so clips can be played by name
         foreach (var guid in AssetDatabase.FindAssets("", new[] { "Assets/Game/Models/Foes" }))
         {
-            var path = AssetDatabase.GUIDToAssetPath(guid); if (!path.EndsWith(".glb")) continue;
+            var path = AssetDatabase.GUIDToAssetPath(guid); if (!path.EndsWith(".glb") && !path.EndsWith(".gltf")) continue;
             var imp = AssetImporter.GetAtPath(path); var so = new SerializedObject(imp); bool changed = false;
             var it = so.GetIterator();
             while (it.Next(true)) if (it.propertyType == SerializedPropertyType.Enum && it.name.ToLower().Contains("animationmethod")) { var names = it.enumNames; int li = System.Array.FindIndex(names, n => n.ToLower().Contains("legacy")); if (li >= 0 && it.enumValueIndex != li) { it.enumValueIndex = li; changed = true; } }
             if (changed) { so.ApplyModifiedPropertiesWithoutUndo(); imp.SaveAndReimport(); }
         }
+        // textures split out of the models: at most 1024 px (they compress to ASTC on phones / DXT on PC)
+        foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Game/Models" }))
+            if (AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)) is TextureImporter mt && (mt.maxTextureSize > 1024 || mt.textureCompression == TextureImporterCompression.Uncompressed))
+            { mt.maxTextureSize = 1024; mt.textureCompression = TextureImporterCompression.Compressed; mt.SaveAndReimport(); }
         // normal maps
         foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Game/Textures/PBR" }))
         {
@@ -105,7 +129,7 @@ public static class NovaBuild
         var cat = AssetDatabase.LoadAssetAtPath<Catalog>("Assets/Game/Resources/Catalog.asset");
         if (!cat) { cat = ScriptableObject.CreateInstance<Catalog>(); AssetDatabase.CreateAsset(cat, "Assets/Game/Resources/Catalog.asset"); }
         cat.models.Clear();
-        void M(string id, string path) { var go = AssetDatabase.LoadAssetAtPath<GameObject>(path); if (!go) Debug.LogError("[NovaBuild] missing " + path); cat.models.Add(new Catalog.Entry { id = id, prefab = go }); }
+        void M(string id, string path) { var go = Model(path); if (!go) Debug.LogError("[NovaBuild] missing " + path); cat.models.Add(new Catalog.Entry { id = id, prefab = go }); }
         M("toybot", "Assets/Game/Models/Heroes/toybot.glb");
         foreach (var p in Data.Pets) M(p.id, $"Assets/Game/Models/Pets/{p.id}.glb");
         foreach (var b in new[] { "reaper", "captain" }) M(b, $"Assets/Game/Models/Bosses/{b}.glb");
@@ -250,7 +274,9 @@ public static class NovaBuild
         plane.GetComponent<Renderer>().sharedMaterial = Lit("FloorUnder", "rock_face_04", 30, .1f, new Color(.42f, .42f, .46f));
     }
     // (the gameplay camera looks toward -Z, so suns shine toward -Z too: the camera sees lit faces, shadows fall away from it)
-    static GameObject Load(string p) { var g = AssetDatabase.LoadAssetAtPath<GameObject>(p); if (!g) Debug.LogError("[NovaBuild] missing " + p); return g; }
+    // models were split from .glb into .gltf + image files (glb_split.py) so their textures compress; accept either
+    public static GameObject Model(string p) => AssetDatabase.LoadAssetAtPath<GameObject>(p) ?? (p.EndsWith(".glb") ? AssetDatabase.LoadAssetAtPath<GameObject>(p.Substring(0, p.Length - 4) + ".gltf") : null);
+    static GameObject Load(string p) { var g = Model(p); if (!g) Debug.LogError("[NovaBuild] missing " + p); return g; }
     static Bounds Bounds(GameObject go) { var rs = go.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds); return b; }
     // place a prefab so its bounds sit on y (bottom) or hang from y (top), centred on (x,z)
     static GameObject Place(GameObject pf, Vector3 at, float yaw = 0, float scale = 1, bool top = false, Transform parent = null)

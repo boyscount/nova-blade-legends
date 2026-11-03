@@ -426,7 +426,15 @@ namespace NovaBlade
             var cur = Box(new Color(0, 0, 0, .45f), 20); Border(cur, Line); Pad(cur, 8); cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center; cur.style.marginRight = 12;
             cur.Add(Coin(22)); goldH = L("0", 22, Ink, true); goldH.style.marginLeft = 8; cur.Add(goldH); tr.Add(cur);
             mini = Box(new Color(.04f, .08f, .06f, .65f), 95); mini.style.width = mini.style.height = touchUi ? 230 : 190; Border(mini, Line, 3); mini.generateVisualContent += DrawMini;
-            if (touchUi) { Abs(mini, 24, 22); hud.Add(mini); me.style.left = 24 + 230 + 18; } else tr.Add(mini);
+            if (touchUi) { Abs(mini, 24, 22); hud.Add(mini); me.style.left = 24 + 230 + 18; }
+            else if (PcArt("minimap_frame") is Texture2D mf)
+            {   // compass frame (600 px, round hole of 404 px) around the paper map; the minimap is drawn on the paper
+                const float P = 230, F = P * 600f / 404f; var wrap = Box(); wrap.style.width = wrap.style.height = F; wrap.style.marginTop = -(F - P) / 2 + 40; wrap.style.marginRight = -(F - P) / 2 + 10; tr.Add(wrap);
+                mini.style.width = mini.style.height = P; Abs(mini, (F - P) / 2, (F - P) / 2); Round(mini, P / 2); mini.style.overflow = Overflow.Hidden; Border(mini, Color.clear, 0);
+                mini.style.backgroundColor = new Color(.84f, .75f, .54f); if (PcArt("minimap_paper") is Texture2D pp) mini.style.backgroundImage = new StyleBackground(pp);
+                wrap.Add(mini); var fr = Box(); Abs(fr, 0, 0, 0, 0); fr.style.backgroundImage = new StyleBackground(mf); fr.pickingMode = PickingMode.Ignore; wrap.Add(fr);
+            }
+            else tr.Add(mini);
             // hold / drag on the minimap: the camera looks at that spot (scout the lanes); let go and it returns to the hero
             mini.pickingMode = PickingMode.Position; int mpid = -1;
             void PanTo(Vector2 lp) { float W = mini.resolvedStyle.width; if (float.IsNaN(W) || G == null) return; float S = W / 2 / ((G.lane ? Lane.HalfL : Data.ArenaR) + 3); Pan = new Vector3(-(lp.x - W / 2) / S, 0, (lp.y - W / 2) / S); }
@@ -434,7 +442,9 @@ namespace NovaBlade
             mini.RegisterCallback<PointerMoveEvent>(e => { if (e.pointerId == mpid) PanTo(e.localPosition); });
             System.Action<IPointerEvent> mup = e => { if (e.pointerId != mpid) return; if (mini.HasPointerCapture(mpid)) mini.ReleasePointer(mpid); mpid = -1; Pan = null; };
             mini.RegisterCallback<PointerUpEvent>(e => mup(e)); mini.RegisterCallback<PointerCancelEvent>(e => mup(e));
-            var pb = Btn("II", () => TogglePause(), false); pb.style.marginLeft = 12; pb.style.paddingLeft = pb.style.paddingRight = 18; if (touchUi) { pb.style.width = pb.style.height = 92; pb.style.fontSize = 34; pb.style.paddingLeft = pb.style.paddingRight = 0; } tr.Add(pb);
+            var pb = Btn("II", () => TogglePause(), false); pb.style.marginLeft = 12; pb.style.paddingLeft = pb.style.paddingRight = 18; if (touchUi) { pb.style.width = pb.style.height = 92; pb.style.fontSize = 34; pb.style.paddingLeft = pb.style.paddingRight = 0; }
+            else if (PcArt("btn_pause_round") is Texture2D pt) { pb.text = ""; pb.style.width = pb.style.height = 84; pb.style.backgroundColor = Color.clear; Border(pb, Color.clear, 0); pb.style.backgroundImage = new StyleBackground(pt); pb.style.paddingLeft = pb.style.paddingRight = 0; }
+            tr.Add(pb);
             // joystick (left 45% of the screen)
             // Soulslike: drag on the right side of the screen turns the camera (buttons sit on top and still win)
             lookZone = Box(); Abs(lookZone, null, 0, 0, 0); lookZone.style.width = Length.Percent(55); lookZone.pickingMode = PickingMode.Position; hud.Add(lookZone);
@@ -480,7 +490,8 @@ namespace NovaBlade
                 btns.Add(b); sk[k] = b;
             }
             sk[0].Q<Label>("lb").style.display = DisplayStyle.None;   // the sword icon is enough for the big button
-            hint = L(WebPc ? "คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ" : "WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", 18, Muted); Abs(hint, 30, null, null, 14); hint.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; hud.Add(hint);
+            bool pcBarOn = !touchUi && PcArt("hud_bar_frame"); if (pcBarOn) { BuildPcBar(); btns.style.display = DisplayStyle.None; }
+            hint = L(WebPc ? "คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ" : "WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", 18, Muted); Abs(hint, 30, null, null, 14); hint.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; hud.Add(hint); if (pcBarOn) hint.style.display = DisplayStyle.None;
             banner = Box(); Abs(banner, 0, null, 0); banner.style.top = Length.Percent(17); banner.style.alignItems = Align.Center; hud.Add(banner);
             bannerA = L("", 72, Ink, true); bannerB = L("", 26, Muted); banner.Add(bannerA); banner.Add(bannerB); banner.style.opacity = 0;
         }
@@ -488,6 +499,60 @@ namespace NovaBlade
         static readonly Dictionary<string, Texture2D> iconCache = new();
         static Texture2D Icon(string file) { if (!iconCache.TryGetValue(file, out var t)) iconCache[file] = t = Resources.Load<Texture2D>("UI/Skills/" + file); return t; }
         void SetIcon(int k, string file) { var info = (SkBtn)sk[k].userData; info.tex = Icon(file); sk[k].style.backgroundImage = info.tex ? new StyleBackground(info.tex) : new StyleBackground(StyleKeyword.None); sk[k].MarkDirtyRepaint(); }
+        // ---------- PC action bar (art in Resources/UI/PC, positions from hud_layout.json: 1600x260 frame) ----------
+        static Texture2D PcArt(string n) => Resources.Load<Texture2D>("UI/PC/" + n);
+        VisualElement pcBar, pcHp, pcMp, pcXp; readonly VisualElement[] pcSlot = new VisualElement[6], pcIcon = new VisualElement[6], pcShade = new VisualElement[6], pcRim = new VisualElement[6]; readonly Label[] pcCd = new Label[6];
+        readonly float[] pcFlash = new float[6];
+        void BuildPcBar()
+        {
+            const float K = .62f;   // 1600 px art -> 992 panel units wide
+            VisualElement At(float x, float y, float w, float h, VisualElement parent) { var e = Box(); Abs(e, x * K, y * K); e.style.width = w * K; e.style.height = h * K; parent.Add(e); return e; }
+            void Img(VisualElement e, string n) { var t = PcArt(n); if (t) { e.style.backgroundImage = new StyleBackground(t); e.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; } }
+            pcBar = Box(); Abs(pcBar, null, null, null, 6); pcBar.style.width = 1600 * K; pcBar.style.height = 260 * K; pcBar.style.left = Length.Percent(50); pcBar.style.translate = new Translate(Length.Percent(-50), 0); hud.Add(pcBar);
+            // orbs: liquid clipped from the top as it drains, glass on top
+            foreach (var (cx, hpOrb) in new[] { (175f, true), (1425f, false) })
+            {
+                var orb = At(cx - 102, 136 - 102, 204, 204, pcBar); Round(orb, 102 * K); orb.style.overflow = Overflow.Hidden; orb.style.backgroundColor = new Color(.04f, .04f, .05f, .9f);
+                var clip = Box(); Abs(clip, 0, null, 0, 0); clip.style.height = Length.Percent(100); clip.style.overflow = Overflow.Hidden; orb.Add(clip);
+                var liq = Box(); Abs(liq, 0, null, 0, 0); liq.style.height = 204 * K; Img(liq, hpOrb ? "hud_orb_hp" : "hud_orb_mp"); clip.Add(liq);
+                var glass = Box(); Abs(glass, 0, 0, 0, 0); Img(glass, "hud_orb_glass"); orb.Add(glass);
+                if (hpOrb) pcHp = clip; else pcMp = clip;
+            }
+            var xp = At(300, 34, 1000, 40, pcBar); xp.style.overflow = Overflow.Hidden; pcXp = Box(); Abs(pcXp, 0, 0, null, 0); Img(pcXp, "hud_xp_bar"); pcXp.style.width = 1000 * K; xp.Add(pcXp);
+            var xpClip = xp; xpClip.style.width = 1000 * K;
+            string[] keys = WebPc ? new[] { "A", "Q", "W", "E", "R", "" } : new[] { "J", "U", "I", "O", "␣", "" };
+            for (int i = 0; i < 6; i++)
+            {
+                int k = i; float sx = 321 + i * 164; var slot = At(sx, 100, 138, 138, pcBar); slot.pickingMode = PickingMode.Position; pcSlot[i] = slot;
+                pcIcon[i] = Box(); Abs(pcIcon[i], 8 * K, 8 * K, 8 * K, 8 * K); pcIcon[i].style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop; slot.Add(pcIcon[i]);
+                pcShade[i] = Box(new Color(0, 0, 0, .62f)); Abs(pcShade[i], 8 * K, 8 * K, 8 * K, null); pcShade[i].style.height = 0; slot.Add(pcShade[i]);
+                pcRim[i] = Box(); Abs(pcRim[i], 0, 0, 0, 0); Img(pcRim[i], "hud_slot"); slot.Add(pcRim[i]);
+                pcCd[i] = L("", 40, Color.white, true); Abs(pcCd[i], 0, 0, 0, 0); pcCd[i].style.unityTextAlign = TextAnchor.MiddleCenter; Shadow(pcCd[i], 6, .9f); slot.Add(pcCd[i]);
+                if (keys[i] != "") { var kl = L(keys[i], 14, new Color(1, .9f, .62f), true); Abs(kl, null, null, null, 4); kl.style.left = 0; kl.style.right = 0; kl.style.unityTextAlign = TextAnchor.MiddleCenter; Shadow(kl, 3, .9f); slot.Add(kl); }
+                if (i < 5) { int b = new[] { 0, 1, 2, 3, 4 }[i]; slot.RegisterCallback<PointerDownEvent>(e => { pcFlash[k] = .25f; Press(b, true); e.StopPropagation(); }); slot.RegisterCallback<PointerUpEvent>(e => Press(b, false)); }
+            }
+            var frame = Box(); Abs(frame, 0, 0, 0, 0); Img(frame, "hud_bar_frame"); frame.pickingMode = PickingMode.Ignore; pcBar.Add(frame);
+            // the slots sit under the frame art; picking ignores the frame so clicks reach them
+        }
+        void UpdPcBar(Hero h)
+        {
+            if (pcBar == null) return;
+            pcHp.style.height = Length.Percent(Mathf.Clamp01(h.hp / h.max) * 100); pcMp.style.height = Length.Percent(Mathf.Clamp01(h.mp / h.mpMax) * 100);
+            int nw = G.Theme.waves.Length; float prog = G.lane ? 1 - G.TowersLeft(1) / 7f : Mathf.Clamp01((G.wave + (G.wave < nw ? 0 : 1)) / (float)(nw + 1));
+            pcXp.style.width = Length.Percent(prog * 100); pcXp.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
+            for (int i = 0; i < 6; i++)
+            {
+                Texture2D tex = i < 5 ? ((SkBtn)sk[i].userData).tex : G.pet && G.pet.def != null ? Studio.Pet(G.pet.def.id) : null;
+                if (tex != null && pcIcon[i].style.backgroundImage.value.texture != tex) pcIcon[i].style.backgroundImage = new StyleBackground(tex);
+                float cdK = 0, left = 0;
+                if (i >= 1 && i <= 3 && !G.soul && Data.Skill(((SkBtn)sk[i].userData).id) != null) { var info = (SkBtn)sk[i].userData; float cdMax = Data.Skill(info.id).cd; left = Mathf.Max(0, h.cds[i - 1]); cdK = left / cdMax; if (!G.soul && h.mp < Hero.SkillCost(cdMax)) cdK = Mathf.Max(cdK, .001f); }
+                else if (i == 4) { left = Mathf.Max(0, h.dodgeCD); cdK = left / 1.1f; }
+                pcShade[i].style.height = Length.Percent(cdK * 100); pcCd[i].text = left > .05f ? Mathf.CeilToInt(left).ToString() : "";
+                pcIcon[i].style.unityBackgroundImageTintColor = cdK > 0 && left <= .05f ? new Color(.55f, .6f, 1) : Color.white;   // not enough power: bluish
+                pcFlash[i] -= Time.unscaledDeltaTime; var sel = PcArt(pcFlash[i] > 0 || (i == 0 && h.state == Hero.St.Atk) ? "hud_slot_selected" : "hud_slot");
+                if (pcRim[i].style.backgroundImage.value.texture != sel) pcRim[i].style.backgroundImage = new StyleBackground(sel);
+            }
+        }
         void Press(int k, bool down)
         {
             if (G.soul)
@@ -722,7 +787,7 @@ namespace NovaBlade
                 sk[i + 1].Q<Label>("cd").text = v > 0 ? Mathf.CeilToInt(v).ToString() : "";
             }
             var dinfo = (SkBtn)sk[4].userData; float dn = Mathf.Max(0, h.dodgeCD) / 1.1f; if (Mathf.Abs(dn - dinfo.cd) > .002f) { dinfo.cd = dn; sk[4].MarkDirtyRepaint(); }
-            mini.MarkDirtyRepaint();
+            mini.MarkDirtyRepaint(); UpdPcBar(h);
             if (bannerT > 0) { bannerT -= dt; float k = 1 - bannerT / 2.4f; banner.style.opacity = k < .12f ? k / .12f : k > .78f ? (1 - k) / .22f : 1; banner.style.scale = new Scale(Vector3.one * (k < .12f ? 1.25f - k / .12f * .25f : 1)); }
             // damage numbers
             for (int i = numList.Count - 1; i >= 0; i--)
