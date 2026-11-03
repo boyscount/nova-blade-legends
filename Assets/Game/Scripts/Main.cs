@@ -350,10 +350,10 @@ namespace NovaBlade
                 // mouse wheel zooms the battle camera in and out (web / PC)
                 var ms = UnityEngine.InputSystem.Mouse.current;
                 if (ms != null && mode == Mode.Game && !ui.PointerOverUi) { float sc = ms.scroll.ReadValue().y; if (Mathf.Abs(sc) > .01f) gameZoom = Mathf.Clamp(gameZoom - Mathf.Sign(sc) * .1f, .6f, 1.8f); }
-                float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom;
+                float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom * (lane ? 1.35f : 1);   // lanes: higher and further back so whole towers fit
                 var focus = ui.Pan ?? hero.Pos; var want = focus + new Vector3(0, 8.6f * far, 7.4f * far);
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * 6));
-                camLook = new Vector3(camPos.x, .9f, camPos.z - 7.4f * far);
+                camLook = new Vector3(camPos.x, lane ? 1.6f : .9f, camPos.z - 7.4f * far);
             }
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, soul && mode != Mode.Lobby ? 55 : 40, 1 - Mathf.Exp(-dt * 6));
             shake = Mathf.Max(0, shake - dt);
