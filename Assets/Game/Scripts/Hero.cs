@@ -45,6 +45,10 @@ namespace NovaBlade
             {
                 model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform);
                 anim = model.GetComponentInChildren<Animator>();
+                // lobby: the idle animation bows the head, which warps the faces of the auto-rigged heroes,
+                // so the head and neck are held at their sculpted rotation (see LateUpdate)
+                lockBones = lobby && anim && !OldRig ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() is var n && (n == "head" || n.Contains("neck"))).ToArray() : null;
+                lockRot = lockBones?.Select(t => t.localRotation).ToArray();
                 socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 holder = model.transform; pivot = null;
             }
@@ -335,6 +339,13 @@ namespace NovaBlade
             transform.rotation = Quaternion.Euler(0, (face + spin) * Mathf.Rad2Deg, 0);
             bool blink = inv > 0 && state != St.Dodge && state != St.Skill && Mathf.FloorToInt(inv * 24) % 2 == 1;
             if (model.activeSelf == blink) model.SetActive(!blink);
+        }
+        bool OldRig => def.id == "warrior" || def.id == "samurai" || def.id == "harpy";   // hand-rigged heroes keep their idle animation in the lobby
+        Transform[] lockBones; Quaternion[] lockRot;
+        void LateUpdate()
+        {
+            if (lockBones == null || G.mode != Main.Mode.Lobby) return;
+            for (int i = 0; i < lockBones.Length; i++) if (lockBones[i]) lockBones[i].localRotation = lockRot[i];
         }
         void LobbyIdle() { if (!def.rig) { transform.position = new Vector3(transform.position.x, .35f + Mathf.Sin(Time.time * 3) * .08f, transform.position.z); pivot.localRotation = Quaternion.Euler(0, .35f * Mathf.Rad2Deg, 0); socket.localRotation = Quaternion.Euler(0, 0, 57); } }
 

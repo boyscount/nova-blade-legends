@@ -150,27 +150,48 @@ namespace NovaBlade
             void Update() { float t = Time.time * 7 + seed; l.intensity = baseI * (.85f + .15f * Mathf.PerlinNoise(t, seed)); }
         }
         // lobby showcase: two glowing trails orbit the hero in the class's element (fire, void, cosmos, nature...)
+        // lobby showcase: a slowly turning magic circle under the hero's feet and soft motes of light rising around them,
+        // both in the hero's class colour
         class Showcase : MonoBehaviour
         {
-            Transform a, b; string cur;
-            static string For(string cls) => cls switch { "assassin" => "vx_void", "mage" => "vx_cosmos", "archer" => "vx_nature", "cleric" => "vx_ice", "monk" => "vx_electric", _ => "vx_fire" };
+            Transform circle; ParticleSystem motes; string cur; Material cm;
+            static Texture2D ring;
+            static Texture2D Ring()
+            {   // two thin rings, rune ticks between them and a soft inner glow
+                if (ring) return ring; const int N = 256; ring = new Texture2D(N, N, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+                {
+                    float dx = (x - N / 2f + .5f) / (N / 2f), dy = (y - N / 2f + .5f) / (N / 2f), r = Mathf.Sqrt(dx * dx + dy * dy), ang = Mathf.Atan2(dy, dx);
+                    float a = Mathf.Exp(-Mathf.Pow((r - .95f) / .018f, 2)) + .8f * Mathf.Exp(-Mathf.Pow((r - .78f) / .012f, 2));
+                    float tick = Mathf.Abs(Mathf.Sin(ang * 18)) > .93f && r > .8f && r < .93f ? .9f : 0; a += tick;
+                    a += .55f * Mathf.Exp(-Mathf.Pow((r - .55f) / .01f, 2)) * (Mathf.Abs(Mathf.Sin(ang * 3)) > .5f ? 1 : .2f);
+                    a += .12f * Mathf.Clamp01(1 - r) * Mathf.Clamp01(1 - r);
+                    ring.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(a)));
+                }
+                ring.Apply(true); return ring;
+            }
+            static Color For(string cls) => cls switch { "assassin" => new Color(.75f, .45f, 1), "mage" => new Color(.35f, .7f, 1), "archer" => new Color(.55f, 1, .45f), "cleric" => new Color(1, .85f, .4f), "monk" => new Color(1, .45f, .3f), _ => new Color(1, .62f, .25f) };
+            void Start()
+            {
+                circle = GameObject.CreatePrimitive(PrimitiveType.Quad).transform; Destroy(circle.GetComponent<Collider>()); circle.SetParent(transform, false); circle.name = "ShowcaseCircle";
+                circle.localRotation = Quaternion.Euler(90, 0, 0); circle.localScale = Vector3.one * 2.6f;
+                cm = new Material(Catalog.I.glowMat) { mainTexture = Ring() }; cm.SetFloat("_SrcBlend", 1); cm.SetFloat("_DstBlend", 1); cm.SetFloat("_UseVC", 0); circle.GetComponent<Renderer>().sharedMaterial = cm;
+                var go = new GameObject("ShowcaseMotes"); go.transform.SetParent(transform, false); motes = go.AddComponent<ParticleSystem>(); motes.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                var m = motes.main; m.loop = true; m.startLifetime = new ParticleSystem.MinMaxCurve(1.8f, 3); m.startSpeed = new ParticleSystem.MinMaxCurve(.2f, .5f); m.startSize = new ParticleSystem.MinMaxCurve(.03f, .07f); m.maxParticles = 120; m.simulationSpace = ParticleSystemSimulationSpace.World; m.gravityModifier = -.05f;
+                var sh = motes.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = .85f; sh.rotation = new Vector3(-90, 0, 0);
+                var em = motes.emission; em.rateOverTime = 26; var vel = motes.velocityOverLifetime; vel.enabled = true; vel.y = new ParticleSystem.MinMaxCurve(.3f, .7f); vel.x = vel.z = new ParticleSystem.MinMaxCurve(0, 0);
+                var col = motes.colorOverLifetime; col.enabled = true; var g = new Gradient(); g.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(1, .2f), new GradientAlphaKey(0, 1) }); col.color = g;
+                var dot = new Material(Catalog.I.glowMat) { mainTexture = Ring() }; dot.SetFloat("_SrcBlend", 1); dot.SetFloat("_DstBlend", 1);
+                var tex = new Texture2D(16, 16); for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) { float d = Vector2.Distance(new Vector2(x, y), new Vector2(7.5f, 7.5f)) / 8; tex.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(1 - d) * Mathf.Clamp01(1 - d))); } tex.Apply(); dot.mainTexture = tex;
+                go.GetComponent<ParticleSystemRenderer>().sharedMaterial = dot; motes.Play();
+            }
             void Update()
             {
-                var h = Main.G ? Main.G.hero : null; if (!h || h.def == null) return;
-                string want = For(h.def.cls);
-                if (want != cur)
-                {
-                    cur = want; if (a) Destroy(a.gameObject); if (b) Destroy(b.gameObject); a = Orb(want); b = Orb(want);
-                }
-                float t = Time.time * 1.8f, r = .62f; var c = h.transform.position;
-                a.position = c + new Vector3(Mathf.Cos(t) * r, 1.05f + Mathf.Sin(t * .5f) * .55f, Mathf.Sin(t) * r);
-                b.position = c + new Vector3(Mathf.Cos(t + Mathf.PI) * r, 1.05f - Mathf.Sin(t * .5f) * .55f, Mathf.Sin(t + Mathf.PI) * r);
-            }
-            Transform Orb(string fx)
-            {
-                var o = new GameObject("ShowcaseTrail").transform; o.SetParent(transform, false);
-                var pf = Catalog.I.Fx(fx); if (pf) { var g = Instantiate(pf, o); g.transform.localPosition = Vector3.zero; g.transform.localScale = Vector3.one * .3f; foreach (var ps in g.GetComponentsInChildren<ParticleSystem>(true)) { var mm = ps.main; mm.scalingMode = ParticleSystemScalingMode.Hierarchy; } foreach (var tr in g.GetComponentsInChildren<TrailRenderer>(true)) { tr.widthMultiplier *= .3f; tr.time *= .6f; } foreach (var au in g.GetComponentsInChildren<AudioSource>(true)) au.enabled = false; }
-                return o;
+                var h = Main.G ? Main.G.hero : null; if (!h || h.def == null || !circle) return;
+                if (h.def.cls != cur) { cur = h.def.cls; var c = For(cur); cm.SetColor("_Color", c * 1.6f); var m = motes.main; m.startColor = new ParticleSystem.MinMaxGradient(c * 2.4f, Color.Lerp(c, Color.white, .5f) * 2.4f); }
+                var p = h.transform.position; circle.position = p + Vector3.up * .04f; circle.rotation = Quaternion.Euler(90, Time.time * 14, 0);
+                motes.transform.position = p + Vector3.up * .05f;
+                float pulse = .85f + .15f * Mathf.Sin(Time.time * 2.2f); circle.localScale = Vector3.one * 2.6f * (.97f + .03f * pulse);
             }
         }
         class Face : MonoBehaviour { void LateUpdate() { var c = Camera.main; if (c) transform.rotation = c.transform.rotation; } }

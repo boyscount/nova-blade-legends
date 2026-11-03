@@ -101,8 +101,8 @@ namespace NovaBlade
             for (int i = 0; i < 75; i++) { ui.heroYaw = Mathf.Sin(i / 75f * Mathf.PI) * 70; ui.lobbyZoom = Mathf.Clamp01(i / 75f) * .55f; yield return null; }   // lobby: turn and zoom on the hero
             ui.lobbyZoom = 0; ui.heroYaw = 0; ui.TestFilter("mage"); for (int i = 0; i < 30; i++) yield return null; ui.TestFilter("all");
             foreach (var (st, h) in new[] { (3, "spartan"), (4, "elf"), (1, "ninja") }) { save.hero = h; save.best = 5; StartGame(st); yield return ClipFight(st == 1 ? 6 : 7.5f); }
-            save.hero = "darkmage"; StartLane(3, 3); yield return ClipFight(6);
-            save.hero = "warrior"; StartSoul(); yield return ClipFight(5);
+
+            save.hero = "warrior"; StartSoul(); yield return ClipFight(7);
             clipOn = false; yield return null; Time.captureFramerate = 0; Application.Quit();
         }
         System.Collections.IEnumerator InputTest()

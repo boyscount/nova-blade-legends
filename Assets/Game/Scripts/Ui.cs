@@ -268,7 +268,7 @@ namespace NovaBlade
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
             gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); bottom.Add(cur);
-            var play = Btn(Loc.S("เข้าสู่สนามรบ ▶", "ENTER BATTLE ▶"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
+            var play = Btn(Loc.S("สู้เลย", "BATTLE"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
             if (Resources.Load<Texture2D>("UI/Lobby/btn_play_frame_new") is Texture2D pf)
             {   // painted frame at its own proportions (1200 x 360): the diamonds top and bottom must not stretch
                 float pw = touchUi ? 600 : 470; play.style.flexGrow = 0; play.style.width = pw; play.style.height = pw * .3f; play.style.marginLeft = Length.Auto(); play.style.marginRight = Length.Auto();
@@ -511,6 +511,7 @@ namespace NovaBlade
                 var lb = L("", touchUi ? 25 : 18, Ink, true); lb.style.unityTextAlign = TextAnchor.MiddleCenter;
                 lb.style.backgroundColor = new Color(.05f, .08f, .1f, .82f); lb.style.paddingLeft = lb.style.paddingRight = 10; lb.style.paddingTop = 1; lb.style.paddingBottom = 3;
                 lb.style.borderTopLeftRadius = lb.style.borderTopRightRadius = lb.style.borderBottomLeftRadius = lb.style.borderBottomRightRadius = 12; lb.name = "lb"; lbRow.Add(lb);
+                b.Add(Layer(Gloss(true), sz * .06f));
                 var cd = L("", sz * .3f, Color.white, true); Abs(cd, 0, 0, 0, 0); cd.style.unityTextAlign = TextAnchor.MiddleCenter; cd.style.unityTextOutlineWidth = .2f; cd.style.unityTextOutlineColor = new Color(0, 0, 0, .8f); cd.name = "cd"; b.Add(cd);
                 var key = L((WebPc ? new[] { "A", "Q", "W", "E", "R" } : new[] { "J", "U", "I", "O", "␣" })[k], WebPc ? 19 : 15, WebPc ? Gold : Muted, WebPc); Abs(key, null, -6, -4); key.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; b.Add(key);
                 b.RegisterCallback<PointerDownEvent>(e => { b.CapturePointer(e.pointerId); b.style.scale = new Scale(Vector3.one * .9f); ((SkBtn)b.userData).down = true; b.MarkDirtyRepaint(); Press(k, true); });
@@ -531,7 +532,31 @@ namespace NovaBlade
         // ---------- PC action bar (art in Resources/UI/PC, positions from hud_layout.json: 1600x260 frame) ----------
         static Texture2D PcArt(string n) => Resources.Load<Texture2D>("UI/PC/" + n);
         VisualElement pcBar, pcHp, pcMp, pcXp; readonly VisualElement[] pcSlot = new VisualElement[6], pcIcon = new VisualElement[6], pcShade = new VisualElement[6], pcRim = new VisualElement[6]; readonly Label[] pcCd = new Label[6];
-        readonly float[] pcFlash = new float[6];
+        readonly float[] pcFlash = new float[6]; readonly VisualElement[] pcGlow = new VisualElement[6];
+        // depth for skill buttons: a glassy highlight across the top, a darker rim, and a soft halo behind a ready skill
+        static readonly Dictionary<bool, Texture2D> glossTex = new(); static Texture2D haloTex;
+        static float Ss(float a, float b, float x) { x = Mathf.Clamp01((x - a) / (b - a)); return x * x * (3 - 2 * x); }   // shader-style smoothstep
+        static Texture2D Gloss(bool round)
+        {
+            if (glossTex.TryGetValue(round, out var t)) return t; const int N = 128; t = new Texture2D(N, N, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+            {
+                float u = (x + .5f) / N * 2 - 1, v = (y + .5f) / N * 2 - 1;   // v = 1 at the top
+                float edge = round ? Mathf.Sqrt(u * u + v * v) : Mathf.Max(Mathf.Abs(u), Mathf.Abs(v));
+                if (round && edge > 1) { t.SetPixel(x, y, Color.clear); continue; }
+                float rim = Ss(.55f, 1, edge) * .6f + Mathf.Clamp01(-v) * .25f;   // darker toward the rim and the bottom
+                float hl = Ss(.05f, 1, v) * (1 - Ss(.5f, 1, Mathf.Abs(u))) * .3f;   // soft light from above, fading toward the middle
+                float a = Mathf.Clamp01(rim + hl), w = a > 0 ? hl / (rim + hl) : 0; t.SetPixel(x, y, new Color(w, w, w, a));
+            }
+            t.Apply(); glossTex[round] = t; return t;
+        }
+        static Texture2D Halo()
+        {
+            if (haloTex) return haloTex; const int N = 128; haloTex = new Texture2D(N, N, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < N; y++) for (int x = 0; x < N; x++) { float e = Mathf.Max(Mathf.Abs((x + .5f) / N * 2 - 1), Mathf.Abs((y + .5f) / N * 2 - 1)); float a = Ss(.72f, 1, e); haloTex.SetPixel(x, y, new Color(1, 1, 1, a * a)); }
+            haloTex.Apply(); return haloTex;
+        }
+        static VisualElement Layer(Texture2D t, float inset) { var e = new VisualElement(); e.pickingMode = PickingMode.Ignore; e.style.position = Position.Absolute; e.style.left = e.style.top = e.style.right = e.style.bottom = inset; e.style.backgroundImage = new StyleBackground(t); e.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; return e; }
         void BuildPcBar()
         {
             const float K = .62f;   // 1600 px art -> 992 panel units wide
@@ -552,8 +577,9 @@ namespace NovaBlade
             string[] keys = WebPc ? new[] { "A", "Q", "W", "E", "R", "" } : new[] { "J", "U", "I", "O", "␣", "" };
             for (int i = 0; i < 6; i++)
             {
-                int k = i; float sx = 321 + i * 164; var slot = At(sx, 100, 138, 138, pcBar); slot.pickingMode = PickingMode.Position; pcSlot[i] = slot;
+                int k = i; float sx = 321 + i * 164;                 var slot = At(sx, 100, 138, 138, pcBar); slot.pickingMode = PickingMode.Position; pcSlot[i] = slot;
                 pcIcon[i] = Box(); Abs(pcIcon[i], 8 * K, 8 * K, 8 * K, 8 * K); pcIcon[i].style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop; slot.Add(pcIcon[i]);
+                slot.Add(Layer(Gloss(false), 8 * K)); pcGlow[i] = Layer(Halo(), 8 * K); pcGlow[i].style.unityBackgroundImageTintColor = new Color(1, .85f, .5f); pcGlow[i].style.opacity = 0; slot.Add(pcGlow[i]);
                 pcShade[i] = Box(new Color(0, 0, 0, .62f)); Abs(pcShade[i], 8 * K, 8 * K, 8 * K, null); pcShade[i].style.height = 0; slot.Add(pcShade[i]);
                 pcRim[i] = Box(); Abs(pcRim[i], 0, 0, 0, 0); Img(pcRim[i], "hud_slot"); slot.Add(pcRim[i]);
                 pcCd[i] = L("", 40, Color.white, true); Abs(pcCd[i], 0, 0, 0, 0); pcCd[i].style.unityTextAlign = TextAnchor.MiddleCenter; Shadow(pcCd[i], 6, .9f); slot.Add(pcCd[i]);
@@ -578,6 +604,7 @@ namespace NovaBlade
                 else if (i == 4) { left = Mathf.Max(0, h.dodgeCD); cdK = left / 1.1f; }
                 pcShade[i].style.height = Length.Percent(cdK * 100); pcCd[i].text = left > .05f ? Mathf.CeilToInt(left).ToString() : "";
                 pcIcon[i].style.unityBackgroundImageTintColor = cdK > 0 && left <= .05f ? new Color(.55f, .6f, 1) : Color.white;   // not enough power: bluish
+                float ready = i < 5 && cdK <= 0 ? .45f + .25f * Mathf.Sin(Time.unscaledTime * 2.4f + i) : 0; pcGlow[i].style.opacity = Mathf.Max(ready, pcFlash[i] > 0 ? 1 : 0);
                 pcFlash[i] -= Time.unscaledDeltaTime; var sel = PcArt(pcFlash[i] > 0 || (i == 0 && h.state == Hero.St.Atk) ? "hud_slot_selected" : "hud_slot");
                 if (pcRim[i].style.backgroundImage.value.texture != sel) pcRim[i].style.backgroundImage = new StyleBackground(sel);
             }
