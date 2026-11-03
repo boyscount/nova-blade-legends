@@ -93,6 +93,7 @@ namespace NovaBlade
         // ---------- lobby ----------
         // lobby view: drag to turn the hero (or the pet on the pet tab), wheel / pinch / +- to zoom
         public void SetTab(string id) { tab = id; RenderCards(); }
+        public void TestFilter(string cls) { if (cls != "all") cardScroll.scrollOffset = new Vector2(0, 400); clsFilter = cls; RenderCards(); }   // autopilot: scrolled list, then filter
         VisualElement classRow; string clsFilter = "all";
         public float heroYaw, petYaw, lobbyZoom; float yawVel; public bool FocusPet => tab == "pet";
         static readonly Color GoldHi = new(1, .94f, .62f), GoldLo = new(.82f, .46f, .1f);   // stat bars and icons: one gold, shaded light to deep
@@ -232,7 +233,7 @@ namespace NovaBlade
                 b.schedule.Execute(() => { if (clsFilter == kk.id && tab == "hero") ic.MarkDirtyRepaint(); }).Every(50);   // selected icon glow breathes
                 classRow.Add(b);
             }
-            var sv = new ScrollView(ScrollViewMode.Vertical); sv.style.flexGrow = 1; sv.style.marginTop = 12; panel.Add(sv);
+            var sv = new ScrollView(ScrollViewMode.Vertical); sv.style.flexGrow = 1; sv.style.marginTop = 12; panel.Add(sv); cardScroll = sv;
             sv.horizontalScrollerVisibility = ScrollerVisibility.Hidden; sv.touchScrollBehavior = ScrollView.TouchScrollBehavior.Elastic;
             var vs = sv.verticalScroller; vs.style.width = 14; vs.style.marginLeft = 6; vs.style.borderLeftWidth = 0; vs.style.backgroundColor = Color.clear;
             vs.lowButton.style.display = vs.highButton.style.display = DisplayStyle.None;
@@ -277,9 +278,13 @@ namespace NovaBlade
             for (int i = 0; i < 4; i++) stats[i].style.width = Length.Percent(h.stats[i] * 100);
             goldL.text = G.save.gold.ToString("N0"); gemsL.text = G.save.gems.ToString("N0") + " (ทดสอบ)";
         }
+        ScrollView cardScroll; string cardsKey;
         void RenderCards()
         {
             cards.Clear();
+            // a different tab or class filter starts at the top (the old offset could leave a shorter list scrolled out of view)
+            string key = tab + "/" + clsFilter;
+            if (key != cardsKey) { cardsKey = key; cardScroll.scrollOffset = Vector2.zero; cardScroll.schedule.Execute(() => cardScroll.scrollOffset = Vector2.zero); }
             foreach (var b in lobby.Query<Button>().Where(b => b.name != null && b.name.StartsWith("tab_")).ToList())
             { bool on = b.name == "tab_" + tab; b.style.backgroundColor = on ? new Color(1, .7f, .25f, .22f) : Color.clear; Border(b, on ? Gold : Color.clear, 2); b.style.color = on ? new Color(1, .88f, .6f) : Ink; }
             var s = G.save; var h = G.hero.def;
@@ -739,6 +744,7 @@ namespace NovaBlade
         void TogglePause() { if (G.mode != Main.Mode.Game) return; G.paused = !G.paused; UnityEngine.Cursor.lockState = G.soul && !G.paused && !Application.isMobilePlatform ? UnityEngine.CursorLockMode.Locked : UnityEngine.CursorLockMode.None; Time.timeScale = G.paused ? 0 : 1; pauseOv.style.display = G.paused ? DisplayStyle.Flex : DisplayStyle.None; }
         void OnApplicationPause(bool p) { if (p && G && G.mode == Main.Mode.Game && !G.paused) TogglePause(); }
 
+        public string PickName() { var pt = Pointer.current; if (pt == null || root?.panel == null) return "-"; var sp = pt.position.ReadValue(); sp.y = Screen.height - sp.y; var e = root.panel.Pick(RuntimePanelUtils.ScreenToPanel(root.panel, sp)); return e == null ? "none" : $"{e.GetType().Name}:{e.name}:{e.parent?.name}"; }
         public bool PointerOverUi
         {
             get { var pt = Pointer.current; if (pt == null || root?.panel == null) return false; var sp = pt.position.ReadValue(); sp.y = Screen.height - sp.y; var pp = RuntimePanelUtils.ScreenToPanel(root.panel, sp); var e = root.panel.Pick(pp); return e != null; }

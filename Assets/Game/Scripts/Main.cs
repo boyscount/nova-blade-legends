@@ -68,6 +68,27 @@ namespace NovaBlade
         }
 
         // Test mode (-novashot <dir>): screenshots of the lobby and each stage while the hero fights on autopilot, then quit.
+        // -inputtest: drives the real Input System (arrow keys, right-click) in a stage and logs whether the hero responds
+        System.Collections.IEnumerator InputTest()
+        {
+            save.hero = "warrior"; StartGame(1); yield return new WaitForSecondsRealtime(2);
+            var kb = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Keyboard>(); var ms = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Mouse>();
+            Debug.Log($"[InputTest] webPc={ui.WebPc} kb.current={UnityEngine.InputSystem.Keyboard.current == kb} mode={mode} paused={paused} ts={Time.timeScale} state={hero.state}");
+            var p0 = hero.Pos;
+            for (int i = 0; i < 40; i++) { UnityEngine.InputSystem.InputSystem.QueueStateEvent(kb, new UnityEngine.InputSystem.LowLevel.KeyboardState(UnityEngine.InputSystem.Key.RightArrow)); yield return null; }
+            UnityEngine.InputSystem.InputSystem.QueueStateEvent(kb, new UnityEngine.InputSystem.LowLevel.KeyboardState()); yield return null;
+            Debug.Log($"[InputTest] arrows moved {(hero.Pos - p0).magnitude:0.00} m");
+            var target = hero.Pos + new Vector3(-4, 0, 0); var sp = (Vector2)cam.WorldToScreenPoint(target); p0 = hero.Pos;
+            var st = new UnityEngine.InputSystem.LowLevel.MouseState { position = sp }; UnityEngine.InputSystem.InputSystem.QueueStateEvent(ms, st); yield return null;
+            Debug.Log($"[InputTest] pointer over ui={ui.PointerOverUi} pick={ui.PickName()} at {sp}");
+            st = st.WithButton(UnityEngine.InputSystem.LowLevel.MouseButton.Right, true); for (int i = 0; i < 6; i++) { UnityEngine.InputSystem.InputSystem.QueueStateEvent(ms, st); yield return null; }
+            st = st.WithButton(UnityEngine.InputSystem.LowLevel.MouseButton.Right, false); UnityEngine.InputSystem.InputSystem.QueueStateEvent(ms, st);
+            yield return new WaitForSecondsRealtime(1.2f);
+            Debug.Log($"[InputTest] right-click moved {(hero.Pos - p0).magnitude:0.00} m");
+            UnityEngine.InputSystem.InputSystem.QueueStateEvent(kb, new UnityEngine.InputSystem.LowLevel.KeyboardState(UnityEngine.InputSystem.Key.Q)); yield return null; yield return null;
+            UnityEngine.InputSystem.InputSystem.QueueStateEvent(kb, new UnityEngine.InputSystem.LowLevel.KeyboardState()); yield return new WaitForSecondsRealtime(.3f);
+            Debug.Log($"[InputTest] Q skill cooldown {hero.cds[0]:0.0} state={hero.state}");
+        }
         System.Collections.IEnumerator AutoShot(string dir)
         {
             System.IO.Directory.CreateDirectory(dir);
@@ -76,12 +97,14 @@ namespace NovaBlade
             ui.lobbyZoom = .85f; ui.heroYaw = 35; yield return new WaitForSecondsRealtime(1.5f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_zoom.png")); yield return new WaitForSecondsRealtime(.5f);
             ui.SetTab("pet"); ui.lobbyZoom = .5f; ui.petYaw = -40; yield return new WaitForSecondsRealtime(1.5f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_pet.png")); yield return new WaitForSecondsRealtime(.5f);
             ui.SetTab("hero"); ui.lobbyZoom = 0; ui.heroYaw = ui.petYaw = 0;
+            ui.TestFilter("mage"); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_filter.png")); yield return new WaitForSecondsRealtime(.5f); ui.TestFilter("all");
             {   // design rule: cosmetics never change combat stats
                 save.sword = Data.Swords[0].id; hero.Equip(); float pow = hero.AtkPow, len = hero.sword.len, spd = hero.sword.spd;
                 pvWeaponSkin = "w_gold2"; pvSkin = 3; hero.Equip(); bool ok = Mathf.Approximately(pow, hero.AtkPow) && hero.sword.len == len && hero.sword.spd == spd && hero.ModelId == "w_gold2";
                 ClearPreview(); hero.Equip(); Debug.Log("[Check] skins keep combat stats: " + (ok ? "OK" : "FAILED"));
             }
             string[] heroes = { "spartan", "ninja", "darkmage", "sorceress", "elf", "monk" };   // stages 5–6 are the newest
+            if (System.Environment.GetCommandLineArgs().Contains("-inputtest")) { yield return InputTest(); Application.Quit(); yield break; }
             foreach (int st in new[] { 4, 3 })
             {
                 save.hero = heroes[st % heroes.Length]; save.best = 5; StartGame(st);
