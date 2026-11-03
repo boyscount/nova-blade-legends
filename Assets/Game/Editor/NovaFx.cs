@@ -63,6 +63,31 @@ public static class NovaFx
         Debug.Log("[NovaFx] props sheets written");
     }
 
+    // Polytope low-poly nature: its custom wind shaders render pink in the web build. Switch every material to URP Lit,
+    // keeping the first texture it uses and its tint; foliage / flowers / grass get alpha clipping and both faces.
+    public static void ConvertPolytope()
+    {
+        var lit = Shader.Find("Universal Render Pipeline/Lit"); int n = 0;
+        foreach (var path in AssetDatabase.FindAssets("t:Material", new[] { "Assets/Polytope Studio" }).Select(AssetDatabase.GUIDToAssetPath))
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m || m.shader == lit || path.Contains("Skybox")) continue;
+            var so = new SerializedObject(m); var envs = so.FindProperty("m_SavedProperties.m_TexEnvs"); Texture tex = null;
+            foreach (var name in new[] { "_BaseTexture", "_BaseMap", "_MainTex", "_Albedo", "_Texture", "_Leaves", "_TrunkTexture" })
+                for (int i = 0; i < envs.arraySize && !tex; i++) { var e = envs.GetArrayElementAtIndex(i); if (e.FindPropertyRelative("first").stringValue == name) tex = e.FindPropertyRelative("second.m_Texture").objectReferenceValue as Texture; }
+            for (int i = 0; i < envs.arraySize && !tex; i++) tex = envs.GetArrayElementAtIndex(i).FindPropertyRelative("second.m_Texture").objectReferenceValue as Texture;
+            var cols = so.FindProperty("m_SavedProperties.m_Colors"); Color tint = Color.white;
+            for (int i = 0; i < cols.arraySize; i++) { var e = cols.GetArrayElementAtIndex(i); var nm = e.FindPropertyRelative("first").stringValue; if (nm == "_BaseColor" || nm == "_Color") { tint = e.FindPropertyRelative("second").colorValue; break; } }
+            bool cut = m.IsKeywordEnabled("_ALPHAPREMULTIPLY_ON") || path.Contains("Foliage") || path.Contains("Leaf") || path.Contains("Leaves") || path.Contains("Grass") || path.Contains("Poppy") || path.Contains("Plants") || path.Contains("Pine");
+            bool water = path.Contains("Water");
+            m.shader = lit; m.shaderKeywords = new string[0];
+            m.SetTexture("_BaseMap", tex); m.SetColor("_BaseColor", water ? new Color(.25f, .55f, .6f, .75f) : new Color(tint.r, tint.g, tint.b, 1)); m.SetFloat("_Smoothness", water ? .8f : .15f); m.SetFloat("_Metallic", 0);
+            if (cut) { m.SetFloat("_AlphaClip", 1); m.SetFloat("_Cutoff", .5f); m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cull", 0); m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest; }
+            else { m.SetFloat("_AlphaClip", 0); m.SetFloat("_Cull", 2); m.renderQueue = -1; }
+            n++; EditorUtility.SetDirty(m);
+        }
+        AssetDatabase.SaveAssets(); Debug.Log($"[NovaFx] converted {n} Polytope materials to URP Lit");
+    }
+
     // HDRP Lit materials (Chinese Modular House) -> URP Lit. The HDRP shader is not in this project, so the values are read
     // from the material's saved properties. HDRP's mask map (R metallic, G occlusion, A smoothness) lines up with URP's
     // metallic-gloss map (R metallic, A smoothness) and occlusion map (G), so it is used for both.

@@ -21,7 +21,7 @@ namespace NovaBlade
         readonly Queue<string> queue = new(); float queueT;
         public Foe boss;
         public Hero hero; public Pet pet;
-        public Camera cam; Vector3 camPos, camLook;
+        public Camera cam; Vector3 camPos, camLook; float gameZoom = 1;   // battle camera distance, mouse wheel
         public Ui ui;
         public Transform[] stageRoots;
         public ThemeDef Theme => Data.Themes[Data.ThemeOf(stage)];
@@ -347,7 +347,10 @@ namespace NovaBlade
                 hero.soul.CameraUpdate(cam, dt, ref camPos, ref camLook);
             else if (hero)
             {
-                float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1);
+                // mouse wheel zooms the battle camera in and out (web / PC)
+                var ms = UnityEngine.InputSystem.Mouse.current;
+                if (ms != null && mode == Mode.Game && !ui.PointerOverUi) { float sc = ms.scroll.ReadValue().y; if (Mathf.Abs(sc) > .01f) gameZoom = Mathf.Clamp(gameZoom - Mathf.Sign(sc) * .1f, .6f, 1.8f); }
+                float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom;
                 var focus = ui.Pan ?? hero.Pos; var want = focus + new Vector3(0, 8.6f * far, 7.4f * far);
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * 6));
                 camLook = new Vector3(camPos.x, .9f, camPos.z - 7.4f * far);

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,7 +8,7 @@ namespace NovaBlade
     // stages: an overhead view of each arena).
     public static class Studio
     {
-        const int Layer = 31, Size = 256;
+        const int Layer = 31, Size = 256, HeroSize = 512;
         static readonly Dictionary<string, Texture2D> tex = new();
         static Camera cam; static RenderTexture rt; static Light key, rim;
         static readonly Vector3 Spot = new(0, -300, 0);
@@ -23,16 +24,16 @@ namespace NovaBlade
             cam.cullingMask = 1 << Layer; cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.farClipPlane = 50;
             rt = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32); cam.targetTexture = rt;
             // studio light of its own: bright warm key, soft front fill, cool rim, and a neutral ambient (the scene's own ambient is dark at start-up)
-            key = new GameObject("StudioKey").AddComponent<Light>(); key.type = LightType.Directional; key.intensity = 1.7f; key.color = new Color(1, .95f, .88f); key.cullingMask = 1 << Layer; key.transform.rotation = Quaternion.Euler(28, 205, 0);
-            rim = new GameObject("StudioRim").AddComponent<Light>(); rim.type = LightType.Directional; rim.intensity = 1.5f; rim.color = new Color(.6f, .8f, 1); rim.cullingMask = 1 << Layer; rim.transform.rotation = Quaternion.Euler(20, 20, 0);
-            var fill = new GameObject("StudioFill").AddComponent<Light>(); fill.type = LightType.Directional; fill.intensity = .55f; fill.color = new Color(1, .9f, .8f); fill.cullingMask = 1 << Layer; fill.transform.rotation = Quaternion.Euler(-5, 160, 0);
+            key = new GameObject("StudioKey").AddComponent<Light>(); key.type = LightType.Directional; key.intensity = 1.35f; key.color = new Color(1, .95f, .88f); key.cullingMask = 1 << Layer; key.transform.rotation = Quaternion.Euler(28, 205, 0);
+            rim = new GameObject("StudioRim").AddComponent<Light>(); rim.type = LightType.Directional; rim.intensity = 2.2f; rim.color = new Color(.6f, .8f, 1); rim.cullingMask = 1 << Layer; rim.transform.rotation = Quaternion.Euler(20, 20, 0);
+            var fill = new GameObject("StudioFill").AddComponent<Light>(); fill.type = LightType.Directional; fill.intensity = .45f; fill.color = new Color(1, .9f, .8f); fill.cullingMask = 1 << Layer; fill.transform.rotation = Quaternion.Euler(-5, 160, 0);
             var amb = (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe);
             var sh = new UnityEngine.Rendering.SphericalHarmonicsL2(); sh.AddAmbientLight(new Color(.32f, .32f, .36f)); sh.AddDirectionalLight(Vector3.up, new Color(.2f, .2f, .24f), 1);
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(.34f, .34f, .38f); RenderSettings.ambientProbe = sh;
             foreach (var h in Data.Heroes)
             {
                 var pf = h.rig ? Resources.Load<GameObject>("Heroes/Hero_" + h.id) : Catalog.I.Model(h.id);
-                tex["hero_" + h.id] = Shoot(pf, h.rig ? .78f : .5f, h.rig ? .3f : 1.1f, .35f, true);
+                tex["hero_" + h.id] = h.rig ? Portrait(pf) : Shoot(pf, .5f, 1.1f, .35f, true);
             }
             foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
             foreach (var w in Data.Swords) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
@@ -56,6 +57,22 @@ namespace NovaBlade
             float dist = hgt * frame * .5f / Mathf.Tan(cam.fieldOfView * .5f * Mathf.Deg2Rad);
             cam.transform.position = focus + new Vector3(0, hgt * frame * .08f, dist); cam.transform.LookAt(focus);
             var t2 = Grab(); Object.DestroyImmediate(inst); return t2;
+        }
+        // hero card: the model's own standing pose (no animation frame, so the head is up), head and shoulders, seen from
+        // slightly below at a three-quarter angle, rendered at 512 px
+        static Texture2D Portrait(GameObject pf)
+        {
+            var inst = Object.Instantiate(pf, Spot, Quaternion.Euler(0, .4f * Mathf.Rad2Deg, 0));
+            foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
+            var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false;
+            var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            var head = inst.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "head");
+            float hgt = b.size.y; var focus = head ? head.position + Vector3.down * hgt * .04f : new Vector3(b.center.x, b.min.y + hgt * .82f, b.center.z);
+            float frame = hgt * .42f, dist = frame * .5f / Mathf.Tan(cam.fieldOfView * .5f * Mathf.Deg2Rad);
+            cam.transform.position = focus + new Vector3(0, -hgt * .03f, dist); cam.transform.LookAt(focus + Vector3.down * hgt * .05f);
+            var big = new RenderTexture(HeroSize, HeroSize, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 }; var prev = cam.targetTexture; cam.targetTexture = big; cam.Render();
+            var pa = RenderTexture.active; RenderTexture.active = big; var t2 = new Texture2D(HeroSize, HeroSize, TextureFormat.RGBA32, true); t2.ReadPixels(new Rect(0, 0, HeroSize, HeroSize), 0, 0); t2.Apply(true);
+            RenderTexture.active = pa; cam.targetTexture = prev; big.Release(); Object.DestroyImmediate(inst); return t2;
         }
         static Texture2D StageShot(int i)
         {

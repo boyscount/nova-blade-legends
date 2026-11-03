@@ -206,9 +206,9 @@ namespace NovaBlade
             {
                 if (ti++ > 0) { var sep = Box(new Color(1, .84f, .55f, .22f)); sep.style.width = 1; sep.style.marginTop = sep.style.marginBottom = 10; tabs.Add(sep); }
                 var b = new Button(() => { if ((tab == "pet") != (id == "pet")) lobbyZoom = 0; tab = id; RenderCards(); }) { text = label, name = "tab_" + id };
-                b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced; b.style.fontSize = 21; b.style.flexGrow = 1; b.style.color = Ink;
+                b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced; b.style.fontSize = touchUi ? 27 : 21; b.style.flexGrow = 1; b.style.color = Ink;
                 b.style.backgroundColor = Color.clear; Border(b, Color.clear, 2); Round(b, 9); b.style.marginLeft = b.style.marginRight = 2;
-                b.style.paddingTop = b.style.paddingBottom = 9; tabs.Add(b);
+                b.style.paddingTop = b.style.paddingBottom = touchUi ? 16 : 9; tabs.Add(b);
             }
             classRow = Box(); classRow.style.flexDirection = FlexDirection.Row; classRow.style.marginTop = 12; classRow.style.flexShrink = 0; classRow.style.justifyContent = Justify.SpaceBetween; panel.Add(classRow);
             foreach (var k in Data.Classes)
@@ -242,23 +242,23 @@ namespace NovaBlade
             var drg = vs.slider.Q("unity-dragger"); drg.style.backgroundColor = new Color(1, .74f, .3f, .85f); Border(drg, new Color(1, .9f, .6f, .9f)); Round(drg, 7); drg.style.left = 1; drg.style.right = 1;
             drg.style.backgroundImage = new StyleBackground(Grad(new Color(1, .86f, .5f), new Color(.85f, .52f, .15f), false));
             cards = sv.contentContainer; cards.style.flexDirection = FlexDirection.Row; cards.style.flexWrap = Wrap.Wrap;
-            detail = L("", 21, new Color(.86f, .88f, .86f)); detail.style.whiteSpace = WhiteSpace.Normal; detail.style.minHeight = 60; detail.style.marginTop = 8; panel.Add(detail);
+            detail = L("", 21, new Color(.86f, .88f, .86f)); detail.style.whiteSpace = WhiteSpace.Normal; detail.style.minHeight = touchUi ? 40 : 60; detail.style.flexShrink = 0; detail.style.marginTop = 8; panel.Add(detail);
             buyBtn = Btn("", () => AskBuy()); buyBtn.style.fontSize = 22; buyBtn.style.paddingTop = buyBtn.style.paddingBottom = 8; buyBtn.style.marginTop = 4; buyBtn.style.display = DisplayStyle.None; panel.Add(buyBtn);
-            VisualElement Pill(string text) { var p = Box(new Color(1, .78f, .35f, .16f), 20); Border(p, new Color(1, .8f, .45f, .7f), 2); p.style.paddingLeft = p.style.paddingRight = 14; p.style.paddingTop = p.style.paddingBottom = 6; p.style.marginRight = 10; p.Add(L(text, 21, Gold, true)); return p; }
-            Button Sec(string text, System.Action act) { var b = Btn(text, act, false); b.style.fontSize = 22; b.style.paddingTop = b.style.paddingBottom = 9; Round(b, 22); return b; }
-            var soulRow = Box(); soulRow.style.flexDirection = FlexDirection.Row; soulRow.style.alignItems = Align.Center; soulRow.style.marginTop = 10; panel.Add(soulRow);
+            VisualElement Pill(string text) { var p = Box(new Color(1, .78f, .35f, .16f), 20); Border(p, new Color(1, .8f, .45f, .7f), 2); p.style.paddingLeft = p.style.paddingRight = 14; p.style.paddingTop = p.style.paddingBottom = touchUi ? 12 : 6; p.style.marginRight = 10; p.Add(L(text, touchUi ? 26 : 21, Gold, true)); return p; }
+            Button Sec(string text, System.Action act) { var b = Btn(text, act, false); b.style.fontSize = touchUi ? 30 : 22; b.style.paddingTop = b.style.paddingBottom = touchUi ? 18 : 9; Round(b, touchUi ? 28 : 22); return b; }
+            var soulRow = Box(); soulRow.style.flexShrink = 0; soulRow.style.flexDirection = FlexDirection.Row; soulRow.style.alignItems = Align.Center; soulRow.style.marginTop = 10; panel.Add(soulRow);
             soulRow.Add(Pill("โหมด Soulslike")); var sb = Sec("ดวลบอส (มุมกล้องบุคคลที่สาม) ▶", () => G.StartSoul()); sb.style.flexGrow = 1; soulRow.Add(sb);
-            var laneRow = Box(); laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
-            laneRow.Add(Pill("สนามรบเลนเดียว"));
+            var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
+            laneRow.Add(Pill(touchUi ? "สนามรบ" : "สนามรบเลนเดียว"));
             foreach (var (txt, size, lanes) in new[] { ("1 เลน 1v1", 1, 1), ("1 เลน 3v3", 3, 1), ("3 เลน 3v3", 3, 3) })
             { var b = Sec(txt, () => G.StartLane(size, lanes)); b.style.flexGrow = 1; b.style.marginLeft = 6; laneRow.Add(b); }
-            var bottom = Box(); bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
+            var bottom = Box(); bottom.style.flexShrink = 0; bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
             var cur = Box(new Color(0, 0, 0, .5f), 24); Border(cur, new Color(1, .82f, .5f, .5f), 2); cur.style.paddingLeft = cur.style.paddingRight = 16; cur.style.paddingTop = cur.style.paddingBottom = 10; cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center;
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
             gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); bottom.Add(cur);
-            var play = Btn("เข้าสู่สนามรบ ▶", () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = 32; Round(play, 16);
-            play.style.paddingTop = play.style.paddingBottom = 16; bottom.Add(play);
+            var play = Btn("เข้าสู่สนามรบ ▶", () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
+            play.style.paddingTop = play.style.paddingBottom = touchUi ? 26 : 16; bottom.Add(play);
             lobby.schedule.Execute(() =>
             {   // turntable inertia after a flick
                 if (G == null || G.mode != Main.Mode.Lobby || touches.Count > 0 || Mathf.Abs(yawVel) < 2) { if (touches.Count == 0) yawVel = 0; return; }
@@ -298,7 +298,7 @@ namespace NovaBlade
             }
             if (tab == "hero")
             {
-                foreach (var d in Data.Heroes.Where(d => clsFilter == "all" || d.cls == clsFilter)) { var dd = d; Card(d.name, Studio.Hero(d.id), null, s.hero == d.id, () => { s.hero = dd.id; Pick(); }, false, null, $"{Data.Class(d.cls).th} ({Data.Class(d.cls).en})"); }
+                foreach (var d in Data.Heroes.Where(d => clsFilter == "all" || d.cls == clsFilter)) { var dd = d; Card(d.name, Studio.Hero(d.id), null, s.hero == d.id, () => { s.hero = dd.id; Pick(); }, false, null, $"{Data.Class(d.cls).th} ({Data.Class(d.cls).en})", Data.Class(d.cls).c); }
                 var k = Data.Class(h.cls); detail.text = $"{h.name} · คลาส{k.th} ({k.en}) · {h.desc}";
             }
             else if (tab == "skin")
@@ -343,12 +343,17 @@ namespace NovaBlade
             buyBtn.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             if (show) { buyBtn.text = $"ลองใส่อยู่ · ซื้อ {name} ({Shop.PriceText(k, id)})"; detail.text += "\nกำลังลองใส่: เอาเข้าไปเล่นได้หลังซื้อ"; }
         }
-        void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null)
+        void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null, Color? glowBg = null)
         {
             var c = Box(on ? new Color(.22f, .16f, .06f, .9f) : new Color(.07f, .09f, .12f, .92f), 14); Border(c, on ? new Color(1, .84f, .42f) : new Color(1, 1, 1, .14f), on ? 3 : 1.5f); Pad(c, 5);
             c.style.width = Length.Percent(wide ? 48 : 31.3f); c.style.marginRight = Length.Percent(1.6f); c.style.marginBottom = 12; c.pickingMode = PickingMode.Position;
             var pic = Box(new Color(.12f, .14f, .17f), 10); pic.style.width = Length.Percent(100); pic.style.height = wide ? 150 : 176;
-            if (img) { pic.style.backgroundImage = new StyleBackground(img); pic.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover); }
+            if (glowBg.HasValue)
+            {   // portrait over a soft glow in the class colour, fading to dark at the bottom
+                var g = glowBg.Value; pic.style.backgroundImage = new StyleBackground(Grad(new Color(g.r * .55f, g.g * .55f, g.b * .55f), new Color(.05f, .06f, .08f), true));
+                if (img) { var face = Box(); Abs(face, 0, 0, 0, 0); face.style.backgroundImage = new StyleBackground(img); face.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover); pic.Add(face); }
+            }
+            else if (img) { pic.style.backgroundImage = new StyleBackground(img); pic.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover); }
             if (swatch.HasValue) { var sw = Box(swatch.Value.tint, 60); sw.style.width = sw.style.height = 100; sw.style.alignSelf = Align.Center; sw.style.marginTop = 18; Border(sw, swatch.Value.glow.maxColorComponent > 0 ? swatch.Value.glow * 4 : new Color(.4f, .4f, .4f), 10); pic.Add(sw); }
             if (badge != null)
             {
