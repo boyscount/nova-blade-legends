@@ -224,7 +224,7 @@ namespace NovaBlade
         {
             if (!G.lane || G.mode != Main.Mode.Game) return;
             transform.position = new Vector3(0, 0, Lane.SpawnZ); dead = false; hp = max; inv = 2; state = St.Idle; Play("idle", .05f);
-            Fx.Ring(Pos, 2, Lane.TeamColor(0) / 2.2f, .6f); G.ui.Banner("กลับสู่สนาม", "");
+            Fx.Ring(Pos, 2, Lane.TeamColor(0) / 2.2f, .6f); G.ui.Banner(Loc.S("กลับสู่สนาม", "Back in the fight"), "");
         }
 
         // ---------- combo ----------
@@ -295,7 +295,7 @@ namespace NovaBlade
             for (int i = 0; i < 3; i++) if (ui.skP[i])
             {
                 ui.skP[i] = false; if (cds[i] > 0 || state == St.Skill || state == St.Dodge) continue;
-                float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, "พลังไม่พอ", "hurt"); continue; }
+                float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); continue; }
                 mp -= cost; CastSkill(i);
             }
             if (ui.atkP) { buf = .3f; ui.atkP = false; }

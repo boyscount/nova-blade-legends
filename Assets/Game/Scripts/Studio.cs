@@ -14,6 +14,7 @@ namespace NovaBlade
         static readonly Vector3 Spot = new(0, -300, 0);
 
         public static Texture2D Hero(string id) => tex.TryGetValue("hero_" + id, out var t) ? t : null;
+        public static Texture2D HeroFull(string id) => tex.TryGetValue("herofull_" + id, out var t) ? t : null;   // full-body card art
         public static Texture2D Pet(string id) => tex.TryGetValue("pet_" + id, out var t) ? t : null;
         public static Texture2D Weapon(string id) => tex.TryGetValue("w_" + id, out var t) ? t : null;
         public static Texture2D Stage(int i) => tex.TryGetValue("stage_" + i, out var t) ? t : null;
@@ -34,6 +35,7 @@ namespace NovaBlade
             {
                 var pf = h.rig ? Resources.Load<GameObject>("Heroes/Hero_" + h.id) : Catalog.I.Model(h.id);
                 tex["hero_" + h.id] = h.rig ? Portrait(pf) : Shoot(pf, .5f, 1.1f, .35f, true);
+                tex["herofull_" + h.id] = FullBody(pf, h.rig);
             }
             foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
             foreach (var w in Data.Swords) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
@@ -72,6 +74,22 @@ namespace NovaBlade
             cam.transform.position = focus + new Vector3(0, -hgt * .02f, dist); cam.transform.LookAt(focus + Vector3.down * hgt * .07f);
             var big = new RenderTexture(HeroSize, HeroSize, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 }; var prev = cam.targetTexture; cam.targetTexture = big; cam.Render();
             var pa = RenderTexture.active; RenderTexture.active = big; var t2 = new Texture2D(HeroSize, HeroSize, TextureFormat.RGBA32, true); t2.ReadPixels(new Rect(0, 0, HeroSize, HeroSize), 0, 0); t2.Apply(true);
+            RenderTexture.active = pa; cam.targetTexture = prev; big.Release(); Object.DestroyImmediate(inst); return t2;
+        }
+        // select-screen card: the whole hero standing tall, seen from a little below (heroic), 384 x 576, 4x anti-aliased
+        static Texture2D FullBody(GameObject pf, bool rig)
+        {
+            if (!pf) return null; const int W = 384, H = 576;
+            var inst = Object.Instantiate(pf, Spot, Quaternion.Euler(0, .45f * Mathf.Rad2Deg, 0));
+            foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
+            var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false;
+            var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            float hgt = Mathf.Max(b.size.y, b.size.x * H / W * .8f), fov = cam.fieldOfView;
+            float dist = hgt * 1.1f * .5f / Mathf.Tan(fov * .5f * Mathf.Deg2Rad);
+            var look = new Vector3(b.center.x, b.min.y + b.size.y * .5f, b.center.z);
+            cam.transform.position = look + new Vector3(0, -b.size.y * .12f, dist); cam.transform.LookAt(look);
+            var big = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 }; var prev = cam.targetTexture; cam.targetTexture = big; cam.Render();
+            var pa = RenderTexture.active; RenderTexture.active = big; var t2 = new Texture2D(W, H, TextureFormat.RGBA32, true); t2.ReadPixels(new Rect(0, 0, W, H), 0, 0); t2.Apply(true);
             RenderTexture.active = pa; cam.targetTexture = prev; big.Release(); Object.DestroyImmediate(inst); return t2;
         }
         static Texture2D StageShot(int i)

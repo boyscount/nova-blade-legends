@@ -65,10 +65,46 @@ namespace NovaBlade
             ShowLobby();
             var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
             if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
+            int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
         }
 
         // Test mode (-novashot <dir>): screenshots of the lobby and each stage while the hero fights on autopilot, then quit.
         // -inputtest: drives the real Input System (arrow keys, right-click) in a stage and logs whether the hero responds
+        // -clip <dir>: a ~30 s showcase recorded frame by frame at a fixed 30 fps (frames as JPG, joined into a video by ffmpeg)
+        int clipFrame; string clipDir; bool clipOn;
+        System.Collections.IEnumerator ClipRec()
+        {
+            while (clipOn)
+            {
+                yield return new WaitForEndOfFrame();
+                var t = ScreenCapture.CaptureScreenshotAsTexture(); System.IO.File.WriteAllBytes(System.IO.Path.Combine(clipDir, $"f{clipFrame++:00000}.jpg"), t.EncodeToJPG(92)); Destroy(t);
+            }
+        }
+        System.Collections.IEnumerator ClipFight(float secs)
+        {   // autopilot: walk at the nearest enemy, swing, cast a skill now and then, never die
+            for (float t = 0; t < secs; t += 1 / 30f)
+            {
+                var near = foes.Where(f => f && f.alive && f.team != 0).OrderBy(f => (f.Pos - hero.Pos).sqrMagnitude).FirstOrDefault();
+                if (near) { var d = Flat(near.Pos - hero.Pos); ui.Joy = d.magnitude > 2.6f ? new Vector2(-d.x, d.z).normalized : Vector2.zero; }
+                if (Random.value < .12f) ui.atkP = true; if (Random.value < .03f) ui.skP[Random.Range(0, 3)] = true; if (Random.value < .006f) ui.dodgeP = true;
+                hero.hp = Mathf.Max(hero.hp, hero.max * .6f); hero.mp = Mathf.Max(hero.mp, 40);
+                yield return null;
+            }
+            ui.Joy = Vector2.zero;
+        }
+        System.Collections.IEnumerator Clip(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); clipDir = dir; Time.captureFramerate = 30;
+            yield return new WaitForSecondsRealtime(4);
+            save.hero = "sorceress"; save.pet = "candle"; hero.Equip(); pet.Equip(); hero.PlaceLobby(); pet.PlaceLobby(); ui.ShowLobby();
+            clipOn = true; StartCoroutine(ClipRec());
+            for (int i = 0; i < 75; i++) { ui.heroYaw = Mathf.Sin(i / 75f * Mathf.PI) * 70; ui.lobbyZoom = Mathf.Clamp01(i / 75f) * .55f; yield return null; }   // lobby: turn and zoom on the hero
+            ui.lobbyZoom = 0; ui.heroYaw = 0; ui.TestFilter("mage"); for (int i = 0; i < 30; i++) yield return null; ui.TestFilter("all");
+            foreach (var (st, h) in new[] { (3, "spartan"), (4, "elf"), (1, "ninja") }) { save.hero = h; save.best = 5; StartGame(st); yield return ClipFight(st == 1 ? 6 : 7.5f); }
+            save.hero = "darkmage"; StartLane(3, 3); yield return ClipFight(6);
+            save.hero = "warrior"; StartSoul(); yield return ClipFight(5);
+            clipOn = false; yield return null; Time.captureFramerate = 0; Application.Quit();
+        }
         System.Collections.IEnumerator InputTest()
         {
             save.hero = "warrior"; StartGame(1); yield return new WaitForSecondsRealtime(2);
@@ -153,6 +189,7 @@ namespace NovaBlade
             River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river";
             var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null;
             if (look) look.Apply();
+            Obstacles.Use(stageRoots[i]);
         }
 
         public void ShowLobby()
@@ -173,7 +210,7 @@ namespace NovaBlade
             between = 0; wave = 0;
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             camPos = new Vector3(0, 9, 14);
-            if (River.Active) StartCoroutine(After(.1f, () => ui.Banner("ลุยน้ำได้ แต่จะช้าลง", "ข้ามสะพานไม้เพื่อความเร็ว")));
+            if (River.Active) StartCoroutine(After(.1f, () => ui.Banner(Loc.S("ลุยน้ำได้ แต่จะช้าลง", "You can wade, but water slows you"), Loc.S("ข้ามสะพานไม้เพื่อความเร็ว", "Cross the bridges to keep your speed"))));
             ui.ShowHud();
             StartWave(0);
         }
@@ -185,7 +222,7 @@ namespace NovaBlade
             foreach (var (f, n) in Theme.waves[k]) for (int i = 0; i < n + (stage - 1) / 2; i++) list.Add(f);
             foreach (var f in list.OrderBy(_ => Random.value)) queue.Enqueue(f);
             queueT = .6f;
-            ui.Banner($"คลื่นที่ {k + 1}", $"ด่าน {stage} · {Theme.name}");
+            ui.Banner(Loc.S($"คลื่นที่ {k + 1}", $"Wave {k + 1}"), Loc.S($"ด่าน {stage} · {Theme.name}", $"Stage {stage} · {Theme.name}"));
         }
 
         void UpdWaves(float dt)
@@ -202,7 +239,7 @@ namespace NovaBlade
             {
                 between += dt; if (between < 1.8f) return; between = 0;
                 if (wave + 1 < Theme.waves.Length) StartWave(wave + 1);
-                else { wave = Theme.waves.Length; ui.Banner(Theme.boss.name, "บอสปรากฏตัว!"); SpawnBoss(); }
+                else { wave = Theme.waves.Length; ui.Banner(Theme.boss.name, Loc.S("บอสปรากฏตัว!", "The boss appears!")); SpawnBoss(); }
             }
         }
 
@@ -214,7 +251,7 @@ namespace NovaBlade
         void SpawnBoss()
         {
             var f = new GameObject("Boss").AddComponent<Foe>(); f.Init(null, new Vector3(0, 0, -14), Theme.boss); foes.Add(f); boss = f;
-            ui.ShowBoss($"{Theme.boss.name} · ด่าน {stage}"); shake = .4f;
+            ui.ShowBoss(Loc.S($"{Theme.boss.name} · ด่าน {stage}", $"{Theme.boss.name} · Stage {stage}")); shake = .4f;
         }
 
         public void ClearWorld()
@@ -351,9 +388,10 @@ namespace NovaBlade
                 var ms = UnityEngine.InputSystem.Mouse.current;
                 if (ms != null && mode == Mode.Game && !ui.PointerOverUi) { float sc = ms.scroll.ReadValue().y; if (Mathf.Abs(sc) > .01f) gameZoom = Mathf.Clamp(gameZoom - Mathf.Sign(sc) * .1f, .6f, 1.8f); }
                 float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom * (lane ? 1.35f : 1);   // lanes: higher and further back so whole towers fit
+                if (hero.dead) far *= .42f;   // death: close in on the fallen hero
                 var focus = ui.Pan ?? hero.Pos; var want = focus + new Vector3(0, 8.6f * far, 7.4f * far);
-                camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * 6));
-                camLook = new Vector3(camPos.x, lane ? 1.6f : .9f, camPos.z - 7.4f * far);
+                camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * (hero.dead ? 2.2f : 6)));
+                camLook = new Vector3(camPos.x, hero.dead ? .5f : lane ? 1.6f : .9f, camPos.z - 7.4f * far);
             }
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, soul && mode != Mode.Lobby ? 55 : 40, 1 - Mathf.Exp(-dt * 6));
             shake = Mathf.Max(0, shake - dt);
@@ -388,10 +426,10 @@ namespace NovaBlade
                     if (!tw || tw.d.kind != "tower") continue; var d = Flat(p - tw.Pos); float rr = tw.rad + .45f;
                     if (d.sqrMagnitude < rr * rr) { d = d.sqrMagnitude < 1e-4f ? Vector3.forward : d.normalized; p.x = tw.Pos.x + d.x * rr; p.z = tw.Pos.z + d.z * rr; }
                 }
-                return p;
+                return Obstacles.Push(p);
             }
             var f = Flat(p); float r = f.magnitude, R = Data.ArenaR + margin; if (r > R) { f *= R / r; p.x = f.x; p.z = f.z; }
-            return p;
+            return Obstacles.Push(p);
         }
 
         // Soulslike duel (Phase 1 of the Hybrid World plan): third-person fight with the stage boss and two of its minions
@@ -403,7 +441,7 @@ namespace NovaBlade
             kills = 0; gold = 0; time = 0; banked = 0; between = 0; wave = Theme.waves.Length;   // no waves: straight to the boss
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             camPos = hero.Pos + new Vector3(0, 3, 6);
-            ui.ShowHud(); ui.Banner("ดวลบอส · Soulslike", Application.isMobilePlatform ? "ลากจอขวาหมุนกล้อง · ปุ่มเป้าล็อกศัตรู" : "Tab ล็อกเป้า · คลิกซ้าย/ขวา โจมตี · Q ป้องกัน · Space หลบ");
+            ui.ShowHud(); ui.Banner(Loc.S("ดวลบอส · Soulslike", "Boss Duel · Soulslike"), Application.isMobilePlatform ? Loc.S("ลากจอขวาหมุนกล้อง · ปุ่มเป้าล็อกศัตรู", "Drag the right side to turn the camera · Target button locks on") : Loc.S("Tab ล็อกเป้า · คลิกซ้าย/ขวา โจมตี · Q ป้องกัน · Space หลบ", "Tab lock-on · Left/Right click attack · Q block · Space dodge"));
             SpawnBoss(); foreach (var p in new[] { new Vector3(-5, 0, -8), new Vector3(5, 0, -8) }) SpawnFoe(Theme.waves[0][0].foe, p);
         }
 
@@ -427,7 +465,7 @@ namespace NovaBlade
             var foesH = Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
             for (int i = 0; i < size; i++) { var u = SpawnUnit(Lane.Champ(foesH[i % foesH.Count]), new Vector3(lanes == 3 ? Lane.LaneX(theirLanes[i % 3]) * .4f : (i - 1) * 3, 0, -(Lane.SpawnZ)), 1); if (u) u.laneIdx = theirLanes[i % 3]; }
             camPos = new Vector3(0, 9, Lane.CoreZ + 10);
-            ui.ShowHud(); ui.Banner(lanes == 3 ? $"สนามรบ 3 เลน · {size} ต่อ {size}" : $"สนามรบ {size} ต่อ {size}", lanes == 3 ? "ทำลายป้อมในแต่ละเลน แล้วทุบคริสตัลหลักของศัตรู" : "ทำลายคริสตัลหลักของฝ่ายตรงข้าม");
+            ui.ShowHud(); ui.Banner(lanes == 3 ? Loc.S($"สนามรบ 3 เลน · {size} ต่อ {size}", $"3-Lane Battle · {size} vs {size}") : Loc.S($"สนามรบ {size} ต่อ {size}", $"Lane Battle · {size} vs {size}"), lanes == 3 ? Loc.S("ทำลายป้อมในแต่ละเลน แล้วทุบคริสตัลหลักของศัตรู", "Destroy the towers in each lane, then smash the enemy Core Crystal") : Loc.S("ทำลายคริสตัลหลักของฝ่ายตรงข้าม", "Destroy the enemy Core Crystal"));
         }
         void UpdLane(float dt)
         {
@@ -444,8 +482,8 @@ namespace NovaBlade
         public void OnFoeDown(Foe f)
         {
             if (!lane || mode != Mode.Game) return;
-            if (f.d.id == "core") { ui.Banner(f.team == 1 ? "ชัยชนะ!" : "พ่ายแพ้", f.team == 1 ? "คริสตัลฝ่ายศัตรูถูกทำลาย" : "คริสตัลของเราถูกทำลาย"); StartCoroutine(After(2.2f, () => Finish(f.team == 1))); }
-            else if (f.d.id == "tower") ui.Banner(f.team == 1 ? "ทำลายป้อมศัตรู!" : "ป้อมของเราถูกทำลาย", "");
+            if (f.d.id == "core") { ui.Banner(f.team == 1 ? Loc.S("ชัยชนะ!", "Victory!") : Loc.S("พ่ายแพ้", "Defeat"), f.team == 1 ? Loc.S("คริสตัลฝ่ายศัตรูถูกทำลาย", "The enemy crystal was destroyed") : Loc.S("คริสตัลของเราถูกทำลาย", "Our crystal was destroyed")); StartCoroutine(After(2.2f, () => Finish(f.team == 1))); }
+            else if (f.d.id == "tower") ui.Banner(f.team == 1 ? Loc.S("ทำลายป้อมศัตรู!", "Enemy tower destroyed!") : Loc.S("ป้อมของเราถูกทำลาย", "Our tower was destroyed"), "");
             else if (f.d.kind == "champ") { var def = f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(10, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, new Vector3(Random.Range(-2f, 2f), 0, Lane.Side(team) * (Lane.SpawnZ)), team); if (u) u.laneIdx = li; } })); }
         }
         System.Collections.IEnumerator After(float s, System.Action a) { yield return new WaitForSeconds(s); a(); }

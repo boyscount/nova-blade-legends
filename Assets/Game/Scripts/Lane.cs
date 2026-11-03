@@ -26,9 +26,9 @@ namespace NovaBlade
         public const float CoreZ = 40;
         public const float SpawnZ = CoreZ - 9;   // heroes (re)spawn here, in front of their base
         public static float Side(int team) => team == 0 ? 1 : -1;   // +Z for team 0
-        public static readonly FoeDef Tower = new() { id = "tower", model = "@tower", name = "ป้อม", hp = 3200, spd = 0, dmg = 90, range = 8.5f, kind = "tower", scale = 1, rad = 1.7f, gold = 60 };
-        public static readonly FoeDef Core = new() { id = "core", model = "@core", name = "คริสตัลหลัก", hp = 6000, spd = 0, dmg = 130, range = 8, kind = "tower", scale = 1, rad = 2.4f, gold = 0 };
-        public static readonly FoeDef Minion = new() { id = "minion", model = "q_skeleton", name = "ทหาร", hp = 380, spd = 3.0f, dmg = 32, range = 1.6f, kind = "melee", scale = 1.5f, rad = .45f, gold = 5 };
+        public static readonly FoeDef Tower = new() { id = "tower", model = "@tower", name = Loc.S("ป้อม", "Tower"), hp = 3200, spd = 0, dmg = 90, range = 8.5f, kind = "tower", scale = 1, rad = 1.7f, gold = 60 };
+        public static readonly FoeDef Core = new() { id = "core", model = "@core", name = Loc.S("คริสตัลหลัก", "Core Crystal"), hp = 6000, spd = 0, dmg = 130, range = 8, kind = "tower", scale = 1, rad = 2.4f, gold = 0 };
+        public static readonly FoeDef Minion = new() { id = "minion", model = "q_skeleton", name = Loc.S("ทหาร", "Soldier"), hp = 380, spd = 3.0f, dmg = 32, range = 1.6f, kind = "melee", scale = 1.5f, rad = .45f, gold = 5 };
         public static FoeDef Champ(HeroDef h) => new() { id = "champ", model = "hero_" + h.id, name = h.name, hp = h.hp * 1.1f, spd = h.spd * .85f, dmg = 62 * h.atk, range = 2.2f, kind = "champ", scale = 1, rad = .5f, gold = 40 };
         public static Color TeamColor(int team) => team == 0 ? new Color(.3f, .75f, 2.2f) : new Color(2.2f, .35f, .3f);
 

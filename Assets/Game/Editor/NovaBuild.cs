@@ -345,7 +345,7 @@ public static class NovaBuild
     // terrain: flat arena, gentle hills outside; layers painted from noise and the shared path layout
     static Terrain Ground(string name, (string tex, float tile)[] layers, System.Func<float, float, int, float> weight, float hills, System.Func<float, float, float> extra = null, float baseY = 0)
     {
-        const float S = 120; int hr = 129, ar = 256;
+        const float S = 220; int hr = 257, ar = 512;   // big enough that the camera never reaches the edge
         // save the TerrainData asset first, so the splat (paint) textures made by SetAlphamaps become sub-assets and survive into the build
         var tdPath = $"{Gen}/{name}.asset"; if (File.Exists(tdPath)) AssetDatabase.DeleteAsset(tdPath);
         var td = new TerrainData { heightmapResolution = hr, alphamapResolution = ar, size = new Vector3(S, 10, S) }; AssetDatabase.CreateAsset(td, tdPath);
@@ -381,6 +381,9 @@ public static class NovaBuild
         var t = go.GetComponent<Terrain>(); t.materialTemplate = new Material(Shader.Find("Universal Render Pipeline/Terrain/Lit"));
         AssetDatabase.CreateAsset(t.materialTemplate, $"{Gen}/{name}_TerrainMat.mat");
         t.drawInstanced = true; t.basemapDistance = 80; t.heightmapPixelError = 8;
+        // beyond the terrain: a dark skirt so nothing ever looks like a floating square
+        var skirt = GameObject.CreatePrimitive(PrimitiveType.Plane); Object.DestroyImmediate(skirt.GetComponent<Collider>()); skirt.name = "GroundSkirt"; skirt.transform.SetParent(root);
+        skirt.transform.position = new Vector3(0, -.6f, 0); skirt.transform.localScale = Vector3.one * 80; skirt.GetComponent<Renderer>().sharedMaterial = Lit("GroundSkirt", null, 1, 0, new Color(.08f, .1f, .07f));
         return t;
     }
     // a small flat-colour texture asset (low-poly ground), with a faint speckle so it doesn't look like plastic

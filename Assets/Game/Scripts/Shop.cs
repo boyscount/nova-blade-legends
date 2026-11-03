@@ -31,13 +31,13 @@ namespace NovaBlade
 
         public static bool Buy(ItemKind k, string id, out string msg)
         {
-            if (Owns(k, id)) { msg = "มีอยู่แล้ว"; return true; }   // idempotent: never charge twice
+            if (Owns(k, id)) { msg = Loc.S("มีอยู่แล้ว", "Already owned"); return true; }   // idempotent: never charge twice
             var (p, c) = Price(k, id);
-            if (Balance(c) < p) { msg = c == Currency.Gold ? "Gold ไม่พอ" : "Gem ไม่พอ"; return false; }
+            if (Balance(c) < p) { msg = c == Currency.Gold ? Loc.S("Gold ไม่พอ", "Not enough Gold") : Loc.S("Gem ไม่พอ", "Not enough Gems"); return false; }
             if (c == Currency.Gold) S.gold -= p; else S.gems -= p;
             S.owned.Add(Key(k, id));
             S.ledger.Add($"{System.DateTime.UtcNow:o}|{Key(k, id)}|{p}|{c}");
-            Main.G.Persist(); msg = "ซื้อสำเร็จ"; return true;
+            Main.G.Persist(); msg = Loc.S("ซื้อสำเร็จ", "Purchased"); return true;
         }
 
         // weapon skins: same weapon type, never the weapon's own model

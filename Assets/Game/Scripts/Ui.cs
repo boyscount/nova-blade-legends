@@ -180,6 +180,9 @@ namespace NovaBlade
             var logo = Box(); Abs(logo, 44, 28); lobby.Add(logo);
             var t1 = L("NOVA BLADE", 64, new Color(1, .95f, .82f), true); t1.style.letterSpacing = 4; t1.style.textShadow = new TextShadow { offset = Vector2.zero, blurRadius = 14, color = new Color(1, .6f, .2f, .75f) }; logo.Add(t1);
             var t2 = L("LEGENDS", 24, Gold, true); t2.style.letterSpacing = 14; t2.style.marginLeft = 4; Shadow(t2); logo.Add(t2);
+            // language: English / ไทย (switching reloads the game)
+            var lang = Btn(Loc.En ? "EN  ·  ไทย" : "ไทย  ·  EN", () => Loc.Switch(), false); lang.style.alignSelf = Align.FlexStart; lang.style.marginTop = 12; lang.style.fontSize = touchUi ? 24 : 18;
+            lang.style.paddingTop = lang.style.paddingBottom = touchUi ? 10 : 6; lang.style.paddingLeft = lang.style.paddingRight = 16; Round(lang, 18); lang.pickingMode = PickingMode.Position; logo.Add(lang); logo.pickingMode = PickingMode.Position;
             // hero info on a dark fade so it reads over any stage
             var info = Box(); Abs(info, 0, null, null, 0); info.style.width = Length.Percent(42); info.style.paddingLeft = 44; info.style.paddingRight = 60; info.style.paddingTop = 140; info.style.paddingBottom = 34;
             info.style.backgroundImage = new StyleBackground(Corner()); lobby.Add(info);
@@ -187,7 +190,7 @@ namespace NovaBlade
             heroN = L("", 72, Color.white, true); heroN.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 10, color = new Color(0, 0, 0, .9f) }; heroN.style.marginTop = -4; info.Add(heroN);
             heroD = L("", touchUi ? 27 : 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
             var st = Box(); st.style.marginTop = 12; info.Add(st); stats = new VisualElement[4];
-            string[] names = { "พลังชีวิต", "โจมตี", "ความเร็ว", "ระยะ" };
+            string[] names = { Loc.S("พลังชีวิต", "Health"), Loc.S("โจมตี", "Attack"), Loc.S("ความเร็ว", "Speed"), Loc.S("ระยะ", "Range") };
             for (int i = 0; i < 4; i++)
             {
                 var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.alignItems = Align.Center; row.style.marginTop = 6;
@@ -199,18 +202,18 @@ namespace NovaBlade
             }
             // view controls: zoom in / out / reset + hint
             var vc = Box(); Abs(vc, null, null, null, 40); vc.style.right = Length.Percent(47); vc.style.alignItems = Align.Center; lobby.Add(vc);
-            foreach (var (txt, act) in new (string, System.Action)[] { ("+", () => lobbyZoom = Mathf.Clamp01(lobbyZoom + .25f)), ("−", () => lobbyZoom = Mathf.Clamp01(lobbyZoom - .25f)), ("คืน", () => { lobbyZoom = 0; heroYaw = petYaw = 0; yawVel = 0; }) })
+            foreach (var (txt, act) in new (string, System.Action)[] { ("+", () => lobbyZoom = Mathf.Clamp01(lobbyZoom + .25f)), ("−", () => lobbyZoom = Mathf.Clamp01(lobbyZoom - .25f)), (Loc.S("คืน", "Reset"), () => { lobbyZoom = 0; heroYaw = petYaw = 0; yawVel = 0; }) })
             {
                 var b = new Button(act) { text = txt }; b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced; b.style.fontSize = txt.Length > 1 ? (touchUi ? 22 : 18) : (touchUi ? 34 : 28); b.style.color = Color.white;
                 b.style.width = b.style.height = touchUi ? 76 : 58; Round(b, 40); b.style.backgroundColor = new Color(.04f, .07f, .09f, .78f); Border(b, new Color(1, .84f, .55f, .5f), 2);
                 b.style.marginBottom = 10; b.style.paddingLeft = b.style.paddingRight = b.style.paddingTop = b.style.paddingBottom = 0; vc.Add(b);
             }
-            var hintV = L(touchUi ? "ลากเพื่อหมุน · ถ่างนิ้วเพื่อซูม" : "ลากเพื่อหมุน · ล้อเมาส์เพื่อซูม", 17, new Color(1, 1, 1, .8f)); Shadow(hintV); hintV.style.unityTextAlign = TextAnchor.MiddleCenter; vc.Add(hintV);
+            var hintV = L(touchUi ? Loc.S("ลากเพื่อหมุน · ถ่างนิ้วเพื่อซูม", "Drag to rotate · Pinch to zoom") : Loc.S("ลากเพื่อหมุน · ล้อเมาส์เพื่อซูม", "Drag to rotate · Mouse wheel to zoom"), 17, new Color(1, 1, 1, .8f)); Shadow(hintV); hintV.style.unityTextAlign = TextAnchor.MiddleCenter; vc.Add(hintV);
             // right panel: dark glass with a thin gold rim
             var panel = Box(new Color(.03f, .045f, .06f, .84f), 18); Border(panel, new Color(1, .82f, .5f, .45f), 2); Abs(panel, null, 70, 30, 30); panel.style.width = Length.Percent(44); Pad(panel, 18); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
             var tabs = Box(new Color(0, 0, 0, .45f), 12); Border(tabs, new Color(1, .84f, .55f, .25f)); tabs.style.flexDirection = FlexDirection.Row; Pad(tabs, 4); panel.Add(tabs);
             int ti = 0;
-            foreach (var (id, label) in new[] { ("hero", "ฮีโร่"), ("skin", "สกิน"), ("sword", "อาวุธ"), ("wskin", "สกินอาวุธ"), ("pet", "สัตว์เลี้ยง"), ("stage", "ด่าน") })
+            foreach (var (id, label) in new[] { ("hero", Loc.S("ฮีโร่", "Heroes")), ("skin", Loc.S("สกิน", "Skins")), ("sword", Loc.S("อาวุธ", "Weapons")), ("wskin", Loc.S("สกินอาวุธ", "Weapon Skins")), ("pet", Loc.S("สัตว์เลี้ยง", "Pets")), ("stage", Loc.S("ด่าน", "Stages")) })
             {
                 if (ti++ > 0) { var sep = Box(new Color(1, .84f, .55f, .22f)); sep.style.width = 1; sep.style.marginTop = sep.style.marginBottom = 10; tabs.Add(sep); }
                 var b = new Button(() => { if ((tab == "pet") != (id == "pet")) lobbyZoom = 0; tab = id; RenderCards(); }) { text = label, name = "tab_" + id };
@@ -236,7 +239,7 @@ namespace NovaBlade
                 }
                 else ic.generateVisualContent += ctx => ClassIcon(ctx, kk.id, ic.resolvedStyle.width, clsFilter == kk.id);
                 var th = L(k.th, touchUi ? 23 : 18, Ink, true); th.name = "th"; Shadow(th, 3, .6f); b.Add(th);
-                var en = L(k.en, touchUi ? 16 : 13, Muted); en.name = "en"; b.Add(en);
+                var en = L(k.en, touchUi ? 16 : 13, Muted); en.name = "en"; b.Add(en); if (Loc.En) en.style.display = DisplayStyle.None;
                 b.RegisterCallback<ClickEvent>(_ => { clsFilter = kk.id; RenderCards(); });
                 b.schedule.Execute(() => { if (clsFilter == kk.id && tab == "hero") ic.MarkDirtyRepaint(); }).Every(50);   // selected icon glow breathes
                 classRow.Add(b);
@@ -255,18 +258,26 @@ namespace NovaBlade
             VisualElement Pill(string text) { var p = Box(new Color(1, .78f, .35f, .16f), 20); Border(p, new Color(1, .8f, .45f, .7f), 2); p.style.paddingLeft = p.style.paddingRight = 14; p.style.paddingTop = p.style.paddingBottom = touchUi ? 12 : 6; p.style.marginRight = 10; p.Add(L(text, touchUi ? 26 : 21, Gold, true)); return p; }
             Button Sec(string text, System.Action act) { var b = Btn(text, act, false); Frame(b, "btn_mode_frame", 70, 50, touchUi ? .4f : .3f); b.style.fontSize = touchUi ? 30 : 22; b.style.paddingTop = b.style.paddingBottom = touchUi ? 18 : 9; Round(b, touchUi ? 28 : 22); return b; }
             var soulRow = Box(); soulRow.style.flexShrink = 0; soulRow.style.flexDirection = FlexDirection.Row; soulRow.style.alignItems = Align.Center; soulRow.style.marginTop = 10; panel.Add(soulRow);
-            soulRow.Add(Pill("โหมด Soulslike")); var sb = Sec("ดวลบอส (มุมกล้องบุคคลที่สาม) ▶", () => G.StartSoul()); sb.style.flexGrow = 1; soulRow.Add(sb);
+            soulRow.Add(Pill(Loc.S("โหมด Soulslike", "Soulslike Mode"))); var sb = Sec(Loc.S("ดวลบอส (มุมกล้องบุคคลที่สาม) ▶", "Boss Duel (third-person) ▶"), () => G.StartSoul()); sb.style.flexGrow = 1; soulRow.Add(sb);
             var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
-            laneRow.Add(Pill(touchUi ? "สนามรบ" : "สนามรบเลนเดียว"));
-            foreach (var (txt, size, lanes) in new[] { ("1 เลน 1v1", 1, 1), ("1 เลน 3v3", 3, 1), ("3 เลน 3v3", 3, 3) })
+            laneRow.Add(Pill(touchUi ? Loc.S("สนามรบ", "Battle") : Loc.S("สนามรบเลนเดียว", "Lane Battle")));
+            foreach (var (txt, size, lanes) in new[] { (Loc.S("1 เลน 1v1", "1 Lane 1v1"), 1, 1), (Loc.S("1 เลน 3v3", "1 Lane 3v3"), 3, 1), (Loc.S("3 เลน 3v3", "3 Lanes 3v3"), 3, 3) })
             { var b = Sec(txt, () => G.StartLane(size, lanes)); b.style.flexGrow = 1; b.style.marginLeft = 6; laneRow.Add(b); }
             var bottom = Box(); bottom.style.flexShrink = 0; bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
             var cur = Box(new Color(0, 0, 0, .5f), 24); Border(cur, new Color(1, .82f, .5f, .5f), 2); cur.style.paddingLeft = cur.style.paddingRight = 16; cur.style.paddingTop = cur.style.paddingBottom = 10; cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center;
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
             gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); bottom.Add(cur);
-            var play = Btn("เข้าสู่สนามรบ ▶", () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
-            play.style.paddingTop = play.style.paddingBottom = touchUi ? 30 : 20; Frame(play, "btn_play_frame", 230, 90, touchUi ? .36f : .28f); play.style.paddingLeft = play.style.paddingRight = touchUi ? 90 : 70; bottom.Add(play);
+            var play = Btn(Loc.S("เข้าสู่สนามรบ ▶", "ENTER BATTLE ▶"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
+            if (Resources.Load<Texture2D>("UI/Lobby/btn_play_frame_new") is Texture2D pf)
+            {   // painted frame at its own proportions (1200 x 360): the diamonds top and bottom must not stretch
+                float pw = touchUi ? 600 : 470; play.style.flexGrow = 0; play.style.width = pw; play.style.height = pw * .3f; play.style.marginLeft = Length.Auto(); play.style.marginRight = Length.Auto();
+                play.style.backgroundImage = new StyleBackground(pf); play.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; play.style.backgroundColor = Color.clear; Border(play, Color.clear, 0);
+                play.style.paddingLeft = play.style.paddingRight = play.style.paddingTop = play.style.paddingBottom = 0; play.style.fontSize = touchUi ? 50 : 40;
+                play.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .08f, 0, .95f) }; play.style.color = new Color(1, .96f, .82f);
+            }
+            else { play.style.paddingTop = play.style.paddingBottom = touchUi ? 30 : 20; Frame(play, "btn_play_frame", 230, 90, touchUi ? .36f : .28f); play.style.paddingLeft = play.style.paddingRight = touchUi ? 90 : 70; }
+            bottom.Add(play);
             lobby.schedule.Execute(() =>
             {   // turntable inertia after a flick
                 if (G == null || G.mode != Main.Mode.Lobby || touches.Count > 0 || Mathf.Abs(yawVel) < 2) { if (touches.Count == 0) yawVel = 0; return; }
@@ -282,9 +293,9 @@ namespace NovaBlade
         }
         void RenderInfo()
         {
-            var h = G.hero.def; heroT.text = h.title; heroN.text = h.name; heroD.text = "สกิล: " + string.Join(" · ", h.skills.Select(s => Data.SkillLook(h.id, s).n));
+            var h = G.hero.def; heroT.text = h.title; heroN.text = h.name; heroD.text = Loc.S("สกิล: ", "Skills: ") + string.Join(" · ", h.skills.Select(s => Data.SkillLook(h.id, s).n));
             for (int i = 0; i < 4; i++) stats[i].style.width = Length.Percent(h.stats[i] * 100);
-            goldL.text = G.save.gold.ToString("N0"); gemsL.text = G.save.gems.ToString("N0") + " (ทดสอบ)";
+            goldL.text = G.save.gold.ToString("N0"); gemsL.text = G.save.gems.ToString("N0") + Loc.S(" (ทดสอบ)", " (test)");
         }
         ScrollView cardScroll; string cardsKey;
         void RenderCards()
@@ -306,8 +317,8 @@ namespace NovaBlade
             }
             if (tab == "hero")
             {
-                foreach (var d in Data.Heroes.Where(d => clsFilter == "all" || d.cls == clsFilter)) { var dd = d; Card(d.name, Studio.Hero(d.id), null, s.hero == d.id, () => { s.hero = dd.id; Pick(); }, false, null, $"{Data.Class(d.cls).th} ({Data.Class(d.cls).en})", Data.Class(d.cls).c); }
-                var k = Data.Class(h.cls); detail.text = $"{h.name} · คลาส{k.th} ({k.en}) · {h.desc}";
+                foreach (var d in Data.Heroes.Where(d => clsFilter == "all" || d.cls == clsFilter)) { var dd = d; Card(d.name, Studio.HeroFull(d.id) ?? Studio.Hero(d.id), null, s.hero == d.id, () => { s.hero = dd.id; Pick(); }, false, null, (Loc.En ? Data.Class(d.cls).en : $"{Data.Class(d.cls).th} ({Data.Class(d.cls).en})"), Data.Class(d.cls).c); }
+                var k = Data.Class(h.cls); detail.text = Loc.S($"{h.name} · คลาส{k.th} ({k.en}) · {h.desc}", $"{h.name} · {k.en} · {h.desc}");
             }
             else if (tab == "skin")
             {
@@ -317,55 +328,55 @@ namespace NovaBlade
                     int k = i; string id = $"{h.id}:{i}";
                     Card(h.skins[i].n, null, h.skins[i], shown == i, () => { if (Shop.Owns(ItemKind.HeroSkin, id)) { G.ClearPreview(); G.SetSkin(h.id, k); } else G.pvSkin = k; Pick(); }, false, Badge(ItemKind.HeroSkin, id, i == cur));
                 }
-                Offer(ItemKind.HeroSkin, $"{h.id}:{shown}", h.skins[shown].n, $"สกินของ {h.name} · {h.skins[shown].n} · เปลี่ยนแค่รูปลักษณ์ ไม่เพิ่มพลัง");
+                Offer(ItemKind.HeroSkin, $"{h.id}:{shown}", h.skins[shown].n, Loc.S($"สกินของ {h.name} · {h.skins[shown].n} · เปลี่ยนแค่รูปลักษณ์ ไม่เพิ่มพลัง", $"{h.name} skin · {h.skins[shown].n} · Looks only, no stat change"));
             }
             else if (tab == "sword")
             {
                 foreach (var w in Data.Swords) { var ww = w; Card(w.name, Studio.Weapon(w.id), null, G.hero.sword.id == w.id, () => { if (Shop.Owns(ItemKind.Weapon, ww.id)) { G.ClearPreview(); s.sword = ww.id; } else G.pvSword = ww.id; Pick(); }, false, Badge(ItemKind.Weapon, w.id, s.sword == w.id)); }
-                var sw = G.hero.sword; Offer(ItemKind.Weapon, sw.id, sw.name, $"{sw.name} · {sw.desc}\nดาเมจ ×{sw.dmg} · ความเร็ว ×{sw.spd} · ระยะ ×{sw.len} · อาวุธได้จาก Gold ที่หาในเกมเท่านั้น");
+                var sw = G.hero.sword; Offer(ItemKind.Weapon, sw.id, sw.name, Loc.S($"{sw.name} · {sw.desc}\nดาเมจ ×{sw.dmg} · ความเร็ว ×{sw.spd} · ระยะ ×{sw.len} · อาวุธได้จาก Gold ที่หาในเกมเท่านั้น", $"{sw.name} · {sw.desc}\nDamage ×{sw.dmg} · Speed ×{sw.spd} · Range ×{sw.len} · Weapons are bought only with Gold earned in play"));
             }
             else if (tab == "wskin")
             {   // weapon skins: the model changes, the equipped weapon's stats do not
                 var weapon = Data.Swords.FirstOrDefault(w => w.id == s.sword && Shop.Owns(ItemKind.Weapon, w.id)) ?? Data.Swords[0];
                 string worn = Shop.ModelFor(weapon), shown = G.pvWeaponSkin ?? worn;
-                Card($"{weapon.name} (ปกติ)", Studio.Weapon(weapon.id), null, shown == weapon.id, () => { G.ClearPreview(); s.SetWeaponSkin(weapon.id, weapon.id); Pick(); }, false, worn == weapon.id ? "ใส่อยู่" : "มีแล้ว");
+                Card(Loc.S($"{weapon.name} (ปกติ)", $"{weapon.name} (default)"), Studio.Weapon(weapon.id), null, shown == weapon.id, () => { G.ClearPreview(); s.SetWeaponSkin(weapon.id, weapon.id); Pick(); }, false, worn == weapon.id ? Loc.S("ใส่อยู่", "Equipped") : Loc.S("มีแล้ว", "Owned"));
                 foreach (var w in Data.Swords.Where(x => Shop.Fits(weapon, x)))
                 { var ww = w; Card(w.name, Studio.Weapon(w.id), null, shown == w.id, () => { if (Shop.Owns(ItemKind.WeaponSkin, ww.id)) { G.ClearPreview(); s.SetWeaponSkin(weapon.id, ww.id); } else G.pvWeaponSkin = ww.id; Pick(); }, false, Badge(ItemKind.WeaponSkin, w.id, worn == w.id)); }
                 var sd = Data.Swords.First(x => x.id == shown);
-                Offer(ItemKind.WeaponSkin, shown == weapon.id ? null : shown, sd.name + " (สกิน)", $"สกินอาวุธของ {weapon.name}: เปลี่ยนแค่รูปลักษณ์ ค่าพลังยังเป็นของ {weapon.name} (ดาเมจ ×{weapon.dmg} · ระยะ ×{weapon.len})");
+                Offer(ItemKind.WeaponSkin, shown == weapon.id ? null : shown, sd.name + Loc.S(" (สกิน)", " (skin)"), Loc.S($"สกินอาวุธของ {weapon.name}: เปลี่ยนแค่รูปลักษณ์ ค่าพลังยังเป็นของ {weapon.name} (ดาเมจ ×{weapon.dmg} · ระยะ ×{weapon.len})", $"{weapon.name} weapon skin: looks only, stats stay {weapon.name}'s (Damage ×{weapon.dmg} · Range ×{weapon.len})"));
             }
             else if (tab == "pet") { foreach (var p in Data.Pets) Card(p.name, Studio.Pet(p.id), null, s.pet == p.id, () => { s.pet = p.id; Pick(); }); detail.text = $"{G.pet.def.name} · {G.pet.def.desc}"; }
             else
             {
                 int mx = G.MaxStage;
-                for (int n = 1; n <= Data.Themes.Length; n++) { int k = n; var T = Data.Themes[Data.ThemeOf(n)]; Card($"ด่าน {n} · {T.name}" + (n > mx ? " (ล็อก)" : ""), Studio.Stage(Data.ThemeOf(n)), null, s.stage == n, n > mx ? null : () => { s.stage = k; Pick(); }, true); }
-                var th = Data.Themes[Data.ThemeOf(s.stage)]; detail.text = $"ด่าน {s.stage} · {th.name} · {th.desc} · บอส: {th.boss.name}";
+                for (int n = 1; n <= Data.Themes.Length; n++) { int k = n; var T = Data.Themes[Data.ThemeOf(n)]; Card(Loc.S($"ด่าน {n} · {T.name}", $"Stage {n} · {T.name}") + (n > mx ? Loc.S(" (ล็อก)", " (locked)") : ""), Studio.Stage(Data.ThemeOf(n)), null, s.stage == n, n > mx ? null : () => { s.stage = k; Pick(); }, true); }
+                var th = Data.Themes[Data.ThemeOf(s.stage)]; detail.text = Loc.S($"ด่าน {s.stage} · {th.name} · {th.desc} · บอส: {th.boss.name}", $"Stage {s.stage} · {th.name} · {th.desc} · Boss: {th.boss.name}");
             }
         }
-        string Badge(ItemKind k, string id, bool worn) => Shop.Owns(k, id) ? (worn ? "ใส่อยู่" : "มีแล้ว") : Shop.PriceText(k, id);
+        string Badge(ItemKind k, string id, bool worn) => Shop.Owns(k, id) ? (worn ? Loc.S("ใส่อยู่", "Equipped") : Loc.S("มีแล้ว", "Owned")) : Shop.PriceText(k, id);
         // detail text, plus the buy button when the item being tried on is not owned yet
         void Offer(ItemKind k, string id, string name, string text)
         {
             detail.text = text;
             bool show = id != null && !Shop.Owns(k, id); pending = show ? (k, id, name) : default;
             buyBtn.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
-            if (show) { buyBtn.text = $"ลองใส่อยู่ · ซื้อ {name} ({Shop.PriceText(k, id)})"; detail.text += "\nกำลังลองใส่: เอาเข้าไปเล่นได้หลังซื้อ"; }
+            if (show) { buyBtn.text = Loc.S($"ลองใส่อยู่ · ซื้อ {name} ({Shop.PriceText(k, id)})", $"Trying on · Buy {name} ({Shop.PriceText(k, id)})"); detail.text += Loc.S("\nกำลังลองใส่: เอาเข้าไปเล่นได้หลังซื้อ", "\nTrying on: buy it to take it into battle"); }
         }
         void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null, Color? glowBg = null)
         {
             var c = Box(on ? new Color(.22f, .16f, .06f, .9f) : new Color(.07f, .09f, .12f, .92f), 14); Border(c, on ? new Color(1, .84f, .42f) : new Color(1, 1, 1, .14f), on ? 3 : 1.5f); Pad(c, 5);
             c.style.width = Length.Percent(wide ? 48 : 31.3f); c.style.marginRight = Length.Percent(1.6f); c.style.marginBottom = 12; c.pickingMode = PickingMode.Position;
-            var pic = Box(new Color(.12f, .14f, .17f), 10); pic.style.width = Length.Percent(100); pic.style.height = wide ? 150 : 176;
+            var pic = Box(new Color(.12f, .14f, .17f), 10); pic.style.width = Length.Percent(100); pic.style.height = wide ? 150 : glowBg.HasValue ? (touchUi ? 340 : 300) : 176;   // hero cards are tall (full body)
             if (glowBg.HasValue)
             {   // portrait over a soft glow in the class colour, fading to dark at the bottom
                 var g = glowBg.Value; pic.style.backgroundImage = new StyleBackground(Grad(new Color(g.r * .55f, g.g * .55f, g.b * .55f), new Color(.05f, .06f, .08f), true));
-                if (img) { var face = Box(); Abs(face, 0, 0, 0, 0); face.style.backgroundImage = new StyleBackground(img); face.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover); pic.Add(face); }
+                if (img) { var face = Box(); Abs(face, 0, 0, 0, 0); face.style.backgroundImage = new StyleBackground(img); face.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); pic.Add(face); }
             }
             else if (img) { pic.style.backgroundImage = new StyleBackground(img); pic.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover); }
             if (swatch.HasValue) { var sw = Box(swatch.Value.tint, 60); sw.style.width = sw.style.height = 100; sw.style.alignSelf = Align.Center; sw.style.marginTop = 18; Border(sw, swatch.Value.glow.maxColorComponent > 0 ? swatch.Value.glow * 4 : new Color(.4f, .4f, .4f), 10); pic.Add(sw); }
             if (badge != null)
             {
-                bool owned = badge == "ใส่อยู่" || badge == "มีแล้ว"; var bg = Box(owned ? new Color(.1f, .35f, .2f, .9f) : new Color(.35f, .2f, .05f, .92f), 8); Abs(bg, 4, 4); Pad(bg, 3);
+                bool owned = badge == Loc.S("ใส่อยู่", "Equipped") || badge == Loc.S("มีแล้ว", "Owned"); var bg = Box(owned ? new Color(.1f, .35f, .2f, .9f) : new Color(.35f, .2f, .05f, .92f), 8); Abs(bg, 4, 4); Pad(bg, 3);
                 bg.Add(L(badge, 16, owned ? Green : Gold, true)); pic.Add(bg);
             }
             c.Add(pic); var l = L(label, touchUi ? 27 : 21, on ? new Color(1, .88f, .58f) : Ink, true); l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.whiteSpace = WhiteSpace.Normal; l.style.marginTop = 5; l.style.marginBottom = 2; Shadow(l, 4, .7f); c.Add(l);
@@ -509,7 +520,7 @@ namespace NovaBlade
             }
             sk[0].Q<Label>("lb").style.display = DisplayStyle.None;   // the sword icon is enough for the big button
             bool pcBarOn = !touchUi && PcArt("hud_bar_frame"); if (pcBarOn) { BuildPcBar(); btns.style.display = DisplayStyle.None; }
-            hint = L(WebPc ? "คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ" : "WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", 18, Muted); Abs(hint, 30, null, null, 14); hint.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; hud.Add(hint); if (pcBarOn) hint.style.display = DisplayStyle.None;
+            hint = L(WebPc ? Loc.S("คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ", "Right-click move/attack · Left-click/A attack · Q W E skills · R/Space dodge") : Loc.S("WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", "WASD move · J/click attack · U I O skills · Space dodge"), 18, Muted); Abs(hint, 30, null, null, 14); hint.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; hud.Add(hint); if (pcBarOn) hint.style.display = DisplayStyle.None;
             banner = Box(); Abs(banner, 0, null, 0); banner.style.top = Length.Percent(17); banner.style.alignItems = Align.Center; hud.Add(banner);
             bannerA = L("", 72, Ink, true); bannerB = L("", 26, Muted); banner.Add(bannerA); banner.Add(bannerB); banner.style.opacity = 0;
         }
@@ -670,11 +681,11 @@ namespace NovaBlade
             SetIcon(0, G.soul ? "btn_souls_light" : "btn_attack_" + Data.AttackIcon(h)); SetIcon(4, "btn_dodge");
             if (G.soul)
             {
-                var ids = new[] { "slam", "shield", "lock" }; var names = new[] { "หนัก", "ป้องกัน", "ล็อกเป้า" };
+                var ids = new[] { "slam", "shield", "lock" }; var names = new[] { Loc.S("หนัก", "Heavy"), Loc.S("ป้องกัน", "Block"), Loc.S("ล็อกเป้า", "Lock-on") };
                 for (int i = 0; i < 3; i++) { var info = (SkBtn)sk[i + 1].userData; info.id = ids[i]; info.cd = 0; info.c = i == 1 ? Cyan : Gold; sk[i + 1].Q<Label>("lb").text = names[i]; sk[i + 1].Q<Label>("cd").text = ""; SetIcon(i + 1, new[] { "btn_souls_heavy", "btn_souls_guard", "btn_souls_lock" }[i]); }
             }
             stamBar.style.display = G.soul ? DisplayStyle.Flex : DisplayStyle.None; lookZone.style.display = G.soul ? DisplayStyle.Flex : DisplayStyle.None;
-            if (hint != null) hint.text = G.soul ? "WASD เดิน · เมาส์หมุนกล้อง · คลิกซ้าย เบา · คลิกขวา หนัก · Q ป้องกัน/ปัดป้อง · Space หลบ · Tab ล็อกเป้า" : WebPc ? "คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ" : "WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ";
+            if (hint != null) hint.text = G.soul ? Loc.S("WASD เดิน · เมาส์หมุนกล้อง · คลิกซ้าย เบา · คลิกขวา หนัก · Q ป้องกัน/ปัดป้อง · Space หลบ · Tab ล็อกเป้า", "WASD move · Mouse turns camera · Left-click light · Right-click heavy · Q block/parry · Space dodge · Tab lock-on") : WebPc ? Loc.S("คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ", "Right-click move/attack · Left-click/A attack · Q W E skills · R/Space dodge") : Loc.S("WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", "WASD move · J/click attack · U I O skills · Space dodge");
             ((SkBtn)sk[0].userData).c = G.hero.sword.color; ((SkBtn)sk[4].userData).c = new Color(.62f, .9f, 1);
             Joy = Vector2.zero; ConsumeInputs(); JoyHome();
         }
@@ -703,22 +714,22 @@ namespace NovaBlade
         {
             pauseOv = Box(new Color(0, 0, 0, .7f)); Abs(pauseOv, 0, 0, 0, 0); pauseOv.style.alignItems = Align.Center; pauseOv.style.justifyContent = Justify.Center; pauseOv.pickingMode = PickingMode.Position; root.Add(pauseOv);
             var pb = Box(Panel, 18); Border(pb, Line); Pad(pb, 30); pb.style.alignItems = Align.Center; pauseOv.Add(pb);
-            pb.Add(L("หยุดเกม", 56, Ink, true)); var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.marginTop = 20; pb.Add(row);
-            row.Add(Btn("เล่นต่อ", TogglePause)); var q = Btn("กลับล็อบบี้", () => { TogglePause(); G.ShowLobby(); }, false); q.style.marginLeft = 14; row.Add(q);
+            pb.Add(L(Loc.S("หยุดเกม", "Paused"), 56, Ink, true)); var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.marginTop = 20; pb.Add(row);
+            row.Add(Btn(Loc.S("เล่นต่อ", "Resume"), TogglePause)); var q = Btn(Loc.S("กลับล็อบบี้", "Back to Lobby"), () => { TogglePause(); G.ShowLobby(); }, false); q.style.marginLeft = 14; row.Add(q);
             confirmOv = Box(new Color(0, 0, 0, .7f)); Abs(confirmOv, 0, 0, 0, 0); confirmOv.style.alignItems = Align.Center; confirmOv.style.justifyContent = Justify.Center; confirmOv.pickingMode = PickingMode.Position; root.Add(confirmOv);
             var cb = Box(Panel, 18); Border(cb, Line); Pad(cb, 28); cb.style.alignItems = Align.Center; cb.style.width = 700; confirmOv.Add(cb);
-            cb.Add(L("ยืนยันการซื้อ", 44, Ink, true)); confirmT = L("", 24, Muted); confirmT.style.whiteSpace = WhiteSpace.Normal; confirmT.style.unityTextAlign = TextAnchor.MiddleCenter; confirmT.style.marginTop = 10; cb.Add(confirmT);
+            cb.Add(L(Loc.S("ยืนยันการซื้อ", "Confirm Purchase"), 44, Ink, true)); confirmT = L("", 24, Muted); confirmT.style.whiteSpace = WhiteSpace.Normal; confirmT.style.unityTextAlign = TextAnchor.MiddleCenter; confirmT.style.marginTop = 10; cb.Add(confirmT);
             var crow = Box(); crow.style.flexDirection = FlexDirection.Row; crow.style.marginTop = 20; cb.Add(crow);
-            crow.Add(Btn("ยืนยัน", () => DoBuy())); var cn = Btn("ยกเลิก", () => confirmOv.style.display = DisplayStyle.None, false); cn.style.marginLeft = 14; crow.Add(cn);
+            crow.Add(Btn(Loc.S("ยืนยัน", "Confirm"), () => DoBuy())); var cn = Btn(Loc.S("ยกเลิก", "Cancel"), () => confirmOv.style.display = DisplayStyle.None, false); cn.style.marginLeft = 14; crow.Add(cn);
             confirmOv.style.display = DisplayStyle.None;
             resultOv = Box(new Color(0, 0, 0, .7f)); Abs(resultOv, 0, 0, 0, 0); resultOv.style.alignItems = Align.Center; resultOv.style.justifyContent = Justify.Center; resultOv.pickingMode = PickingMode.Position; root.Add(resultOv);
             var rb = Box(Panel, 18); Border(rb, Line); Pad(rb, 30); rb.style.alignItems = Align.Center; rb.style.width = 760; resultOv.Add(rb);
             resH = L("", 64, Gold, true); rb.Add(resH); resS = L("", 22, Muted); resS.style.whiteSpace = WhiteSpace.Normal; resS.style.unityTextAlign = TextAnchor.MiddleCenter; resS.style.marginTop = 8; rb.Add(resS);
             var grid = Box(); grid.style.flexDirection = FlexDirection.Row; grid.style.marginTop = 18; rb.Add(grid);
-            foreach (var (lbl, set) in new (string, System.Action<Label>)[] { ("กำจัด", l => resK = l), ("ทอง", l => resG = l), ("เวลา", l => resT = l) })
+            foreach (var (lbl, set) in new (string, System.Action<Label>)[] { (Loc.S("กำจัด", "Kills"), l => resK = l), (Loc.S("ทอง", "Gold"), l => resG = l), (Loc.S("เวลา", "Time"), l => resT = l) })
             { var cell = Box(new Color(1, 1, 1, .05f), 10); Pad(cell, 12); cell.style.width = 200; cell.style.marginLeft = cell.style.marginRight = 6; cell.style.alignItems = Align.Center; var v = L("0", 40, Ink, true); set(v); cell.Add(v); cell.Add(L(lbl, 20, Muted)); grid.Add(cell); }
             var r2 = Box(); r2.style.flexDirection = FlexDirection.Row; r2.style.marginTop = 22; rb.Add(r2);
-            again = Btn("", () => { }); r2.Add(again); var tl = Btn("ล็อบบี้", () => G.ShowLobby(), false); tl.style.marginLeft = 14; r2.Add(tl);
+            again = Btn("", () => { }); r2.Add(again); var tl = Btn(Loc.S("ล็อบบี้", "Lobby"), () => G.ShowLobby(), false); tl.style.marginLeft = 14; r2.Add(tl);
             pauseOv.style.display = resultOv.style.display = DisplayStyle.None;
         }
         System.Action againAct;
@@ -726,7 +737,7 @@ namespace NovaBlade
         void AskBuy()
         {
             if (pending.id == null) return; var (p, c) = Shop.Price(pending.kind, pending.id);
-            confirmT.text = $"{pending.name}\nราคา {Shop.PriceText(pending.kind, pending.id)} · มีอยู่ {Shop.Balance(c):N0} {(c == Currency.Gold ? "Gold" : "Gem")}" + (c == Currency.Gem ? "\n(Gem สำหรับทดสอบ ยังไม่มีการจ่ายเงินจริง)" : "");
+            confirmT.text = (Loc.En ? $"{pending.name}\nPrice {Shop.PriceText(pending.kind, pending.id)} · You have {Shop.Balance(c):N0} {(c == Currency.Gold ? "Gold" : "Gem")}" : $"{pending.name}\nราคา {Shop.PriceText(pending.kind, pending.id)} · มีอยู่ {Shop.Balance(c):N0} {(c == Currency.Gold ? "Gold" : "Gem")}") + (c == Currency.Gem ? Loc.S("\n(Gem สำหรับทดสอบ ยังไม่มีการจ่ายเงินจริง)", "\n(Test Gems, no real payment yet)") : "");
             confirmOv.style.display = DisplayStyle.Flex;
         }
         void DoBuy()
@@ -741,17 +752,17 @@ namespace NovaBlade
         }
         public void ShowResult(bool win)
         {
-            resultOv.style.display = DisplayStyle.Flex; resH.text = win ? "ชนะแล้ว!" : "พ่ายแพ้…"; resH.style.color = win ? Gold : Red;
+            resultOv.style.display = DisplayStyle.Flex; resH.text = win ? Loc.S("ชนะแล้ว!", "Victory!") : Loc.S("พ่ายแพ้…", "Defeated…"); resH.style.color = win ? Gold : Red;
             var T = G.Theme;
             if (G.lane)
             {
-                resH.text = win ? "ชนะสนามรบ!" : "พ่ายแพ้…"; resS.text = win ? "ทำลายคริสตัลหลักของฝ่ายตรงข้ามได้สำเร็จ" : "คริสตัลหลักของเราถูกทำลาย ลองตั้งรับใกล้ป้อมแล้วบุกพร้อมทหาร";
+                resH.text = win ? Loc.S("ชนะสนามรบ!", "Battle Won!") : Loc.S("พ่ายแพ้…", "Defeated…"); resS.text = win ? Loc.S("ทำลายคริสตัลหลักของฝ่ายตรงข้ามได้สำเร็จ", "You destroyed the enemy Core Crystal") : Loc.S("คริสตัลหลักของเราถูกทำลาย ลองตั้งรับใกล้ป้อมแล้วบุกพร้อมทหาร", "Our Core Crystal fell. Hold near your towers and push with your soldiers");
                 resK.text = G.kills.ToString(); resG.text = G.gold.ToString(); int ls = Mathf.RoundToInt(G.time); resT.text = $"{ls / 60}:{ls % 60:00}";
-                again.text = "เล่นอีกครั้ง"; if (againAct != null) again.clicked -= againAct; int size = G.laneSize, lanes = G.laneCount; againAct = () => G.StartLane(size, lanes); again.clicked += againAct; return;
+                again.text = Loc.S("เล่นอีกครั้ง", "Play Again"); if (againAct != null) again.clicked -= againAct; int size = G.laneSize, lanes = G.laneCount; againAct = () => G.StartLane(size, lanes); again.clicked += againAct; return;
             }
-            resS.text = win ? $"ปราบ{T.boss.name}แห่งด่าน {G.stage} ได้สำเร็จ · ด่านต่อไป: {Data.Themes[Data.ThemeOf(G.stage + 1)].name}" : $"ล้มลงในคลื่นที่ {Mathf.Min(G.wave + 1, 4)} ของด่าน {G.stage} · ลองกลิ้งหลบตอนเห็นวงแดง";
+            resS.text = win ? (Loc.En ? $"Defeated {T.boss.name} on stage {G.stage} · Next: {Data.Themes[Data.ThemeOf(G.stage + 1)].name}" : $"ปราบ{T.boss.name}แห่งด่าน {G.stage} ได้สำเร็จ · ด่านต่อไป: {Data.Themes[Data.ThemeOf(G.stage + 1)].name}") : (Loc.En ? $"Fell in wave {Mathf.Min(G.wave + 1, 4)} of stage {G.stage} · Roll away when you see a red circle" : $"ล้มลงในคลื่นที่ {Mathf.Min(G.wave + 1, 4)} ของด่าน {G.stage} · ลองกลิ้งหลบตอนเห็นวงแดง");
             resK.text = G.kills.ToString(); resG.text = G.gold.ToString(); int s = Mathf.RoundToInt(G.time); resT.text = $"{s / 60}:{s % 60:00}";
-            again.text = win ? $"ด่าน {G.stage + 1} ▶" : "ลองอีกครั้ง";
+            again.text = win ? (Loc.En ? $"Stage {G.stage + 1} ▶" : $"ด่าน {G.stage + 1} ▶") : Loc.S("ลองอีกครั้ง", "Try Again");
             if (againAct != null) again.clicked -= againAct; int st = G.stage; againAct = () => G.StartGame(win ? st + 1 : st, win); again.clicked += againAct;
         }
         void TogglePause() { if (G.mode != Main.Mode.Game) return; G.paused = !G.paused; UnityEngine.Cursor.lockState = G.soul && !G.paused && !Application.isMobilePlatform ? UnityEngine.CursorLockMode.Locked : UnityEngine.CursorLockMode.None; Time.timeScale = G.paused ? 0 : 1; pauseOv.style.display = G.paused ? DisplayStyle.Flex : DisplayStyle.None; }
@@ -787,10 +798,10 @@ namespace NovaBlade
             mpFill.style.width = Length.Percent(Mathf.Clamp01(h.mp / h.mpMax) * 100); mpT.text = $"{Mathf.FloorToInt(h.mp)} / {h.mpMax:0}"; goldH.text = G.gold.ToString();
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;
-            if (G.lane) waveT.text = $"สนามรบ {G.laneSize} vs {G.laneSize} · ป้อมเรา {G.TowersLeft(0)} · ป้อมศัตรู {G.TowersLeft(1)} · ระลอก {G.wave}";
-            else waveT.text = G.wave < nw ? $"ด่าน {G.stage} · {G.Theme.name} · คลื่น {G.wave + 1}/{nw} · ศัตรู {left}" : $"ด่าน {G.stage} · {G.Theme.name} · ศึกบอส";
+            if (G.lane) waveT.text = (Loc.En ? $"Battle {G.laneSize} vs {G.laneSize} · Our towers {G.TowersLeft(0)} · Enemy towers {G.TowersLeft(1)} · Wave {G.wave}" : $"สนามรบ {G.laneSize} vs {G.laneSize} · ป้อมเรา {G.TowersLeft(0)} · ป้อมศัตรู {G.TowersLeft(1)} · ระลอก {G.wave}");
+            else waveT.text = G.wave < nw ? (Loc.En ? $"Stage {G.stage} · {G.Theme.name} · Wave {G.wave + 1}/{nw} · Enemies {left}" : $"ด่าน {G.stage} · {G.Theme.name} · คลื่น {G.wave + 1}/{nw} · ศัตรู {left}") : (Loc.En ? $"Stage {G.stage} · {G.Theme.name} · Boss Fight" : $"ด่าน {G.stage} · {G.Theme.name} · ศึกบอส");
             if (G.boss) bossFill.style.width = Length.Percent(Mathf.Clamp01(G.boss.hp / G.boss.maxHp) * 100);
-            buffs.Clear(); if (h.buffT > 0) buffs.Add(Tag($"คลั่งศึก {Mathf.CeilToInt(h.buffT)}", Red)); if (h.shieldT > 0) buffs.Add(Tag($"บาเรีย {Mathf.CeilToInt(h.shieldT)}", Cyan));
+            buffs.Clear(); if (h.buffT > 0) buffs.Add(Tag((Loc.En ? $"Battle Fury {Mathf.CeilToInt(h.buffT)}" : $"คลั่งศึก {Mathf.CeilToInt(h.buffT)}"), Red)); if (h.shieldT > 0) buffs.Add(Tag((Loc.En ? $"Barrier {Mathf.CeilToInt(h.shieldT)}" : $"บาเรีย {Mathf.CeilToInt(h.shieldT)}"), Cyan));
             if (G.soul)
             {
                 var sc = h.soul; if (sc) stamFill.style.width = Length.Percent(Mathf.Clamp01(sc.stamina / sc.staminaMax) * 100);

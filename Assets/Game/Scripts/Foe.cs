@@ -127,7 +127,7 @@ namespace NovaBlade
         public void Break()
         {
             brokenT = 2.6f; stag = 2.6f; poise = 0; s = S.Chase; skillWind = false;
-            G.Number(Pos + Vector3.up * (y + h + .3f), "เสียหลัก!", "crit"); Fx.Ring(Pos, 2.4f, new Color(1, .8f, .3f), .5f);
+            G.Number(Pos + Vector3.up * (y + h + .3f), Loc.S("เสียหลัก!", "Staggered!"), "crit"); Fx.Ring(Pos, 2.4f, new Color(1, .8f, .3f), .5f);
             if (clipAnim) { cur = null; Play("HitRecieve", "HitReact"); }
             if (anim) { animState = null; anim.CrossFadeInFixedTime("hurt", .05f); }
         }
@@ -222,7 +222,7 @@ namespace NovaBlade
         bool BossUpdate(float dt, Vector3 to, float dd, float want, float sp)
         {
             var hero = G.hero; bossMt -= dt; bool moving = false; var C = bd.color;
-            if (!raged && hp < maxHp * .5f) { raged = true; look.Set(bd.tint, bd.rage); G.ui.Banner(bd.name + "คลั่ง!", "การโจมตีเร็วและรุนแรงขึ้น"); G.shake = .4f; Fx.Ring(Pos, 3.5f, bd.rage * 3, .8f, .2f); }
+            if (!raged && hp < maxHp * .5f) { raged = true; look.Set(bd.tint, bd.rage); G.ui.Banner(bd.name + Loc.S("คลั่ง!", " is enraged!"), Loc.S("การโจมตีเร็วและรุนแรงขึ้น", "Attacks are faster and harder")); G.shake = .4f; Fx.Ring(Pos, 3.5f, bd.rage * 3, .8f, .2f); }
             float wind = raged ? .7f : 1;
             if (bd.fly) y = .15f + Mathf.Sin(t * 2) * .12f;
             if (bossMode == "chase")

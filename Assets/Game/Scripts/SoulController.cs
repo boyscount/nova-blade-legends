@@ -125,7 +125,7 @@ namespace NovaBlade
             dur = (end - from) / speed; hitT = (c.hit - from) / speed;
             if (lockTarget) h.face = Main.Ang(lockTarget.Pos - h.Pos);
             h.PlayAnim(clip, .06f, speed, from);
-            if (a == Act.Finisher) { G.hitStop = .1f; G.ui.Banner("ปิดฉาก!", ""); }
+            if (a == Act.Finisher) { G.hitStop = .1f; G.ui.Banner(Loc.S("ปิดฉาก!", "Finisher!"), ""); }
         }
 
         void Attack(float dt)
@@ -166,7 +166,7 @@ namespace NovaBlade
         {
             if (act == Act.Dodge && t < .38f)
             {
-                if (t < .2f) { slowT = .45f; Time.timeScale = .35f; stamina = Mathf.Min(staminaMax, stamina + 15); G.Number(h.Pos + Vector3.up * 2.2f, "หลบสมบูรณ์!", "heal"); }
+                if (t < .2f) { slowT = .45f; Time.timeScale = .35f; stamina = Mathf.Min(staminaMax, stamina + 15); G.Number(h.Pos + Vector3.up * 2.2f, Loc.S("หลบสมบูรณ์!", "Perfect dodge!"), "heal"); }
                 return 0;
             }
             bool facing = Mathf.Abs(Main.AngDiff(h.face, Main.Ang(from - h.Pos))) < 1.75f;
@@ -178,11 +178,11 @@ namespace NovaBlade
                     if (attacker) attacker.Parried();
                     counterT = 1.2f; stamina = Mathf.Min(staminaMax, stamina + 10); G.hitStop = .14f; G.shake = .2f;
                     Fx.Burst(h.Pos + Vector3.up * 1.3f + Main.Dir(h.face) * .6f, 30, new Color(1, .9f, .5f), 7); Fx.Spawn("hit_yellow", h.Pos + Vector3.up * 1.3f + Main.Dir(h.face) * .6f, 1, 2);
-                    G.Number(h.Pos + Vector3.up * 2.2f, "ปัดป้อง!", "crit"); h.PlayAnim("blockhit", .04f, 1.4f); loop = null;
+                    G.Number(h.Pos + Vector3.up * 2.2f, Loc.S("ปัดป้อง!", "Parry!"), "crit"); h.PlayAnim("blockhit", .04f, 1.4f); loop = null;
                     return 0;
                 }
                 stamina -= dmg * .35f; regenWait = .9f; h.PlayAnim("blockhit", .04f, 1.3f); loop = null; Fx.Burst(h.Pos + Vector3.up * 1.2f + Main.Dir(h.face) * .5f, 10, Color.white, 4);
-                if (stamina <= 0) { stamina = 0; act = Act.GuardBreak; t = 0; dur = 1.1f; h.PlayAnim("hurt", .05f, 1); G.Number(h.Pos + Vector3.up * 2.2f, "การ์ดแตก!", "hurt"); return dmg * .5f; }
+                if (stamina <= 0) { stamina = 0; act = Act.GuardBreak; t = 0; dur = 1.1f; h.PlayAnim("hurt", .05f, 1); G.Number(h.Pos + Vector3.up * 2.2f, Loc.S("การ์ดแตก!", "Guard broken!"), "hurt"); return dmg * .5f; }
                 return dmg * .15f;
             }
             return dmg;
