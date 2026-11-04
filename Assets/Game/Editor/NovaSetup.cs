@@ -38,7 +38,7 @@ public static class NovaSetup
         // ranged / caster classes (Phase 2): bow draw + release, one-hand spell, two-hand cast
         ["bowdraw"] = ("Standing Draw Arrow", false), ["bowshot"] = ("Standing Aim Recoil", false),
         // character-select stances (lobby only): women and men each have their own (added once the files are in Animations/)
-        ["show_f"] = ("Catwalk Idle To Twist R", true), ["show_m"] = ("Thoughtful Head Shake", true),
+        ["show_f"] = ("Catwalk Idle To Twist R", true), ["show_m"] = ("Kneeling Down", false),
         ["cast1"] = ("Standing 1H Magic Attack 01", false), ["cast2"] = ("Standing 2H Cast Spell 01", false), ["sblock"] = ("Sword And Shield Block Idle", true), ["sblockhit"] = ("Sword And Shield Blocked Impact", false),
     };
     // per-class clips from Animations/new (Mixamo "Ch02_nonPBR@<name>.fbx"): set -> state -> (clip name, loops)

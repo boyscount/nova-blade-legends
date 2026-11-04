@@ -109,7 +109,7 @@
 | ชื่อไฟล์ | ค้นใน Mixamo | ใช้กับ |
 |---|---|---|
 | `Catwalk Idle To Twist R.fbx` | Catwalk Idle To Twist R | ฮีโร่ผู้หญิงทุกตัว |
-| `Thoughtful Head Shake.fbx` | Thoughtful Head Shake | ฮีโร่ผู้ชายทุกตัว |
+| `Kneeling Down.fbx` | Kneeling Down | ฮีโร่ผู้ชายทุกตัว (เล่นครั้งเดียวแล้วค้าง) |
 
 - ตั้งค่าเหมือนข้างบน: FBX for Unity, Without Skin, 30 fps
 - โค้ดเตรียมไว้แล้ว: พอมีไฟล์ เกมจะใช้ท่านี้เฉพาะหน้าเลือกตัวละคร (ตอนสู้ใช้ท่าเดิม)

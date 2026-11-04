@@ -309,6 +309,14 @@ MonoBehaviour:
     length: 0.70000005
     hit: 0.2
     speed: 0
+  - id: show_f
+    length: 2.1666667
+    hit: 1.0333337
+    speed: 0
+  - id: show_m
+    length: 2.766667
+    hit: 1.4999999
+    speed: 0
   - id: cast1
     length: 2.3000002
     hit: 0.80000025
