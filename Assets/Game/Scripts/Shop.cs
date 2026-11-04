@@ -4,7 +4,7 @@ using UnityEngine;
 namespace NovaBlade
 {
     public enum Currency { Gold, Gem }
-    public enum ItemKind { Weapon, HeroSkin, WeaponSkin }
+    public enum ItemKind { Weapon, HeroSkin, WeaponSkin, Wings }
 
     // Monetization prototype (design doc v2, Part E): a mock catalog, ownership kept apart from what is equipped,
     // Gold (earned by playing) for gameplay weapons and test-only Premium Gems for cosmetics. Everything is local until a
@@ -22,6 +22,7 @@ namespace NovaBlade
         public static (int price, Currency cur) Price(ItemKind k, string id) => k switch
         {
             ItemKind.Weapon => ((Data.Swords.FirstOrDefault(w => w.id == id)?.price) ?? 0, Currency.Gold),
+            ItemKind.Wings => (Data.Wing(id)?.gems ?? 0, Currency.Gem),
             ItemKind.HeroSkin => (HeroSkinGems[Mathf.Clamp(int.Parse(id.Split(':')[1]), 0, HeroSkinGems.Length - 1)], Currency.Gem),
             _ => (WeaponSkinGems, Currency.Gem),
         };

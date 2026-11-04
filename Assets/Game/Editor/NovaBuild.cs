@@ -147,6 +147,7 @@ public static class NovaBuild
         void M(string id, string path) { var go = Model(path); if (!go) Debug.LogError("[NovaBuild] missing " + path); cat.models.Add(new Catalog.Entry { id = id, prefab = go }); }
         M("toybot", "Assets/Game/Models/Heroes/toybot.glb");
         foreach (var p in Data.Pets) M(p.id, $"Assets/Game/Models/Pets/{p.id}.glb");
+        foreach (var w in Data.Wings) { var pf = WingPrefab(w); if (!pf) Debug.LogError("[NovaBuild] missing wings " + w.id); cat.models.Add(new Catalog.Entry { id = "wing_" + w.id, prefab = pf }); }
         foreach (var b in new[] { "reaper", "captain" }) M(b, $"Assets/Game/Models/Bosses/{b}.glb");
         foreach (var w in Data.Swords) M(w.id, $"Assets/Game/Models/Weapons/{w.id}.glb");
         foreach (var f in Data.Foes.Where(f => f.model.StartsWith("q_"))) M(f.model, $"Assets/Game/Models/Foes/{f.model}.glb");
@@ -202,13 +203,13 @@ public static class NovaBuild
                 prev = p;
             }
             g.Destroy();
-            list.Add(new Catalog.ClipInfo { id = k, length = clip.length, hit = hit });
+            list.Add(new Catalog.ClipInfo { id = k, length = clip.length, hit = hit, speed = k is "run" or "walk" ? Gait(an, inst.transform, clip) : 0 });
             Debug.Log($"[NovaBuild] clip {k} len {clip.length:0.00} hit {hit:0.00}");
         }
         var limbs = new[] { HumanBodyBones.RightHand, HumanBodyBones.LeftHand, HumanBodyBones.RightFoot, HumanBodyBones.LeftFoot }.Select(an.GetBoneTransform).ToArray();
         foreach (var (set, states) in NovaSetup.Sets) foreach (var (k, (file, _)) in states)
         {
-            var clip = NovaSetup.SetClip(file); if (!clip) { Debug.LogError("[NovaBuild] missing set clip " + file); continue; }
+            var clip = NovaSetup.SetClip(file); if (!clip) continue;   // not downloaded yet
             float best = 0, hit = clip.length * .5f; var prev = new Vector3[limbs.Length];
             var g = PlayableGraph.Create(); var o = AnimationPlayableOutput.Create(g, "o", an); var cp = AnimationClipPlayable.Create(g, clip); o.SetSourcePlayable(cp);
             for (float t = 0; t <= clip.length; t += 1 / 30f)
@@ -217,11 +218,56 @@ public static class NovaBuild
                 for (int i = 0; i < limbs.Length; i++) { var p = limbs[i].position; if (t > 0) { float sp = (p - prev[i]).magnitude; if (sp > best) { best = sp; hit = t; } } prev[i] = p; }
             }
             g.Destroy();
-            list.Add(new Catalog.ClipInfo { id = set + ":" + k, length = clip.length, hit = hit });
+            list.Add(new Catalog.ClipInfo { id = set + ":" + k, length = clip.length, hit = hit, speed = k is "run" or "walk" ? Gait(an, inst.transform, clip) : 0 });
             Debug.Log($"[NovaBuild] clip {set}:{k} len {clip.length:0.00} hit {hit:0.00}");
         }
         Object.DestroyImmediate(inst);
         return list;
+    }
+
+    // A gait clip played in place: each foot sweeps back by one stride while planted, and a cycle has two steps,
+    // so the body travels 2 x (front-to-back reach of a foot) per cycle.
+    static float Gait(Animator an, Transform root, AnimationClip clip)
+    {
+        var hips = an.GetBoneTransform(HumanBodyBones.Hips); var feet = new[] { an.GetBoneTransform(HumanBodyBones.LeftFoot), an.GetBoneTransform(HumanBodyBones.RightFoot) };
+        var g = PlayableGraph.Create(); var o = AnimationPlayableOutput.Create(g, "o", an); var cp = AnimationClipPlayable.Create(g, clip); o.SetSourcePlayable(cp);
+        float reach = 0;
+        foreach (var f in feet)
+        {
+            float lo = 1e9f, hi = -1e9f;
+            for (float t = 0; t <= clip.length; t += 1 / 60f) { cp.SetTime(t); g.Evaluate(); float z = Vector3.Dot(f.position - hips.position, root.forward); lo = Mathf.Min(lo, z); hi = Mathf.Max(hi, z); }
+            reach += (hi - lo) / 2;
+        }
+        g.Destroy();
+        float sp = 2 * reach / Mathf.Max(.1f, clip.length); Debug.Log($"[NovaBuild] gait {clip.name} {sp:0.00} m/s"); return sp;
+    }
+
+    // Wings: the glTF model with its materials swapped for URP Lit that glows with its own texture in the wings' colour
+    // (HDR emission, so the bloom haloes it), double-sided, saved as a prefab for the catalog.
+    static GameObject WingPrefab(WingDef w)
+    {
+        var src = Model($"Assets/Game/Models/Wings/wing_{w.id}.glb"); if (!src) return null;
+        var inst = (GameObject)Object.Instantiate(src); inst.name = "wing_" + w.id; int i = 0;
+        float boost = w.id == "death" ? 3.2f : w.id == "angel" ? 1.6f : 2.4f;   // dark membranes need more to read at night
+        foreach (var r in inst.GetComponentsInChildren<Renderer>())
+        {
+            var mats = r.sharedMaterials;
+            for (int k = 0; k < mats.Length; k++)
+            {
+                var old = mats[k]; var tex = old && old.HasProperty("baseColorTexture") ? old.GetTexture("baseColorTexture") : old ? old.mainTexture : null;
+                var nrm = old && old.HasProperty("normalTexture") ? old.GetTexture("normalTexture") : null;
+                mats[k] = Mat($"{Gen}/Wing_{w.id}_{i++}.mat", "Universal Render Pipeline/Lit", m =>
+                {
+                    m.shader = Shader.Find("Universal Render Pipeline/Lit");
+                    m.SetTexture("_BaseMap", tex); m.SetColor("_BaseColor", Color.white); m.SetFloat("_Smoothness", .45f); m.SetFloat("_Cull", 0);
+                    if (nrm) { m.SetTexture("_BumpMap", nrm); m.EnableKeyword("_NORMALMAP"); }
+                    m.SetTexture("_EmissionMap", tex); m.SetColor("_EmissionColor", w.glow * boost); m.EnableKeyword("_EMISSION");
+                    m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                });
+            }
+            r.sharedMaterials = mats;
+        }
+        var path = $"{Gen}/Wing_{w.id}.prefab"; var pf = PrefabUtility.SaveAsPrefabAsset(inst, path); Object.DestroyImmediate(inst); return pf;
     }
 
     // ======================= scene =======================

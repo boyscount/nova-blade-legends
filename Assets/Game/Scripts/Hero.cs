@@ -46,9 +46,9 @@ namespace NovaBlade
                 model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform);
                 anim = model.GetComponentInChildren<Animator>();
                 animSet = Data.AnimSet(def.id); if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
-                // lobby: the idle animation bows the head, which warps the faces of the auto-rigged heroes,
-                // so the head and neck are held at their sculpted rotation (see LateUpdate)
-                lockBones = lobby && anim && !OldRig ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() is var n && (n == "head" || n.Contains("neck"))).ToArray() : null;
+                // lobby: a bowed head warps the faces of the auto-rigged heroes, so the head keeps its sculpted angle
+                // on the neck (the neck and body still move; see LateUpdate)
+                lockBones = lobby && anim && !OldRig ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
                 lockRot = lockBones?.Select(t => t.localRotation).ToArray();
                 socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 holder = model.transform; pivot = null;
@@ -59,7 +59,7 @@ namespace NovaBlade
                 holder = Instantiate(Catalog.I.Model("toybot"), model.transform).transform;
                 pivot = new GameObject("pivot").transform; pivot.SetParent(model.transform, false); pivot.localPosition = new Vector3(0, .62f, 0);
                 socket = new GameObject("socket").transform; socket.SetParent(pivot, false); socket.localPosition = new Vector3(.62f, 0, 0);
-                anim = null;
+                anim = null; animSet = null;
             }
             foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             int skinIdx = Mathf.Clamp(G.Skin(def.id), 0, def.skins.Length - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{def.id}:{skinIdx}")) skinIdx = 0;
@@ -74,12 +74,14 @@ namespace NovaBlade
             if (!def.rig) { swordGo.transform.localScale = Vector3.one * .85f; swordGo.transform.localRotation = Quaternion.Euler(0, 180, 0); }
             if (def.rig && ModelId == "w_daggers") swordGo.transform.localScale = Vector3.one * 1.15f;
             swordGo.SetActive(def.blade);   // bows, staves and fists: the weapon's stats still count, its sword model is not shown
+            if (def.ownWeapon) foreach (var r in swordGo.GetComponentsInChildren<Renderer>()) r.enabled = false;   // the model holds its own blade; keep the tip for the trail
             float sign = BladeSign(swordGo);
             tipT = new GameObject("tip").transform; tipT.SetParent(swordGo.transform, false); tipT.localPosition = new Vector3(sign * mdef.m * .9f, 0, 0);
             baseT = new GameObject("base").transform; baseT.SetParent(swordGo.transform, false); baseT.localPosition = new Vector3(sign * mdef.m * .25f, 0, 0);
             if (!trail) trail = gameObject.AddComponent<SwordTrail>();
             trail.tipT = tipT; trail.baseT = baseT; trail.color = sword.color;
-            state = St.Idle; Play("idle", .1f);
+            WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, G.WingsShown, !anim);
+            state = St.Idle; Play(G.mode == Main.Mode.Lobby ? "show" : "idle", .1f);
         }
         static float BladeSign(GameObject sw)
         {
@@ -331,9 +333,9 @@ namespace NovaBlade
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);
-                    Loop("run", Mathf.Max(.6f, mv.magnitude) * 1.05f);
+                    var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 1.9f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
                 }
-                else Loop("idle");
+                else Loop(G.mode == Main.Mode.Lobby ? "show" : "idle");
             }
             if (!def.rig) ToyBot(dt, mv);
             else { var gp = transform.position; gp.y = Mathf.Lerp(gp.y, River.Ground(gp.x, gp.z), Mathf.Min(1, dt * 12)); transform.position = gp; }

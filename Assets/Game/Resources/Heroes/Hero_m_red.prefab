@@ -44,14 +44,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: m_red
       objectReference: {fileID: 0}
-    - target: {fileID: -6915126371746556507, guid: 0acc1c33dfb93c640a679bf5ae23ae90, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.5195652
-      objectReference: {fileID: 0}
-    - target: {fileID: -6915126371746556507, guid: 0acc1c33dfb93c640a679bf5ae23ae90, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0.47535476
-      objectReference: {fileID: 0}
     - target: {fileID: 7512201547712726738, guid: 0acc1c33dfb93c640a679bf5ae23ae90, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

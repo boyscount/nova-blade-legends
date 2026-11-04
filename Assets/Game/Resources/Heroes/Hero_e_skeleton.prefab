@@ -44,6 +44,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: e_skeleton
       objectReference: {fileID: 0}
+    - target: {fileID: -2510939798276254756, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.043169238
+      objectReference: {fileID: 0}
+    - target: {fileID: -2510939798276254756, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.0052313693
+      objectReference: {fileID: 0}
     - target: {fileID: 7512201547712726738, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

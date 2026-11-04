@@ -213,7 +213,7 @@ namespace NovaBlade
             var panel = Box(new Color(.03f, .045f, .06f, .84f), 18); Border(panel, new Color(1, .82f, .5f, .45f), 2); Abs(panel, null, 70, 30, 30); panel.style.width = Length.Percent(44); Pad(panel, 18); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
             var tabs = Box(new Color(0, 0, 0, .45f), 12); Border(tabs, new Color(1, .84f, .55f, .25f)); tabs.style.flexDirection = FlexDirection.Row; Pad(tabs, 4); panel.Add(tabs);
             int ti = 0;
-            foreach (var (id, label) in new[] { ("hero", Loc.S("ฮีโร่", "Heroes")), ("skin", Loc.S("สกิน", "Skins")), ("sword", Loc.S("อาวุธ", "Weapons")), ("wskin", Loc.S("สกินอาวุธ", "Weapon Skins")), ("pet", Loc.S("สัตว์เลี้ยง", "Pets")), ("stage", Loc.S("ด่าน", "Stages")) })
+            foreach (var (id, label) in new[] { ("hero", Loc.S("ฮีโร่", "Heroes")), ("skin", Loc.S("สกิน", "Skins")), ("sword", Loc.S("อาวุธ", "Weapons")), ("wskin", Loc.S("สกินอาวุธ", "Weapon Skins")), ("wings", Loc.S("ปีก", "Wings")), ("pet", Loc.S("สัตว์เลี้ยง", "Pets")), ("stage", Loc.S("ด่าน", "Stages")) })
             {
                 if (ti++ > 0) { var sep = Box(new Color(1, .84f, .55f, .22f)); sep.style.width = 1; sep.style.marginTop = sep.style.marginBottom = 10; tabs.Add(sep); }
                 var b = new Button(() => { if ((tab == "pet") != (id == "pet")) lobbyZoom = 0; tab = id; RenderCards(); }) { text = label, name = "tab_" + id };
@@ -277,7 +277,19 @@ namespace NovaBlade
                 play.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .08f, 0, .95f) }; play.style.color = new Color(1, .96f, .82f);
             }
             else { play.style.paddingTop = play.style.paddingBottom = touchUi ? 30 : 20; Frame(play, "btn_play_frame", 230, 90, touchUi ? .36f : .28f); play.style.paddingLeft = play.style.paddingRight = touchUi ? 90 : 70; }
-            bottom.Add(play);
+            // a warm halo breathes behind the button and the word glows, so the way into battle always draws the eye
+            var playBox = new VisualElement(); playBox.style.marginLeft = Length.Auto(); playBox.style.marginRight = Length.Auto(); playBox.style.justifyContent = Justify.Center; playBox.style.alignItems = Align.Center;
+            var halo = new VisualElement { pickingMode = PickingMode.Ignore }; halo.style.position = Position.Absolute;
+            halo.style.left = Length.Percent(-14); halo.style.right = Length.Percent(-14); halo.style.top = Length.Percent(-55); halo.style.bottom = Length.Percent(-55);
+            halo.style.backgroundImage = new StyleBackground(SoftGlow()); halo.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; halo.style.unityBackgroundImageTintColor = new Color(1, .55f, .18f);
+            play.style.marginLeft = play.style.marginRight = 0;
+            playBox.Add(halo); playBox.Add(play); bottom.Add(playBox);
+            playBox.schedule.Execute(() =>
+            {
+                float k = .5f + .5f * Mathf.Sin(Time.unscaledTime * 2.6f);
+                halo.style.opacity = .45f + .4f * k; halo.style.scale = new Scale(Vector3.one * (.94f + .1f * k));
+                play.style.textShadow = new TextShadow { offset = Vector2.zero, blurRadius = 10 + 10 * k, color = new Color(1, .62f + .2f * k, .25f, .9f) };
+            }).Every(33);
             lobby.schedule.Execute(() =>
             {   // turntable inertia after a flick
                 if (G == null || G.mode != Main.Mode.Lobby || touches.Count > 0 || Mathf.Abs(yawVel) < 2) { if (touches.Count == 0) yawVel = 0; return; }
@@ -344,6 +356,16 @@ namespace NovaBlade
                 { var ww = w; Card(w.name, Studio.Weapon(w.id), null, shown == w.id, () => { if (Shop.Owns(ItemKind.WeaponSkin, ww.id)) { G.ClearPreview(); s.SetWeaponSkin(weapon.id, ww.id); } else G.pvWeaponSkin = ww.id; Pick(); }, false, Badge(ItemKind.WeaponSkin, w.id, worn == w.id)); }
                 var sd = Data.Swords.First(x => x.id == shown);
                 Offer(ItemKind.WeaponSkin, shown == weapon.id ? null : shown, sd.name + Loc.S(" (สกิน)", " (skin)"), Loc.S($"สกินอาวุธของ {weapon.name}: เปลี่ยนแค่รูปลักษณ์ ค่าพลังยังเป็นของ {weapon.name} (ดาเมจ ×{weapon.dmg} · ระยะ ×{weapon.len})", $"{weapon.name} weapon skin: looks only, stats stay {weapon.name}'s (Damage ×{weapon.dmg} · Range ×{weapon.len})"));
+            }
+            else if (tab == "wings")
+            {   // wings: try any pair on in the lobby, buy with Gems; the pet can wear a matching pair
+                string shown = G.WingsShown ?? "";
+                Card(Loc.S("ไม่ใส่ปีก", "No wings"), null, null, shown == "", () => { G.ClearPreview(); s.wings = ""; Pick(); }, false, s.wings == "" ? Loc.S("ใส่อยู่", "Equipped") : null);
+                foreach (var w in Data.Wings)
+                { var ww = w; Card(w.name, Studio.Wing(w.id), null, shown == w.id, () => { if (Shop.Owns(ItemKind.Wings, ww.id)) { G.ClearPreview(); s.wings = ww.id; } else G.pvWings = ww.id; Pick(); }, false, Badge(ItemKind.Wings, w.id, s.wings == w.id), null, w.glow * .55f); }
+                Card(s.petWings ? Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: เปิด", "Pet wears wings: ON") : Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: ปิด", "Pet wears wings: OFF"), Studio.Pet(s.pet), null, s.petWings, () => { s.petWings = !s.petWings; Pick(); }, true);
+                var wd = Data.Wing(shown);
+                Offer(ItemKind.Wings, wd?.id, wd?.name, wd == null ? Loc.S("ไม่ใส่ปีก", "No wings") : Loc.S($"{wd.name} · {wd.desc} · เป็นของแต่งอย่างเดียว ไม่เปลี่ยนค่าพลัง", $"{wd.name} · {wd.desc} · Looks only, no stat change"));
             }
             else if (tab == "pet") { foreach (var p in Data.Pets) Card(p.name, Studio.Pet(p.id), null, s.pet == p.id, () => { s.pet = p.id; Pick(); }); detail.text = $"{G.pet.def.name} · {G.pet.def.desc}"; }
             else
@@ -555,6 +577,13 @@ namespace NovaBlade
             if (haloTex) return haloTex; const int N = 128; haloTex = new Texture2D(N, N, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
             for (int y = 0; y < N; y++) for (int x = 0; x < N; x++) { float e = Mathf.Max(Mathf.Abs((x + .5f) / N * 2 - 1), Mathf.Abs((y + .5f) / N * 2 - 1)); float a = Ss(.72f, 1, e); haloTex.SetPixel(x, y, new Color(1, 1, 1, a * a)); }
             haloTex.Apply(); return haloTex;
+        }
+        static Texture2D softGlow;
+        static Texture2D SoftGlow()
+        {   // soft elliptical glow, brightest in the middle
+            if (softGlow) return softGlow; const int W = 128, H = 64; softGlow = new Texture2D(W, H, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { float u = (x + .5f) / W * 2 - 1, v = (y + .5f) / H * 2 - 1, d = Mathf.Sqrt(u * u + v * v); float a = Mathf.Clamp01(1 - d); softGlow.SetPixel(x, y, new Color(1, 1, 1, a * a * a)); }
+            softGlow.Apply(); return softGlow;
         }
         static VisualElement Layer(Texture2D t, float inset) { var e = new VisualElement(); e.pickingMode = PickingMode.Ignore; e.style.position = Position.Absolute; e.style.left = e.style.top = e.style.right = e.style.bottom = inset; e.style.backgroundImage = new StyleBackground(t); e.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; return e; }
         void BuildPcBar()

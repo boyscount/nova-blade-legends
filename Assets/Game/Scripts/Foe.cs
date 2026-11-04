@@ -202,7 +202,12 @@ namespace NovaBlade
             else if (moving && !isBoss && !clipAnim && !anim) { float hp_ = Mathf.Abs(Mathf.Sin(t * sp * 3)); yy += hp_ * .16f; sy = 1 + (hp_ - .5f) * .12f; }
             var p = transform.position; p.y = yy + (d.fly ? Mathf.Max(0, River.Ground(p.x, p.z)) : River.Ground(p.x, p.z)); transform.position = p;
             if (d.kind != "tower") transform.rotation = Quaternion.Euler(0, face * Mathf.Rad2Deg, 0);
-            if (anim && s == S.Chase && stag <= 0 && (!isBoss || bossMode == "chase")) AnimLoop(moving ? "run" : "idle"); else if (anim) animState = null;
+            if (anim && s == S.Chase && stag <= 0 && (!isBoss || bossMode == "chase"))
+            {
+                AnimLoop(moving ? "run" : "idle");
+                if (moving) { var gc = Catalog.I.Clip(animSet, "run"); if (gc.speed > .1f) anim.SetFloat("Speed", Mathf.Clamp(sp / (gc.speed * baseScale), .6f, 1.9f)); }   // feet stay planted
+            }
+            else if (anim) animState = null;
             if (clipAnim && cur != null && s != S.Dead) { var cs = clipAnim[cur]; if (cs != null && cs.wrapMode == WrapMode.ClampForever && cs.normalizedTime >= 1 && s != S.Wind) cur = null; }
             if (clipAnim) { if ((s == S.Chase || cur == null) && stag <= 0) { if (moving) Play(sp > 3 ? "Run" : "Walk", "Walk", "Fast_Flying"); else Play("Idle", "Flying_Idle"); } }
             else if (!anim && d.kind != "tower") { body.localRotation = Quaternion.Euler(lean * Mathf.Rad2Deg, 0, 0); float sxz = isBoss ? 1 : Mathf.Sqrt(2 - sy * squash); body.localScale = new Vector3(baseScale * sxz, baseScale * sy * squash, baseScale * sxz); }

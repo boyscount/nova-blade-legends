@@ -15,6 +15,7 @@ namespace NovaBlade
 
         public static Texture2D Hero(string id) => tex.TryGetValue("hero_" + id, out var t) ? t : null;
         public static Texture2D HeroFull(string id) => tex.TryGetValue("herofull_" + id, out var t) ? t : null;   // full-body card art
+        public static Texture2D Wing(string id) => tex.TryGetValue("wing_" + id, out var t) ? t : null;
         public static Texture2D Pet(string id) => tex.TryGetValue("pet_" + id, out var t) ? t : null;
         public static Texture2D Weapon(string id) => tex.TryGetValue("w_" + id, out var t) ? t : null;
         public static Texture2D Stage(int i) => tex.TryGetValue("stage_" + i, out var t) ? t : null;
@@ -38,6 +39,7 @@ namespace NovaBlade
                 tex["herofull_" + h.id] = FullBody(pf, h.rig);
             }
             foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
+            foreach (var w in Data.Wings) tex["wing_" + w.id] = Shoot(Catalog.I.Model("wing_" + w.id), .45f, 1.1f, Mathf.PI);   // seen from behind
             foreach (var w in Data.Swords) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
             Object.Destroy(key.gameObject); Object.Destroy(rim.gameObject); Object.Destroy(fill.gameObject);
             (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe) = amb;

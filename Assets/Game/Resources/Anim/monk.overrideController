@@ -9,6 +9,8 @@ AnimatorOverrideController:
   m_Name: monk
   m_Controller: {fileID: 9100000, guid: b6e67bfdd24fc0b419fd032b751d92a2, type: 2}
   m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 680845624f30f62458f17548328b7b50, type: 2}
+    m_OverrideClip: {fileID: -203655887218126122, guid: 27331f9d68972114bbfd45435d664d5c, type: 3}
   - m_OriginalClip: {fileID: -203655887218126122, guid: 42ada87b24f18d445ab0ff28cdbfbb30, type: 3}
     m_OverrideClip: {fileID: 0}
   - m_OriginalClip: {fileID: -203655887218126122, guid: 04083c024eaa66140a4dfc16781c7ac7, type: 3}
@@ -40,7 +42,7 @@ AnimatorOverrideController:
   - m_OriginalClip: {fileID: -203655887218126122, guid: 6e5994a518c95814c8f31e8eb7fb7c7d, type: 3}
     m_OverrideClip: {fileID: 0}
   - m_OriginalClip: {fileID: -203655887218126122, guid: 8690d8e4a9e54cb428305f87e25a9805, type: 3}
-    m_OverrideClip: {fileID: 0}
+    m_OverrideClip: {fileID: -203655887218126122, guid: a17eeb8900e33fa4eabaf7378525a569, type: 3}
   - m_OriginalClip: {fileID: -203655887218126122, guid: c0fced6fd623a294ea14ea2854e6229d, type: 3}
     m_OverrideClip: {fileID: 0}
   - m_OriginalClip: {fileID: -203655887218126122, guid: 94b365a18209f9141af4bdceea6e3945, type: 3}

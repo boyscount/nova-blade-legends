@@ -25,7 +25,7 @@ public static class NovaSetup
     // state name -> (Mixamo file, loops)
     public static readonly Dictionary<string, (string file, bool loop)> Clips = new()
     {
-        ["idle"] = ("Great Sword Idle", true), ["run"] = ("Great Sword Run", true),
+        ["idle"] = ("Great Sword Idle", true), ["show"] = ("Great Sword Idle", true), ["run"] = ("Great Sword Run", true),
         ["atk0"] = ("Sword And Shield Attack", false), ["atk1"] = ("Great Sword Slash", false), ["atk2"] = ("Great Sword Slide Attack", false),
         ["spin"] = ("Great Sword High Spin Attack", false), ["cast"] = ("Standing 2H Magic Attack 01", false), ["guard"] = ("Great Sword Crouching", true),
         ["roll"] = ("Stand To Roll", false), ["death"] = ("Sword And Shield Death", false), ["hurt"] = ("Big Kidney Hit", false),
@@ -42,30 +42,48 @@ public static class NovaSetup
     // per-class clips from Animations/new (Mixamo "Ch02_nonPBR@<name>.fbx"): set -> state -> (clip name, loops)
     public static readonly Dictionary<string, Dictionary<string, (string file, bool loop)>> Sets = new()
     {
-        ["mage"] = new() { ["idle"] = ("mage_idle", true), ["walk"] = ("mage_walk", true), ["run"] = ("mage_run", true), ["cast2"] = ("mage_cast_big", false) },
-        ["bow"] = new() { ["idle"] = ("bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
-        ["ninja"] = new() { ["idle"] = ("ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
-        ["monk"] = new() { ["idle"] = ("monk_idle", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
+        ["mage"] = new() { ["idle"] = ("mage_idle", true), ["show"] = ("show_mage|mage_idle", true), ["walk"] = ("mage_walk", true), ["run"] = ("mage_run", true), ["cast2"] = ("mage_cast_big", false) },
+        ["bow"] = new() { ["idle"] = ("bow_idle", true), ["show"] = ("show_bow|bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
+        ["ninja"] = new() { ["idle"] = ("ninja_idle", true), ["show"] = ("show_ninja|ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
+        ["monk"] = new() { ["idle"] = ("monk_idle", true), ["show"] = ("show_monk|monk_idle", true), ["walk"] = ("monk_walk", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
+        ["warrior"] = new() { ["show"] = ("show_warrior", true) },
+        ["shield"] = new() { ["show"] = ("show_shield", true), ["walk"] = ("shield_walk", true), ["run"] = ("shield_run", true) },
+        ["samurai"] = new() { ["show"] = ("show_samurai", true) },
     };
-    public static string SetPath(string clip) => $"{Anim}/new/Ch02_nonPBR@{clip}.fbx";
-    public static AnimationClip SetClip(string clip) => AssetDatabase.LoadAllAssetsAtPath(SetPath(clip)).OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview__"));
+    public static string SetPath(string clip)
+    {
+        foreach (var c in clip.Split('|')) foreach (var p in new[] { $"{Anim}/new/Ch02_nonPBR@{c}.fbx", $"{Anim}/new/{c}.fbx" }) if (File.Exists(p)) return p;
+        return null;
+    }
+    public static AnimationClip SetClip(string clip) => SetPath(clip) is string p ? AssetDatabase.LoadAllAssetsAtPath(p).OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview__")) : null;
     public static void AnimSets()
     {
         var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
         Directory.CreateDirectory("Assets/Game/Resources/Anim");
-        foreach (var (set, states) in Sets)
+        // overrides swap clips, not states: "show" needs a base clip of its own or it always plays whatever replaces "idle"
+        var states = ctrl.layers[0].stateMachine.states.Select(s => s.state).ToArray();
+        var show = states.First(s => s.name == "show"); var idle = states.First(s => s.name == "idle");
+        if (show.motion == idle.motion)
         {
-            foreach (var (st, (file, loop)) in states) Humanoid(SetPath(file), st, loop);
+            const string ShowBase = Anim + "/show_base.anim";
+            var copy = Object.Instantiate((AnimationClip)idle.motion); copy.name = "show_base";
+            if (File.Exists(ShowBase)) AssetDatabase.DeleteAsset(ShowBase);
+            AssetDatabase.CreateAsset(copy, ShowBase); show.motion = copy; EditorUtility.SetDirty(ctrl); AssetDatabase.SaveAssets();
+            Debug.Log("[NovaSetup] show state has its own base clip");
+        }
+        foreach (var (set, clips) in Sets)
+        {
+            foreach (var (st, (file, loop)) in clips) if (SetPath(file) is string sp) Humanoid(sp, st, loop); else Debug.Log($"[NovaSetup] {set}:{st} not downloaded yet ({file})");
             var oc = new AnimatorOverrideController(ctrl) { name = set };
             var pairs = new List<KeyValuePair<AnimationClip, AnimationClip>>(); oc.GetOverrides(pairs);
             for (int i = 0; i < pairs.Count; i++)
             {
                 var key = pairs[i].Key; var st = ctrl.layers[0].stateMachine.states.FirstOrDefault(s => s.state.motion == key).state;
-                if (st != null && states.TryGetValue(st.name, out var f)) pairs[i] = new(key, SetClip(f.file));
+                if (st != null && clips.TryGetValue(st.name, out var f) && SetPath(f.file) != null) pairs[i] = new(key, SetClip(f.file));
             }
             oc.ApplyOverrides(pairs);
             var path = $"Assets/Game/Resources/Anim/{set}.overrideController"; if (File.Exists(path)) AssetDatabase.DeleteAsset(path);
-            AssetDatabase.CreateAsset(oc, path); Debug.Log($"[NovaSetup] anim set {set}: {states.Count} clips");
+            AssetDatabase.CreateAsset(oc, path); Debug.Log($"[NovaSetup] anim set {set}: {clips.Count} clips");
         }
         AssetDatabase.SaveAssets();
     }
@@ -201,7 +219,8 @@ public static class NovaSetup
     // glTF bone name -> Unity human bone
     static readonly (string human, string bone)[] Map =
     {
-        ("Hips", "hips"), ("Spine", "spine"), ("Head", "head"),
+        ("Hips", "hips"), ("Spine", "spine"), ("Chest", "chest"), ("Neck", "neck"), ("Head", "head"),
+        ("LeftShoulder", "shoulder.L"), ("RightShoulder", "shoulder.R"),
         ("LeftUpperArm", "upperarm.L"), ("LeftLowerArm", "forearm.L"), ("LeftHand", "hand.L"),
         ("RightUpperArm", "upperarm.R"), ("RightLowerArm", "forearm.R"), ("RightHand", "hand.R"),
         ("LeftUpperLeg", "thigh.L"), ("LeftLowerLeg", "shin.L"), ("LeftFoot", "foot.L"),
@@ -229,9 +248,11 @@ public static class NovaSetup
         bool leftIsNegX = Find(root, "upperarm.L").position.x < Find(root, "upperarm.R").position.x;
         var left = leftIsNegX ? Vector3.left : Vector3.right;
         // T-pose reference for the avatar (the mesh itself keeps its A-pose bind)
-        Aim(root, "spine", "head", Vector3.up);
+        if (Find(root, "chest")) { Aim(root, "spine", "chest", Vector3.up); Aim(root, "chest", "neck", Vector3.up); Aim(root, "neck", "head", Vector3.up); }
+        else Aim(root, "spine", "head", Vector3.up);
         foreach (var (s, side) in new[] { ("L", left), ("R", -left) })
         {
+            Aim(root, $"shoulder.{s}", $"upperarm.{s}", side);
             Aim(root, $"upperarm.{s}", $"forearm.{s}", side);
             Aim(root, $"forearm.{s}", $"hand.{s}", side);
             Aim(root, $"thigh.{s}", $"shin.{s}", Vector3.down);
@@ -239,7 +260,8 @@ public static class NovaSetup
         }
         var desc = new HumanDescription
         {
-            human = Map.Select(m => new HumanBone { humanName = m.human, boneName = m.bone, limit = new HumanLimit { useDefaultValues = true } }).ToArray(),
+            // older hand-made rigs have no chest, neck or collarbones: map only the bones the model has
+            human = Map.Where(m => Find(root, m.bone)).Select(m => new HumanBone { humanName = m.human, boneName = m.bone, limit = new HumanLimit { useDefaultValues = true } }).ToArray(),
             skeleton = root.GetComponentsInChildren<Transform>(true).Select(t => new SkeletonBone { name = t.name, position = t.localPosition, rotation = t.localRotation, scale = t.localScale }).ToArray(),
             upperArmTwist = .5f, lowerArmTwist = .5f, upperLegTwist = .5f, lowerLegTwist = .5f, armStretch = .05f, legStretch = .05f, feetSpacing = 0, hasTranslationDoF = false,
         };

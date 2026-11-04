@@ -16,6 +16,7 @@ namespace NovaBlade
             def = Data.Pets.FirstOrDefault(p => p.id == G.save.pet) ?? Data.Pets[0];
             if (model) Destroy(model);
             model = Instantiate(Catalog.I.Model(def.id), transform);
+            WingRig.Wear(gameObject, model.transform, G.save.petWings ? G.WingsShown : null, true);
         }
         public void PlaceLobby() { transform.position = new Vector3(-.95f, def.fly ? 1 : 0, .55f); transform.rotation = Quaternion.Euler(0, 20, 0); }
         public void ResetForGame() { transform.position = new Vector3(1.2f, 0, 7); cd = 1; biting = false; }

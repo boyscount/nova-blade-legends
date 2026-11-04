@@ -5,10 +5,11 @@ namespace NovaBlade
     // Game data (ported from the web prototype arena/index.html).
     public class HeroDef
     {
-        public string id, name, title, desc, cls = "warrior"; public float hp, spd, atk; public bool rig, ranged, blade = true; public string[] skills;
+        public string id, name, title, desc, cls = "warrior"; public float hp, spd, atk; public bool rig, ranged, blade = true, ownWeapon; public string[] skills;
         public (string n, Color tint, Color glow)[] skins; public float[] stats;
     }
     public class SwordDef { public string id, name, desc, type = "sword"; public Color color; public float dmg, spd, len, m, crit, steal; public string burn; public bool slow; public int price; }
+    public class WingDef { public string id, name, desc; public Color glow; public int gems; }
     public class PetDef { public string id, name, desc, kind; public Color color; public float cd, dmg, h, steal; public bool fly, gold; }
     public class SkillDef { public string id, n; public float cd; public Color c; public string icon; }
     public class FoeDef { public string id, model, name, kind; public float hp, spd, dmg, range, scale, rad; public int gold; public bool fly; }
@@ -18,7 +19,7 @@ namespace NovaBlade
     public static class Data
     {
         // per-class movement and attack clips (AnimatorOverrideController in Resources/Anim/<set>); null = the shared Great Sword set
-        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" => "mage", "elf" or "hood" => "bow", "ninja" => "ninja", "monk" => "monk", _ => null };
+        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" => "mage", "elf" or "hood" => "bow", "ninja" => "ninja", "monk" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
         static Color C(int hex) => new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f);
         static Color G(int hex, float k) => C(hex) * k;
 
@@ -33,16 +34,16 @@ namespace NovaBlade
             new HeroDef { id = "harpy", cls = "archer", ranged = true, name = Loc.S("แอริส", "Aeris"), title = Loc.S("ฮาร์ปี้นักรบแห่งฟากฟ้า", "Sky Harpy Warrior"), desc = Loc.S("ยิงขนนกระยะไกล ดิ่งฟ้ากระแทก และพายุปีกดูดศัตรู", "Long-range feathers, a crushing dive and a gale that pulls foes in"), hp = 950, spd = 5.4f, atk = 1.0f, rig = true,
                 skills = new[] { "feather", "dive", "gale" }, stats = new[] { .5f, .7f, .8f, .95f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("ปีกอัคคี", "Fire Wings"), C(0xffc29a), G(0xff6a1a, .22f)), (Loc.S("ปีกพายุ", "Storm Wings"), C(0xb8e6ff), G(0x3fb8ff, .22f)), (Loc.S("ปีกมรณะ", "Death Wings"), C(0x8e86a8), G(0xb04dff, .25f)) } },
-            new HeroDef { id = "spartan", name = Loc.S("ไลร่า", "Lyra"), title = Loc.S("นักรบโล่แห่งหุบเขา", "Shieldmaiden of the Vale"), desc = Loc.S("สายนักรบ ถือโล่หนัก ทนทาน ปั่นดาบกลางฝูงศัตรู", "Warrior: heavy shield, tough, spins through crowds"), cls = "warrior", hp = 1350, spd = 4.9f, atk = 1.15f, rig = true,
+            new HeroDef { id = "spartan", ownWeapon = true, name = Loc.S("ไลร่า", "Lyra"), title = Loc.S("นักรบโล่แห่งหุบเขา", "Shieldmaiden of the Vale"), desc = Loc.S("สายนักรบ ถือโล่หนัก ทนทาน ปั่นดาบกลางฝูงศัตรู", "Warrior: heavy shield, tough, spins through crowds"), cls = "warrior", hp = 1350, spd = 4.9f, atk = 1.15f, rig = true,
                 skills = new[] { "whirl", "slam", "cry" }, stats = new[] { 0.95f, 0.8f, 0.5f, 0.5f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("ทองสัมฤทธิ์", "Bronze"), C(0xffe2a2), G(0xffb52e, .22f)), (Loc.S("เงาราตรี", "Night Shade"), C(0x9d97c4), G(0x5a4dff, .22f)), (Loc.S("เลือดศึก", "War Blood"), C(0xffb4a4), G(0xff3a1a, .22f)) } },
             new HeroDef { id = "elf", name = Loc.S("เอลวีน", "Elwyn"), title = Loc.S("พรานธนูแห่งพงไพร", "Forest Ranger"), desc = Loc.S("สายธนู ยิงไกล ปล่อยห่าลูกศร แล้วกระโดดถอยตั้งหลัก", "Archer: long range, arrow volleys, leaps back to reposition"), cls = "archer", hp = 900, spd = 5.5f, atk = 1.05f, rig = true, ranged = true, blade = false,
                 skills = new[] { "feather", "dive", "gale" }, stats = new[] { 0.5f, 0.75f, 0.8f, 1f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("ใบไม้ผลิ", "Spring Leaf"), C(0xc8ffc0), G(0x5fff7a, .22f)), (Loc.S("หิมะเงิน", "Silver Snow"), C(0xdff2ff), G(0x7fd8ff, .22f)), (Loc.S("ใบไม้ร่วง", "Autumn Leaf"), C(0xffc89a), G(0xff7a1a, .22f)) } },
-            new HeroDef { id = "ninja", name = Loc.S("คาเงะ", "Kage"), title = Loc.S("นินจาเงาราตรี", "Night Shadow Ninja"), desc = Loc.S("สายนักฆ่า พุ่งฟันทะลุศัตรู เร็วที่สุดในบรรดาฮีโร่", "Assassin: dashes through foes, the fastest hero"), cls = "assassin", hp = 950, spd = 6.0f, atk = 1.1f, rig = true,
+            new HeroDef { id = "ninja", ownWeapon = true, name = Loc.S("คาเงะ", "Kage"), title = Loc.S("นินจาเงาราตรี", "Night Shadow Ninja"), desc = Loc.S("สายนักฆ่า พุ่งฟันทะลุศัตรู เร็วที่สุดในบรรดาฮีโร่", "Assassin: dashes through foes, the fastest hero"), cls = "assassin", hp = 950, spd = 6.0f, atk = 1.1f, rig = true,
                 skills = new[] { "iaido", "petal", "dance" }, stats = new[] { 0.5f, 0.85f, 1f, 0.55f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("เงาแดง", "Crimson Shade"), C(0xffb0b0), G(0xff3a3a, .22f)), (Loc.S("เงาคราม", "Indigo Shade"), C(0xb0c8ff), G(0x3a6aff, .22f)), (Loc.S("เงาทอง", "Golden Shade"), C(0xffe8a8), G(0xffc02e, .22f)) } },
-            new HeroDef { id = "hood", name = Loc.S("เรเวน", "Raven"), title = Loc.S("มือสังหารใต้ผ้าคลุม", "Hooded Killer"), desc = Loc.S("สายนักฆ่า ไล่ฟันทีละเป้าแล้วหายไปในเงา", "Assassin: strikes one target after another, then vanishes into shadow"), cls = "assassin", hp = 1000, spd = 5.8f, atk = 1.1f, rig = true,
+            new HeroDef { id = "hood", ownWeapon = true, name = Loc.S("เรเวน", "Raven"), title = Loc.S("มือสังหารใต้ผ้าคลุม", "Hooded Killer"), desc = Loc.S("สายนักฆ่า ไล่ฟันทีละเป้าแล้วหายไปในเงา", "Assassin: strikes one target after another, then vanishes into shadow"), cls = "assassin", hp = 1000, spd = 5.8f, atk = 1.1f, rig = true,
                 skills = new[] { "dance", "iaido", "petal" }, stats = new[] { 0.55f, 0.85f, 0.95f, 0.55f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("เขม่าเถ้า", "Ash"), C(0xc8c8c8), G(0x8a8a8a, .22f)), (Loc.S("พิษมรกต", "Emerald Venom"), C(0xb0ffc8), G(0x2eff8a, .22f)), (Loc.S("โลหิต", "Blood"), C(0xffa0a0), G(0xff2a3a, .22f)) } },
             new HeroDef { id = "sunpriest", name = Loc.S("โซเลีย", "Solia"), title = Loc.S("นักบวชแห่งสุริยะ", "Priestess of the Sun"), desc = Loc.S("สายนักบวช ยิงแสงศักดิ์สิทธิ์ ฟื้นพลังชีวิต และกางบาเรีย", "Cleric: holy light, healing and barriers"), cls = "cleric", hp = 1050, spd = 5.0f, atk = 0.95f, rig = true, ranged = true, blade = false,
@@ -77,6 +78,15 @@ namespace NovaBlade
             new SwordDef { id = "w_gold2", price = 1200, name = Loc.S("มหาดาบอัศวิน", "Knight's Greatsword"), desc = Loc.S("หนักและยาว แรงที่สุด แต่ฟันช้า", "Heavy and long: the strongest, but slow"), color = C(0xcfe8ff), dmg = 1.4f, spd = .8f, len = 1.15f, m = 1.25f },
         };
 
+        // wings: looks only, worn by the hero (and the pet, if chosen); glow = emission, mote and bloom colour
+        public static readonly WingDef[] Wings =
+        {
+            new WingDef { id = "angel", name = Loc.S("ปีกเทวา", "Angel Wings"), desc = Loc.S("ขนนกขาวเรืองแสงทอง", "White feathers with a golden glow"), glow = new Color(1, .9f, .65f), gems = 120 },
+            new WingDef { id = "fire", name = Loc.S("ปีกอัคคี", "Fire Wings"), desc = Loc.S("ขนเพลิงฟีนิกซ์ ประกายไฟลอยขึ้น", "Phoenix flame feathers shedding embers"), glow = new Color(1, .45f, .12f), gems = 180 },
+            new WingDef { id = "storm", name = Loc.S("ปีกพายุ", "Storm Wings"), desc = Loc.S("ขนสายฟ้า ประกายไฟฟ้าแตกกระจาย", "Lightning feathers crackling with sparks"), glow = new Color(.35f, .7f, 1), gems = 180 },
+            new WingDef { id = "death", name = Loc.S("ปีกมรณะ", "Death Wings"), desc = Loc.S("ปีกค้างคาวปีศาจ หมอกม่วงลอยตาม", "Demon bat wings trailing violet mist"), glow = new Color(.65f, .25f, 1), gems = 250 },
+        };
+        public static WingDef Wing(string id) => string.IsNullOrEmpty(id) ? null : System.Array.Find(Wings, w => w.id == id);
         public static readonly PetDef[] Pets =
         {
             new PetDef { id = "candle", name = Loc.S("แคนเดิล", "Candle"), desc = Loc.S("ยิงลูกไฟใส่ศัตรูใกล้สุด", "Shoots fireballs at the nearest foe"), kind = "bolt", color = C(0xff8a2a), cd = 1.4f, dmg = 70, h = .6f },

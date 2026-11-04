@@ -33,12 +33,15 @@ namespace NovaBlade
             public int gems = Shop.TestGems;                       // test-only premium currency (no real payments yet)
             public List<string> owned = new(), ledger = new();     // ownership and purchase history, kept apart from what is equipped
             public List<string> wsKeys = new(), wsVals = new();    // equipped weapon skin per weapon
+            public string wings = ""; public bool petWings = true; // equipped wings ("" = none) and whether the pet wears a pair too
             public string WeaponSkin(string weapon) { int i = wsKeys.IndexOf(weapon); return i < 0 ? null : wsVals[i]; }
             public void SetWeaponSkin(string weapon, string model) { int i = wsKeys.IndexOf(weapon); if (i < 0) { wsKeys.Add(weapon); wsVals.Add(model); } else wsVals[i] = model; }
         }
         // lobby try-on: shown on the hero in the lobby only, never taken into a match unless owned
-        [System.NonSerialized] public string pvSword, pvWeaponSkin; [System.NonSerialized] public int pvSkin = -1;   // runtime only (a serialized string would come back as "")
-        public void ClearPreview() { pvSword = pvWeaponSkin = null; pvSkin = -1; }
+        [System.NonSerialized] public string pvSword, pvWeaponSkin, pvWings; [System.NonSerialized] public int pvSkin = -1;   // runtime only (a serialized string would come back as "")
+        public void ClearPreview() { pvSword = pvWeaponSkin = pvWings = null; pvSkin = -1; }
+        // wings on show: a pair being tried on in the lobby, else the equipped pair if owned ("" = none)
+        public string WingsShown => mode == Mode.Lobby && pvWings != null ? pvWings : Shop.Owns(ItemKind.Wings, save.wings) && Data.Wing(save.wings) != null ? save.wings : null;
         public Save save;
         public int Skin(string id) { int i = save.skinKeys.IndexOf(id); return i < 0 ? 0 : save.skinVals[i]; }
         public void SetSkin(string id, int v) { int i = save.skinKeys.IndexOf(id); if (i < 0) { save.skinKeys.Add(id); save.skinVals.Add(v); } else save.skinVals[i] = v; Persist(); }
@@ -66,8 +69,58 @@ namespace NovaBlade
             var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
             if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
             int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
+            int wi = System.Array.IndexOf(args, "-wingtest"); if (wi >= 0 && wi + 1 < args.Length) StartCoroutine(WingTest(args[wi + 1]));
+            int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
         }
 
+        // Test mode (-wingtest <dir>): each pair of wings tried on in the lobby (back and side views, pet too), then a short
+        // fight wearing them, then quit.
+        System.Collections.IEnumerator WingTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            void Shot(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            ui.SetTab("wings"); save.hero = "sorceress"; save.petWings = true;
+            foreach (var w in Data.Wings)
+            {
+                pvWings = w.id; hero.Equip(); pet.Equip(); hero.PlaceLobby(); pet.PlaceLobby(); ui.ShowLobby(); ui.SetTab("wings");
+                ui.lobbyZoom = .35f; ui.heroYaw = 180; yield return new WaitForSecondsRealtime(1.6f); Shot($"wing_{w.id}_back");
+                ui.heroYaw = 60; yield return new WaitForSecondsRealtime(1.2f); Shot($"wing_{w.id}_side");
+            }
+            pvWings = null; save.wings = "fire"; save.owned.Add(Shop.Key(ItemKind.Wings, "fire")); save.best = 5; StartGame(3);
+            for (float t = 0, n = 0; t < 8; t += Time.unscaledDeltaTime)
+            {
+                if (Random.value < .08f) ui.atkP = true; hero.hp = Mathf.Max(hero.hp, hero.max * .5f);
+                if (n < 2 && t > 3 + n * 3) { Shot($"game_{n}"); n++; }
+                yield return null;
+            }
+            Application.Quit();
+        }
+        // Test mode (-heroaudit <dir>): every hero on the lobby stage, front and three-quarter shots, and how far the
+        // hand and head move over a second (0 = frozen), then quit.
+        System.Collections.IEnumerator HeroAudit(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            var log = new System.Text.StringBuilder();
+            foreach (var d in Data.Heroes)
+            {
+                save.hero = d.id; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.lobbyZoom = .55f; ui.heroYaw = 0;
+                yield return new WaitForSecondsRealtime(1.5f);
+                var an = hero.GetComponentInChildren<Animator>();
+                Transform B(HumanBodyBones b) => an && an.isHuman ? an.GetBoneTransform(b) : null;
+                var bones = new[] { B(HumanBodyBones.Head), B(HumanBodyBones.RightHand), B(HumanBodyBones.LeftHand), B(HumanBodyBones.Spine) };
+                var p0 = bones.Select(t => t ? t.position : Vector3.zero).ToArray();
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, d.id + "_a.png"));
+                float mv = 0;   // furthest any of these bones gets from where it started, over 1.5 s
+                for (float w = 0; w < 1.5f; w += Time.unscaledDeltaTime) { for (int i = 0; i < bones.Length; i++) if (bones[i]) mv = Mathf.Max(mv, (bones[i].position - p0[i]).magnitude); yield return null; }
+                ui.heroYaw = 40; yield return new WaitForSecondsRealtime(.6f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, d.id + "_b.png"));
+                var st = an ? an.GetCurrentAnimatorClipInfo(0) : null;
+                log.AppendLine($"{d.id}\tanim={(an ? an.enabled.ToString() : "none")}\tset={hero.animSet ?? "-"}\tclip={(st != null && st.Length > 0 ? st[0].clip.name : "-")}\tmove={mv:0.000}m");
+                yield return new WaitForSecondsRealtime(.4f);
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "audit.txt"), log.ToString());
+            Application.Quit();
+        }
         // Test mode (-novashot <dir>): screenshots of the lobby and each stage while the hero fights on autopilot, then quit.
         // -inputtest: drives the real Input System (arrow keys, right-click) in a stage and logs whether the hero responds
         // -clip <dir>: a ~30 s showcase recorded frame by frame at a fixed 30 fps (frames as JPG, joined into a video by ffmpeg)

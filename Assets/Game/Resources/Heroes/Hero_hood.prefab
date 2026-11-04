@@ -44,14 +44,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: hood
       objectReference: {fileID: 0}
-    - target: {fileID: -6915126371746556507, guid: 59669df5f338e32489534dc93dc1000c, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.5238828
-      objectReference: {fileID: 0}
-    - target: {fileID: -6915126371746556507, guid: 59669df5f338e32489534dc93dc1000c, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0.4718887
-      objectReference: {fileID: 0}
     - target: {fileID: 7512201547712726738, guid: 59669df5f338e32489534dc93dc1000c, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

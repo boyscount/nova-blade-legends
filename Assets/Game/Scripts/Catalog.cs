@@ -7,7 +7,7 @@ namespace NovaBlade
     public class Catalog : ScriptableObject
     {
         [System.Serializable] public class Entry { public string id; public GameObject prefab; }
-        [System.Serializable] public class ClipInfo { public string id; public float length, hit; }
+        [System.Serializable] public class ClipInfo { public string id; public float length, hit, speed; }   // speed: ground speed of a walk/run cycle at 1.75 m (m/s), 0 = not a gait
         public List<Entry> models = new();      // hero_*, pet/foe models by id, bosses, weapons (w_*)
         public List<Entry> fx = new();          // CartoonFX prefabs by short name
         public List<ClipInfo> clips = new();    // Mixamo clip lengths and strike times (seconds)
