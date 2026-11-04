@@ -302,6 +302,14 @@ public static class NovaBuild
         var camGo = new GameObject("Main Camera") { tag = "MainCamera" }; var cam = camGo.AddComponent<Camera>(); cam.fieldOfView = 40; cam.nearClipPlane = .3f; cam.farClipPlane = 160;
         var cd = camGo.AddComponent<UniversalAdditionalCameraData>(); cd.renderPostProcessing = true; cd.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
         camGo.transform.position = new Vector3(0, 9, 14); camGo.transform.LookAt(Vector3.zero);
+        {   // see-through scenery (OcclusionFader): a transparent URP Lit material in Resources keeps that shader variant in the build
+            var fm = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "FadeLit" };
+            fm.SetFloat("_Surface", 1); fm.SetFloat("_Blend", 0); fm.SetFloat("_ZWrite", 0); fm.SetFloat("_AlphaClip", 0);
+            fm.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); fm.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            fm.SetOverrideTag("RenderType", "Transparent"); fm.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); fm.renderQueue = 3000; fm.SetFloat("_Smoothness", .1f);
+            fm.SetColor("_BaseColor", new Color(1, 1, 1, .3f));
+            const string fp = "Assets/Game/Resources/FadeLit.mat"; if (File.Exists(fp)) AssetDatabase.DeleteAsset(fp); AssetDatabase.CreateAsset(fm, fp);
+        }
         {   // lobby depth of field: the hero sharp, the forest behind softly out of focus (LobbyNight sets the weight)
             var dofGo = new GameObject("LobbyDOF"); var dv = dofGo.AddComponent<Volume>(); dv.isGlobal = true; dv.priority = 5; dv.weight = 0;
             var dp = ScriptableObject.CreateInstance<VolumeProfile>(); var dof = dp.Add<DepthOfField>(true);
@@ -773,6 +781,39 @@ public static class NovaBuild
     static void Mirror(System.Action<float> place) { place(1); place(-1); }
 
     // ======================= stage 2: fantasy kingdom town square (Fantasy Kingdom) =======================
+    // a bridge's walkable deck: its long axis from the model's spread, then the top of the middle strip along it
+    static void Deck(GameObject b)
+    {
+        var pts = b.GetComponentsInChildren<MeshFilter>().Where(mf => mf.sharedMesh).SelectMany(mf => mf.sharedMesh.vertices.Select(v => mf.transform.TransformPoint(v))).ToArray();
+        if (pts.Length < 10) return;
+        var c = pts.Aggregate(Vector3.zero, (s, p) => s + p) / pts.Length;
+        float xx = 0, zz = 0, xz = 0; foreach (var p in pts) { float dx = p.x - c.x, dz = p.z - c.z; xx += dx * dx; zz += dz * dz; xz += dx * dz; }
+        float ang = .5f * Mathf.Atan2(2 * xz, xx - zz); var axis = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)); var side = new Vector3(-axis.z, 0, axis.x);
+        float a0 = pts.Min(p => Vector3.Dot(p - c, axis)), a1 = pts.Max(p => Vector3.Dot(p - c, axis)), s0 = pts.Min(p => Vector3.Dot(p - c, side)), s1 = pts.Max(p => Vector3.Dot(p - c, side));
+        var mid = c + axis * ((a0 + a1) / 2) + side * ((s0 + s1) / 2); float hl = (a1 - a0) / 2, hw = (s1 - s0) / 2;
+        // deck top: rays straight down the middle line onto temporary colliders on the bridge's own meshes
+        var tmp = b.GetComponentsInChildren<MeshFilter>().Where(mf => mf.sharedMesh).Select(mf => { var mc = mf.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = mf.sharedMesh; return mc; }).ToList();
+        Physics.SyncTransforms();
+        const int N = 16; var h = new float[N];
+        for (int i = 0; i < N; i++)
+        {
+            var at = mid + axis * (-hl + 2 * hl * (i + .5f) / N); float best = float.NaN;
+            foreach (var off in new[] { 0f, -.15f, .15f })
+                foreach (var hit in Physics.RaycastAll(at + side * off * hw + Vector3.up * 20, Vector3.down, 40))
+                    if (tmp.Contains(hit.collider) && (float.IsNaN(best) || hit.point.y > best) && Mathf.Abs(Vector3.Dot(hit.point - mid, side)) < hw * .5f) best = hit.point.y;
+            h[i] = best;
+        }
+        foreach (var mc in tmp) Object.DestroyImmediate(mc);
+        for (int i = 1; i < N; i++) if (float.IsNaN(h[i])) h[i] = h[i - 1];          // gaps: the nearest sample
+        for (int i = N - 2; i >= 0; i--) if (float.IsNaN(h[i])) h[i] = h[i + 1];
+        if (float.IsNaN(h[0])) return;
+        // ramps of five more steps at both ends, from the ground up to the deck, so nobody pops up onto it
+        const int K = 5; float step = 2 * hl / N; var hh = new float[N + 2 * K];
+        for (int i = 0; i < K; i++) { hh[i] = h[0] * i / K; hh[N + 2 * K - 1 - i] = h[N - 1] * i / K; }
+        for (int i = 0; i < N; i++) hh[K + i] = h[i];
+        var d = b.AddComponent<BridgeDeck>(); d.center = mid; d.axis = axis; d.side = side; d.halfLen = hl + K * step; d.halfWid = hw * .6f; d.h = hh; h = hh;
+        Debug.Log($"[NovaBuild] bridge deck len {2 * hl:0.0} width {2 * hw:0.0} heights {string.Join(",", h.Select(y => y.ToString("0.00")))}");
+    }
     static float Smooth(float a, float b, float x) => Mathf.SmoothStep(0, 1, Mathf.InverseLerp(a, b, x));   // smoothstep between two edges
     static Transform KingdomSquare()
     {
@@ -868,7 +909,7 @@ public static class NovaBuild
         foreach (float bx in new[] { -11f, 12f })
         {
             float slope = Mathf.Atan(.09f * 4.5f * Mathf.Cos(bx * .09f)) * Mathf.Rad2Deg;
-            Fit(bridge, new Vector3(bx, -.1f, ValleyRiver(bx)), 90 - slope, 2.2f);
+            Deck(Fit(bridge, new Vector3(bx, -.1f, ValleyRiver(bx)), 90 - slope, 2.2f));
         }
         // trees: pines and fruit trees in a ring round the meadow, a few inside for cover
         var pines = new[] { P + "Trees/PT_Pine_Tree_03_green.prefab", P + "Trees/PT_Pine_Tree_03_green_cut.prefab" };

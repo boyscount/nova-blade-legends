@@ -61,6 +61,7 @@ namespace NovaBlade
         void Awake()
         {
             Balance.Load();   // Resources/Data/balance.json over the defaults in Data.cs
+            if (Camera.main && !Camera.main.GetComponent<OcclusionFader>()) Camera.main.gameObject.AddComponent<OcclusionFader>();   // trees in the way turn see-through
             G = this;
             Application.targetFrameRate = 60;
             if (Application.isMobilePlatform) QualitySettings.SetQualityLevel(0, true);   // phones (also mobile browsers): the Mobile URP asset
@@ -91,6 +92,7 @@ namespace NovaBlade
             int wi = System.Array.IndexOf(args, "-wingtest"); if (wi >= 0 && wi + 1 < args.Length) StartCoroutine(WingTest(args[wi + 1]));
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
             int pk = System.Array.IndexOf(args, "-posecheck"); if (pk >= 0 && pk + 2 < args.Length) StartCoroutine(PoseCheck(args[pk + 1], args[pk + 2]));
+            int nt = System.Array.IndexOf(args, "-newtest"); if (nt >= 0 && nt + 1 < args.Length) StartCoroutine(NewTest(args[nt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
         }
@@ -226,6 +228,64 @@ namespace NovaBlade
                 }
                 if (c) g.Destroy();
             }
+            Application.Quit();
+        }
+        // Test mode (-newtest <dir>): the hero details screen, a walk across a valley bridge (heights logged), and the
+        // see-through trees in a low-camera fight; shots and new.txt, then quit.
+        System.Collections.IEnumerator NewTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            foreach (var h in new[] { "samurai", "sunpriest" })
+            {
+                save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); yield return new WaitForSecondsRealtime(1);
+                ui.TestSkills(); yield return new WaitForSecondsRealtime(.6f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"skills_{h}.png")); yield return new WaitForSecondsRealtime(.4f);
+            }
+            CamStyle = 2; save.hero = "warrior";
+            int vi = System.Array.FindIndex(stageRoots, t => t && t.name == "Stage_valley") + 1;
+            StartGame(vi); yield return new WaitForSecondsRealtime(2);
+            foreach (var f in G.Live.ToList()) if (f) f.gameObject.SetActive(false);
+            var decks = FindObjectsByType<BridgeDeck>(FindObjectsSortMode.None);
+            log.AppendLine($"valley stage {vi}: decks {decks.Length} valleyRiver={River.Valley}");
+            foreach (var d in decks)
+            {
+                log.AppendLine($"deck at {d.center} len {d.halfLen * 2:0.0} wid {d.halfWid * 2:0.0} h {string.Join(",", d.h.Select(y => y.ToString("0.00")))}");
+                var start = d.center - d.axis * (d.halfLen + 1.5f); hero.transform.position = new Vector3(start.x, 0, start.z);
+                float maxY = -9, minY = 9;
+                for (float w = 0; w < 2.2f; w += Time.unscaledDeltaTime)
+                {
+                    // carried along the bridge at walking pace; the hero's own ground logic sets the height
+                    var q = start + d.axis * (w / 2.2f) * (2 * d.halfLen + 3); var p = hero.transform.position; p.x = q.x; p.z = q.z; hero.transform.position = p;
+                    maxY = Mathf.Max(maxY, p.y); minY = Mathf.Min(minY, p.y);
+                    if (w > 1.1f && w < 1.1f + Time.unscaledDeltaTime * 1.5f) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"bridge_{System.Array.IndexOf(decks, d)}.png"));
+                    yield return null;
+                }
+                ui.Joy = Vector2.zero; log.AppendLine($"  walked: hero y {minY:0.00}..{maxY:0.00}, ends at {hero.transform.position}");
+                yield return new WaitForSecondsRealtime(.3f);
+            }
+            // the river away from the bridges: wading
+            var wz = -3 + Mathf.Sin(0 * .09f) * 4.5f; hero.transform.position = new Vector3(0, 0, wz); yield return new WaitForSecondsRealtime(.6f);
+            log.AppendLine($"in the river at x=0: ground {River.Ground(0, wz):0.00} hero y {hero.transform.position.y:0.00} inWater {River.InWater(0, wz)}");
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "wade.png")); yield return new WaitForSecondsRealtime(.5f);
+            // a tree between the camera and the hero: placed just behind one, seen from the low camera
+            var fd = Camera.main.GetComponent<OcclusionFader>();
+            var trees = stageRoots[vi - 1].GetComponentsInChildren<MeshRenderer>().Where(r => r.name.ToLower().Contains("tree") && r.name.Contains("LOD0") && r.bounds.size.y > 3 && new Vector2(r.bounds.center.x, r.bounds.center.z).magnitude < 20).Take(40).ToList();
+            var cdir = Vector3.ProjectOnPlane(Camera.main.transform.position - hero.transform.position, Vector3.up).normalized;
+            for (int k = 0; k < 2 && k < trees.Count; k++)
+            {
+                var tp = trees[k * 7 % trees.Count].bounds.center; var hp2 = tp - cdir * 2.2f; hero.transform.position = new Vector3(hp2.x, 0, hp2.z); yield return new WaitForSecondsRealtime(1.2f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"behindtree_{k}.png")); yield return null;
+                log.AppendLine($"behind tree {k}: faded {(fd ? fd.FadedCount : -1)}  {(fd ? fd.Report : "")}");
+            }
+            // trees: the forest, low camera, monsters alive
+            ShowLobby(); yield return new WaitForSecondsRealtime(.5f); StartGame(1); yield return new WaitForSecondsRealtime(3);
+            var fader = Camera.main.GetComponent<OcclusionFader>();
+            for (int k = 0; k < 3; k++)
+            {
+                hero.transform.position = new Vector3(-14 + k * 14, 0, 14 - k * 4); yield return new WaitForSecondsRealtime(1.2f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"trees_{k}.png")); yield return null;
+                log.AppendLine($"trees shot {k}: fader {(fader ? fader.FadedCount : -1)} faded renderers");
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "new.txt"), log.ToString());
             Application.Quit();
         }
         // Test mode (-movetest <dir>): every hero runs forward on the joystick; logs the playing state, its speed, how far the
@@ -445,7 +505,7 @@ namespace NovaBlade
         {
             LobbyNight.Set(false);
             for (int k = 0; k < stageRoots.Length; k++) if (stageRoots[k]) stageRoots[k].gameObject.SetActive(k == i);
-            River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river";
+            River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river"; River.Valley = stageRoots[i] && stageRoots[i].name == "Stage_valley";
             var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null; stageLook = look;
             if (look) look.Apply();
             Obstacles.Use(stageRoots[i]);

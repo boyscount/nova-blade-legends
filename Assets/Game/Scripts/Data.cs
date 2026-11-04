@@ -181,6 +181,35 @@ namespace NovaBlade
             ["sorceress:shield"] = (Loc.S("ฟองน้ำคุ้มกัน", "Bubble Ward"), C(0x5ff0e0)),
             ["sorceress:missile"] = (Loc.S("หยดน้ำไล่ล่า", "Seeking Droplets"), C(0x6b9bff)),
         };
+        // what a skill does, for the hero details screen: the class reworks first, then the shared skill
+        public static string SkillDesc(HeroDef h, string id) => (h.cls, id) switch
+        {
+            ("mage", "missile") => Loc.S("เรียกห่าอุกกาบาตเวทถล่มกลุ่มศัตรูที่ใกล้ที่สุด 3 ระลอก", "Calls three waves of arcane meteors down on the nearest crowd"),
+            ("mage", "shield") => Loc.S("ม่านเวทกันดาเมจ 80% พร้อมระเบิดน้ำแข็งรอบตัว ผลักศัตรูและทำให้ช้าลง", "A ward that blocks 80% of damage, with a frost burst that throws foes back and slows them"),
+            ("cleric", "shield") => Loc.S("วางวงศักดิ์สิทธิ์ 5 วินาที ยืนในวงฟื้นเลือด ศัตรูในวงโดนแสงเผา", "A holy circle for 5 s: standing in it heals you, foes inside it burn"),
+            ("cleric", "cry") => Loc.S("เสาแสงฟาดศัตรูที่ใกล้ที่สุด 3 ตัว ดาเมจสูง", "Pillars of light strike the three nearest foes for heavy damage"),
+            ("monk", "slam") => Loc.S("พุ่งฝ่ามือทะลุแถวศัตรู ผลักกระเด็นไกล", "A driving palm that dashes through the line and hurls foes back"),
+            ("monk", "whirl") => Loc.S("ต่อยรัว 8 หมัด ปิดท้ายด้วยลูกเตะแรง", "A flurry of eight punches finished with a heavy kick"),
+            ("monk", "cry") => Loc.S("ระเบิดลมปราณรอบตัว แล้วพลังโจมตีเพิ่ม 50% นาน 6 วินาที", "Qi bursts out around you, then your attack is up 50% for 6 s"),
+            ("archer", "dive") when h.id != "harpy" => Loc.S("ยิงฝนธนู 22 ดอกตกใส่กลุ่มศัตรู", "A rain of 22 arrows on the nearest crowd"),
+            ("archer", "gale") when h.id != "harpy" => Loc.S("ง้างธนูชาร์จพลัง ยิงศรทะลุทั้งแถว ดาเมจสูงมาก", "A charged shot that drives through the whole line for huge damage"),
+            _ => id switch
+            {
+                "whirl" => Loc.S("หมุนตัวฟันรอบทิศ โดนทุกตัวที่อยู่ใกล้", "Spin and cut everything around you"),
+                "slam" => Loc.S("กระโดดทุบพื้น ศัตรูรอบจุดตกกระเด็น", "Leap and smash the ground, knocking back foes where you land"),
+                "cry" => Loc.S("คำรามปลุกพลัง พลังโจมตีเพิ่มและรับดาเมจน้อยลงชั่วครู่", "A war cry: more attack and less damage taken for a while"),
+                "iaido" => Loc.S("ชักดาบพุ่งผ่านศัตรูในพริบตา ฟันทุกตัวที่ขวางทาง", "Draw and dash through foes in a flash, cutting all in the way"),
+                "petal" => Loc.S("พายุใบมีดหมุนรอบตัว ฟันศัตรูต่อเนื่อง", "A storm of blades whirls around you, cutting again and again"),
+                "dance" => Loc.S("กระโดดฟันไล่ศัตรูใกล้ๆ ทีละตัว ไม่โดนโจมตีระหว่างร่าย", "Leap from foe to foe cutting each one, untouchable while it lasts"),
+                "feather" => Loc.S("ยิงห่าขนนกเป็นรูปพัดไปข้างหน้า", "A fan of feathers shot ahead"),
+                "dive" => Loc.S("บินขึ้นแล้วดิ่งลงใส่ศัตรู กระแทกรอบจุดตก", "Fly up and dive on your foes, striking all around the landing"),
+                "gale" => Loc.S("กระพือลมพายุผลักศัตรูกระเด็น", "A gust of wind that blows foes away"),
+                "laser" => Loc.S("ยิงลำแสงต่อเนื่องไปข้างหน้า", "A sustained beam fired ahead"),
+                "missile" => Loc.S("ยิงกระสุนไล่ล่าเข้าหาศัตรูเอง", "Homing shots that seek out foes"),
+                "heal" => Loc.S("ฟื้นพลังชีวิตตัวเอง", "Restores your health"),
+                _ => Loc.S("บาเรียกันดาเมจ 80% ชั่วครู่", "A barrier that blocks 80% of damage for a while"),
+            },
+        };
         public static (string n, Color c) SkillLook(string hero, string skill)
         { if (HeroSkills.TryGetValue(hero + ":" + skill, out var v)) return v; var d = Skill(skill); return (d.n, d.c); }
         // basic-attack button icon by class

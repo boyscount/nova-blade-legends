@@ -190,6 +190,8 @@ namespace NovaBlade
             heroT = L("", touchUi ? 29 : 24, Gold, true); Shadow(heroT); info.Add(heroT);
             heroN = L("", 72, Color.white, true); heroN.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 10, color = new Color(0, 0, 0, .9f) }; heroN.style.marginTop = -4; info.Add(heroN);
             heroD = L("", touchUi ? 27 : 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
+            var sk = Btn(Loc.S("ⓘ ดูรายละเอียดสกิล", "ⓘ Skill details"), ShowSkills, false); sk.style.alignSelf = Align.FlexStart; sk.style.marginTop = 10; sk.style.fontSize = touchUi ? 24 : 18;
+            sk.style.paddingTop = sk.style.paddingBottom = touchUi ? 10 : 6; sk.style.paddingLeft = sk.style.paddingRight = 16; Round(sk, 18); sk.pickingMode = PickingMode.Position; info.Add(sk);
             var st = Box(); st.style.marginTop = 12; info.Add(st); stats = new VisualElement[4];
             string[] names = { Loc.S("พลังชีวิต", "Health"), Loc.S("โจมตี", "Attack"), Loc.S("ความเร็ว", "Speed"), Loc.S("ระยะ", "Range") };
             for (int i = 0; i < 4; i++)
@@ -420,6 +422,70 @@ namespace NovaBlade
         }
         string Badge(ItemKind k, string id, bool worn) => Shop.Owns(k, id) ? (worn ? Loc.S("ใส่อยู่", "Equipped") : Loc.S("มีแล้ว", "Owned")) : Shop.PriceText(k, id);
         // detail text, plus the buy button when the item being tried on is not owned yet
+        VisualElement skillOv, skillBox;
+        string pickSkill;
+        // Hero details (character select): name and class, a 2x2 stat box with bars, the three skills as round pictures;
+        // tapping a skill shows what it does underneath. Closes with the X or a tap outside.
+        void ShowSkills()
+        {
+            var h = G.hero.def; skillBox.Clear(); float big = touchUi ? 1.25f : 1;
+            if (pickSkill == null || System.Array.IndexOf(h.skills, pickSkill) < 0) pickSkill = h.skills[0];
+            skillBox.style.width = 640 * big;
+            var cl = Data.Classes.FirstOrDefault(c => c.id == h.cls);
+            // header
+            var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; skillBox.Add(top);
+            var tt = Box(); tt.style.flexGrow = 1; tt.style.flexShrink = 1; top.Add(tt);
+            var title = L(Loc.S($"รายละเอียดฮีโร่: {h.name}", $"HERO DETAILS: {h.name.ToUpper()}"), 36 * big, new Color(1, .93f, .8f), true); title.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 6, color = new Color(0, 0, 0, .8f) }; tt.Add(title);
+            var cr = Box(); cr.style.flexDirection = FlexDirection.Row; cr.style.alignItems = Align.Center; cr.style.marginTop = 4; tt.Add(cr);
+            var ci = Box(); ci.style.width = ci.style.height = 30 * big; ci.style.marginRight = 8; string cid = h.cls; ci.generateVisualContent += ctx => ClassIcon(ctx, cid, ci.resolvedStyle.width, true); cr.Add(ci);
+            cr.Add(L(cl.th, 24 * big, Gold, true)); var ttl = L("  ·  " + h.title, 19 * big, Muted); cr.Add(ttl);
+            var x = new Button(() => skillOv.style.display = DisplayStyle.None) { text = "✕" }; x.style.fontSize = 30 * big; x.style.color = Ink; x.style.width = x.style.height = 52 * big;
+            x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 26 * big); x.style.unityFontDefinition = fontBold; x.style.flexShrink = 0; top.Add(x);
+            // stats: 2 x 2, each with its picture, value and a bar against the strongest hero
+            var sb = Box(new Color(1, 1, 1, .035f), 14); Border(sb, new Color(1, .84f, .55f, .22f), 1.5f); Pad(sb, 16); sb.style.marginTop = 16; sb.style.flexDirection = FlexDirection.Row; sb.style.flexWrap = Wrap.Wrap; skillBox.Add(sb);
+            var heroes = Data.Heroes; float crit = (G.hero.sword.crit + G.hero.CritBonus) * 100;
+            var cells = new (int icon, string name, string val, float frac, Color c)[]
+            {
+                (0, Loc.S("พลังชีวิต", "HP"), $"{h.hp:N0}", h.hp / heroes.Max(x2 => x2.hp), new Color(.35f, .9f, .42f)),
+                (1, Loc.S("โจมตี", "ATK"), $"{G.hero.AtkPow:N0}", h.atk / heroes.Max(x2 => x2.atk), new Color(1, .5f, .18f)),
+                (2, Loc.S("ความเร็ว", "SPD"), $"{h.spd:0.0}", h.spd / heroes.Max(x2 => x2.spd), new Color(.62f, .48f, 1)),
+                (3, Loc.S("คริติคอล", "CRIT"), $"{crit:0.#}%", Mathf.Clamp01(crit / 40), new Color(1, .84f, .3f)),
+            };
+            foreach (var (icon, name, val, frac, c) in cells)
+            {
+                var cell = Box(); cell.style.width = Length.Percent(50); cell.style.flexDirection = FlexDirection.Row; cell.style.alignItems = Align.Center; cell.style.paddingTop = cell.style.paddingBottom = 6; cell.style.paddingRight = 14; sb.Add(cell);
+                var ring = Box(new Color(c.r * .22f, c.g * .22f, c.b * .22f, 1), 24 * big); ring.style.width = ring.style.height = 48 * big; Border(ring, c, 2); ring.style.alignItems = Align.Center; ring.style.justifyContent = Justify.Center; ring.style.flexShrink = 0; cell.Add(ring);
+                var ii = Box(); ii.style.width = ii.style.height = 26 * big; int ix = icon; ii.generateVisualContent += ctx => StatIcon(ctx, ix, ii.resolvedStyle.width); ring.Add(ii);
+                var col = Box(); col.style.flexGrow = 1; col.style.marginLeft = 12; cell.Add(col);
+                var lr = Box(); lr.style.flexDirection = FlexDirection.Row; lr.style.justifyContent = Justify.SpaceBetween; col.Add(lr);
+                lr.Add(L(name + ":", 22 * big, Ink, true)); lr.Add(L(val, 22 * big, Ink, true));
+                var bar = Box(new Color(0, 0, 0, .55f), 4); bar.style.height = 8 * big; bar.style.marginTop = 5; col.Add(bar);
+                var fill = Box(c, 4); fill.style.height = Length.Percent(100); fill.style.width = Length.Percent(Mathf.Clamp(frac, .05f, 1) * 100); bar.Add(fill);
+            }
+            // skills: round pictures in a row, the chosen one glows; its description below
+            var kb = Box(new Color(1, 1, 1, .035f), 14); Border(kb, new Color(1, .84f, .55f, .22f), 1.5f); Pad(kb, 16); kb.style.marginTop = 14; skillBox.Add(kb);
+            var kr = Box(); kr.style.flexDirection = FlexDirection.Row; kr.style.justifyContent = Justify.SpaceAround; kb.Add(kr);
+            foreach (var id in h.skills)
+            {
+                var d = Data.Skill(id); var look = Data.SkillLook(h.id, id); bool on = id == pickSkill; string sid = id;
+                var it = Box(); it.style.alignItems = Align.Center; it.style.width = 160 * big; it.pickingMode = PickingMode.Position; kr.Add(it);
+                it.RegisterCallback<PointerDownEvent>(e => { pickSkill = sid; ShowSkills(); });
+                var ic = Box(new Color(look.c.r * .25f, look.c.g * .25f, look.c.b * .25f, .95f), 46 * big); ic.style.width = ic.style.height = 92 * big; ic.style.overflow = Overflow.Hidden;
+                Border(ic, on ? new Color(1, .85f, .45f) : new Color(.75f, .55f, .3f, .8f), on ? 4 : 2.5f); ic.style.alignItems = Align.Center; ic.style.justifyContent = Justify.Center; ic.pickingMode = PickingMode.Ignore;
+                if (on) Shadow(ic, 14, .9f);
+                var tex = Resources.Load<Texture2D>($"UI/Skills/skill_{h.id}_{id}");   // the same picture as the skill button in battle
+                if (tex) ic.style.backgroundImage = new StyleBackground(tex); else ic.Add(L(d.icon, 42 * big, look.c, true));
+                it.Add(ic);
+                var nm = L(look.n, 21 * big, on ? Gold : Ink, true); nm.style.marginTop = 8; nm.style.unityTextAlign = TextAnchor.MiddleCenter; nm.style.whiteSpace = WhiteSpace.Normal; it.Add(nm);
+                it.Add(L(Loc.S($"คูลดาวน์ {d.cd:0} วิ", $"CD {d.cd:0}s"), 17 * big, Muted));
+            }
+            var sel = Data.SkillLook(h.id, pickSkill);
+            var dsBox = Box(new Color(0, 0, 0, .3f), 10); Pad(dsBox, 12); dsBox.style.marginTop = 14; kb.Add(dsBox);
+            dsBox.Add(L(sel.n, 22 * big, Gold, true));
+            var ds = L(Data.SkillDesc(h, pickSkill), 20 * big, Ink); ds.style.whiteSpace = WhiteSpace.Normal; ds.style.marginTop = 4; dsBox.Add(ds);
+            skillOv.style.display = DisplayStyle.Flex;
+        }
+        public void TestSkills() => ShowSkills();
         bool shieldFocus;   // weapons tab: the detail line shows the shield picked last
         void Offer(ItemKind k, string id, string name, string text)
         {
@@ -835,6 +901,11 @@ namespace NovaBlade
             var crow = Box(); crow.style.flexDirection = FlexDirection.Row; crow.style.marginTop = 20; cb.Add(crow);
             crow.Add(Btn(Loc.S("ยืนยัน", "Confirm"), () => DoBuy())); var cn = Btn(Loc.S("ยกเลิก", "Cancel"), () => confirmOv.style.display = DisplayStyle.None, false); cn.style.marginLeft = 14; crow.Add(cn);
             confirmOv.style.display = DisplayStyle.None;
+            // hero details: the hero's three skills with what each does; closes with the X or a tap outside
+            skillOv = Box(new Color(0, 0, 0, .55f)); Abs(skillOv, 0, 0, 0, 0); skillOv.style.alignItems = Align.Center; skillOv.style.justifyContent = Justify.Center; skillOv.pickingMode = PickingMode.Position; root.Add(skillOv);
+            skillOv.RegisterCallback<PointerDownEvent>(e => { if (e.target == skillOv) skillOv.style.display = DisplayStyle.None; });
+            skillBox = Box(Panel, 20); Border(skillBox, new Color(1, .84f, .45f, .6f), 2); Pad(skillBox, 28); skillBox.style.width = touchUi ? 1100 : 940; skillBox.pickingMode = PickingMode.Position; skillOv.Add(skillBox);
+            skillOv.style.display = DisplayStyle.None;
             resultOv = Box(new Color(0, 0, 0, .7f)); Abs(resultOv, 0, 0, 0, 0); resultOv.style.alignItems = Align.Center; resultOv.style.justifyContent = Justify.Center; resultOv.pickingMode = PickingMode.Position; root.Add(resultOv);
             var rb = Box(Panel, 18); Border(rb, Line); Pad(rb, 30); rb.style.alignItems = Align.Center; rb.style.width = 760; resultOv.Add(rb);
             resH = L("", 64, Gold, true); rb.Add(resH); resS = L("", 22, Muted); resS.style.whiteSpace = WhiteSpace.Normal; resS.style.unityTextAlign = TextAnchor.MiddleCenter; resS.style.marginTop = 8; rb.Add(resS);
@@ -893,6 +964,7 @@ namespace NovaBlade
         float dragX; bool dragging;
         void Update()
         {
+            if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
             if (G == null || G.hero == null) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) TogglePause();
             float dt = Time.unscaledDeltaTime;

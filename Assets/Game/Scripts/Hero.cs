@@ -442,7 +442,7 @@ namespace NovaBlade
             pivot.localRotation = Quaternion.Euler(0, cur * Mathf.Rad2Deg, 0);
             socket.localRotation = Quaternion.Slerp(socket.localRotation, Quaternion.Euler(0, 0, tilt * Mathf.Rad2Deg), Mathf.Min(1, dt * 14));
             holder.localRotation = Quaternion.Slerp(holder.localRotation, Quaternion.Euler(lean * Mathf.Rad2Deg, 0, 0), Mathf.Min(1, dt * 8));
-            var p = transform.position; p.y = Mathf.Max(River.Ground(p.x, p.z), River.Active ? River.WaterY : 0) + .35f + Mathf.Sin(Time.time * 3) * .08f; transform.position = p;
+            var p = transform.position; p.y = Mathf.Max(River.Ground(p.x, p.z), River.Wet ? River.WaterY : 0) + .35f + Mathf.Sin(Time.time * 3) * .08f; transform.position = p;
         }
 
         void StartDodge(Vector2 mv)

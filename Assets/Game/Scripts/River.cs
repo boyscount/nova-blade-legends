@@ -7,7 +7,12 @@ namespace NovaBlade
     public static class River
     {
         public static bool Active;
-        public const float HalfW = 2.6f, Depth = .75f, WaterY = -.32f;
+        public const float HalfW = 2.6f, Depth = .75f;
+        // the green valley: a shallow river (the ground dips .45 under the water) crossed by two bridges (BridgeDeck)
+        public static bool Valley;
+        public static bool Wet => Active || Valley;
+        public static float WaterY => Valley ? -.22f : -.32f;
+        static float VZ(float x) => -3 + Mathf.Sin(x * .09f) * 4.5f;   // same curve as NovaBuild.ValleyRiver
         public static readonly float[] BridgeX = { -9f, 8.5f };
         public static float Z(float x) => -4 + Mathf.Sin(x * .12f) * 2.5f;   // river centre line
 
@@ -24,10 +29,13 @@ namespace NovaBlade
         }
         public static float Ground(float x, float z)
         {
+            if (BridgeDeck.Height(x, z, out var deck)) return deck;
+            if (Valley) return -.45f * (1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(2.4f - .6f, 2.4f + 1.2f, Mathf.Abs(z - VZ(x)))));
             if (!Active) return 0;
             if (OnBridge(x, z)) return .2f;
             return Bed(x, z);
         }
-        public static bool InWater(float x, float z) => Active && !OnBridge(x, z) && Bed(x, z) < WaterY + .05f;
+        public static bool InWater(float x, float z) => Valley ? !BridgeDeck.Height(x, z, out _) && Ground(x, z) < WaterY - .1f
+            : Active && !OnBridge(x, z) && Bed(x, z) < WaterY + .05f;
     }
 }
