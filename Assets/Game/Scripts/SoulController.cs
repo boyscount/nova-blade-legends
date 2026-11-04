@@ -146,6 +146,8 @@ namespace NovaBlade
                 };
                 int n = G.HitArea(h.Pos + Main.Dir(h.face) * .3f, reach + (act == Act.Heavy ? .5f : 0), pow * mul, new Main.Hit { face = h.face, half = half, kb = kb, melee = true, poise = poise });
                 Fx.Slash(h.Pos + Vector3.up, h.face, h.sword.color, reach + .2f, act == Act.Light ? 2.6f : 3.2f);
+                Fx.SlashFx(act == Act.Light ? "sx_basic" : act == Act.Heavy ? "sx_double" : "sx_explode", h.Pos + Vector3.up * 1.05f + Main.Dir(h.face) * reach * .45f, h.face, act == Act.Light ? 1 : 1.3f);
+                if (act != Act.Light && act != Act.Heavy) Fx.SlashFx("sx_shiny", h.Pos + Vector3.up + Main.Dir(h.face) * reach * .6f, h.face, 1.2f);
                 if (act == Act.Finisher) { var fp = h.Pos + Main.Dir(h.face) * 1.5f; Fx.Burst(fp + Vector3.up, 40, new Color(1, .7f, .35f), 7, .5f, 1.4f, .09f); Fx.Dust(fp, 1.1f, 14); if (lockTarget) lockTarget.EndBreak(); G.shake = .5f; G.hitStop = .2f; }
                 else if (n > 0) { G.hitStop = act == Act.Light ? .05f : .1f; G.shake = Mathf.Max(G.shake, act == Act.Light ? .08f : .22f); }
             }

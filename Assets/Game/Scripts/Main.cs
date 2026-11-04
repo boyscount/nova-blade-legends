@@ -69,10 +69,48 @@ namespace NovaBlade
             var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
             if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
             int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
+            int xi = System.Array.IndexOf(args, "-slashtest"); if (xi >= 0 && xi + 1 < args.Length) StartCoroutine(SlashTest(args[xi + 1]));
+            int wa = System.Array.IndexOf(args, "-wingall"); if (wa >= 0 && wa + 1 < args.Length) StartCoroutine(WingAll(args[wa + 1]));
             int wi = System.Array.IndexOf(args, "-wingtest"); if (wi >= 0 && wi + 1 < args.Length) StartCoroutine(WingTest(args[wi + 1]));
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
         }
 
+        // Test mode (-slashtest <dir>): each slash effect next to the hero in a stage, caught early and at its peak, then a
+        // few seconds of real combo and skills, then quit.
+        System.Collections.IEnumerator SlashTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            save.hero = "warrior"; save.best = 5; StartGame(3); yield return new WaitForSecondsRealtime(1.5f);
+            foreach (var f in foes) if (f) Destroy(f.gameObject); foes.Clear();
+            foreach (var id in new[] { "sx_basic", "sx_double", "sx_explode", "sx_multi", "sx_shiny", "sx_mesh" })
+            {
+                Fx.SlashFx(id, hero.Pos + Vector3.up * 1.05f + Main.Dir(hero.face) * 1.2f, hero.face, 1.2f);
+                yield return new WaitForSecondsRealtime(.12f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, id + "_a.png"));
+                yield return new WaitForSecondsRealtime(.25f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, id + "_b.png"));
+                yield return new WaitForSecondsRealtime(1.4f);
+            }
+            Application.Quit();
+        }
+        // Test mode (-wingall <dir>): every hero wearing wings (the four pairs in turn) as the lobby first shows it, then
+        // every pet wearing wings on the pet tab, then quit.
+        System.Collections.IEnumerator WingAll(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            void Shot(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            save.petWings = true; int k = 0;
+            foreach (var h in Data.Heroes)
+            {
+                save.hero = h.id; pvWings = Data.Wings[k++ % Data.Wings.Length].id; hero.Equip(); pet.Equip(); hero.PlaceLobby(); pet.PlaceLobby(); ui.SetTab("wings");
+                ui.lobbyZoom = 0; ui.heroYaw = 0; yield return new WaitForSecondsRealtime(2.5f); Shot($"hero_{h.id}"); yield return new WaitForSecondsRealtime(.4f);
+            }
+            save.hero = "warrior"; k = 0;
+            foreach (var p in Data.Pets)
+            {
+                save.pet = p.id; pvWings = Data.Wings[k++ % Data.Wings.Length].id; hero.Equip(); pet.Equip(); hero.PlaceLobby(); pet.PlaceLobby(); ui.SetTab("pet");
+                ui.lobbyZoom = .3f; ui.petYaw = 0; yield return new WaitForSecondsRealtime(2.5f); Shot($"pet_{p.id}_front"); ui.petYaw = 180; yield return new WaitForSecondsRealtime(1.5f); Shot($"pet_{p.id}_back"); yield return new WaitForSecondsRealtime(.4f);
+            }
+            Application.Quit();
+        }
         // Test mode (-wingtest <dir>): each pair of wings tried on in the lobby (back and side views, pet too), then a short
         // fight wearing them, then quit.
         System.Collections.IEnumerator WingTest(string dir)
@@ -83,8 +121,8 @@ namespace NovaBlade
             foreach (var w in Data.Wings)
             {
                 pvWings = w.id; hero.Equip(); pet.Equip(); hero.PlaceLobby(); pet.PlaceLobby(); ui.ShowLobby(); ui.SetTab("wings");
-                ui.lobbyZoom = .35f; ui.heroYaw = 180; yield return new WaitForSecondsRealtime(1.6f); Shot($"wing_{w.id}_back");
-                ui.heroYaw = 60; yield return new WaitForSecondsRealtime(1.2f); Shot($"wing_{w.id}_side");
+                ui.lobbyZoom = 0; ui.heroYaw = 0; yield return new WaitForSecondsRealtime(1.8f); Shot($"wing_{w.id}_front");   // what a player sees first
+                ui.heroYaw = 200; yield return new WaitForSecondsRealtime(1.2f); Shot($"wing_{w.id}_back");
             }
             pvWings = null; save.wings = "fire"; save.owned.Add(Shop.Key(ItemKind.Wings, "fire")); save.best = 5; StartGame(3);
             for (float t = 0, n = 0; t < 8; t += Time.unscaledDeltaTime)
@@ -438,8 +476,9 @@ namespace NovaBlade
                 }
                 else
                 {   // zoom moves in toward the chest/face; the side offset scales with distance so the hero keeps its place left of the panel
-                    float d = Mathf.Lerp(bot ? 5 : 4.1f, 1.6f, z);
-                    look = new Vector3(side * (bot ? 1.25f : 1) * d / 4.1f, Mathf.Lerp(bot ? .75f : .95f, bot ? .7f : 1.42f, z), 0); want = look + new Vector3(0, Mathf.Lerp(.4f, .08f, z), d);
+                    bool winged = WingsShown != null;   // wings reach above the head and out to the sides: frame the whole spread
+                    float d = Mathf.Lerp(bot ? 5 : 4.1f, 1.6f, z) * (winged ? Mathf.Lerp(1.22f, 1.05f, z) : 1);
+                    look = new Vector3(side * (bot ? 1.25f : 1) * d / 4.1f, Mathf.Lerp(bot ? .75f : .95f, bot ? .7f : 1.42f, z) + (winged ? .22f * (1 - z) : 0), 0); want = look + new Vector3(0, Mathf.Lerp(.4f, .08f, z), d);
                 }
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * 6)); camLook = Vector3.Lerp(camLook, look, 1 - Mathf.Exp(-dt * 6));
                 hero.transform.rotation = Quaternion.Euler(0, ui.heroYaw, 0); if (pet) pet.transform.rotation = Quaternion.Euler(0, 20 + ui.petYaw, 0);

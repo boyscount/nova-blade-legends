@@ -113,7 +113,7 @@ namespace NovaBlade
             }
             var c = o.col ?? sw.color;
             Fx.Burst(Pos + Vector3.up * (y + h * .55f), crit ? 16 : 8, c, crit ? 7 : 5);
-            if (crit) Fx.Spawn("hit_yellow", Pos + Vector3.up * (y + h * .55f), .7f, 2);
+            if (crit) { Fx.Spawn("hit_yellow", Pos + Vector3.up * (y + h * .55f), .7f, 2); if (o.melee) Fx.SlashFx("sx_shiny", Pos + Vector3.up * (y + h * .55f), Main.Ang(Pos - from), .9f, Random.Range(-40, 40)); }
             if (hp <= 0) Kill();
         }
 
@@ -260,7 +260,7 @@ namespace NovaBlade
                 if (st <= 0 && bossStage == 0)
                 {
                     bossStage = 1; st2 = .35f; if (dd < 5.4f && Mathf.Abs(Main.AngDiff(face, Main.Ang(to))) < 1.15f) hero.Hurt(d.dmg, Pos);
-                    Fx.Slash(Pos + Vector3.up * 1.2f, face, C, 5, 2.4f, .3f); Fx.Spawn("ground_hit", Pos + Main.Dir(face) * 2.5f, 1.5f, 2); G.shake = Mathf.Max(G.shake, .25f);
+                    Fx.Slash(Pos + Vector3.up * 1.2f, face, C, 5, 2.4f, .3f); Fx.SlashFx("sx_explode", Pos + Vector3.up * 1.2f + Main.Dir(face) * 2, face, 2.6f); Fx.Spawn("ground_hit", Pos + Main.Dir(face) * 2.5f, 1.5f, 2); G.shake = Mathf.Max(G.shake, .25f);
                 }
                 if (bossStage == 1) { st2 -= dt; if (!anim) body.Rotate(0, dt * 900, 0); if (st2 <= 0) { body.localRotation = Quaternion.identity; bossMode = "chase"; bossMt = Random.Range(1.2f, 2.2f) * wind; } }
             }

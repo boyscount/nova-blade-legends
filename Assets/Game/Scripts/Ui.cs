@@ -366,6 +366,7 @@ namespace NovaBlade
                 Card(s.petWings ? Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: เปิด", "Pet wears wings: ON") : Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: ปิด", "Pet wears wings: OFF"), Studio.Pet(s.pet), null, s.petWings, () => { s.petWings = !s.petWings; Pick(); }, true);
                 var wd = Data.Wing(shown);
                 Offer(ItemKind.Wings, wd?.id, wd?.name, wd == null ? Loc.S("ไม่ใส่ปีก", "No wings") : Loc.S($"{wd.name} · {wd.desc} · เป็นของแต่งอย่างเดียว ไม่เปลี่ยนค่าพลัง", $"{wd.name} · {wd.desc} · Looks only, no stat change"));
+                if (wd != null && G.hero.def.id == "harpy") detail.text += Loc.S("\nแอริสมีปีกของตัวเองอยู่แล้ว ปีกนี้จะใส่ให้สัตว์เลี้ยง", "\nAeris has wings of her own: this pair is worn by the pet");
             }
             else if (tab == "pet") { foreach (var p in Data.Pets) Card(p.name, Studio.Pet(p.id), null, s.pet == p.id, () => { s.pet = p.id; Pick(); }); detail.text = $"{G.pet.def.name} · {G.pet.def.desc}"; }
             else

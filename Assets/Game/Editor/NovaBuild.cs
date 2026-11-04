@@ -164,13 +164,16 @@ public static class NovaBuild
             ("trail_plain", "Sword Trails/Plain/CFXR4 Sword Trail PLAIN (360 Spiral)") })
         { var go = AssetDatabase.LoadAssetAtPath<GameObject>(F + p + ".prefab"); if (!go) Debug.LogError("[NovaBuild] missing fx " + p); cat.fx.Add(new Catalog.Entry { id = id, prefab = go }); }
         // Vefects trails (lobby showcase rings) and Hovl magic effects (skills), by full path
-        const string V = "Assets/Vefects/Trails VFX URP/VFX/Particles/", HV = "Assets/Hovl Studio/Magic effects pack/Prefabs/";
+        const string V = "Assets/Vefects/Trails VFX URP/VFX/Particles/", HV = "Assets/Hovl Studio/Magic effects pack/Prefabs/", SX = "Assets/Matthew Guz/Slash Effects FREE/Prefab/";
         foreach (var (id, p) in new[] {
             ("vx_fire", V + "VFX_Trail_Fire"), ("vx_void", V + "VFX_Trail_Void"), ("vx_cosmos", V + "VFX_Trail_Cosmos"), ("vx_nature", V + "VFX_Trail_Nature"),
             ("vx_ice", V + "VFX_Trail_Ice"), ("vx_electric", V + "VFX_Trail_Electric"), ("vx_water", V + "VFX_Trail_Water"), ("vx_dark", V + "VFX_Trail_Dark"),
             ("mx_heal_circle", HV + "Magic circles/Healing circle"), ("mx_healing", HV + "Character auras/Healing"), ("mx_buff", HV + "Character auras/Buff"),
             ("mx_shield", HV + "Magic shields/Magic shield blue"), ("mx_shield_gold", HV + "Magic shields/Magic shield yellow"), ("mx_ground", HV + "AoE effects/Ground AOE explosion"),
-            ("mx_holy_hit", HV + "Hits and explosions/Holy hit"), ("mx_electro_hit", HV + "Hits and explosions/Electro hit"), ("mx_magic_circle", HV + "Magic circles/Magic circle") })
+            ("mx_holy_hit", HV + "Hits and explosions/Holy hit"), ("mx_electro_hit", HV + "Hits and explosions/Electro hit"), ("mx_magic_circle", HV + "Magic circles/Magic circle"),
+            // slash effects: light, second and heavy swings, multi-hit, critical sparkle, a single mesh arc
+            ("sx_basic", SX + "Basic Slash Blue"), ("sx_double", SX + "Double Slash"), ("sx_explode", SX + "Explosion Slash "),
+            ("sx_multi", SX + "Multiple Slash 2 "), ("sx_shiny", SX + "Shiny Slash "), ("sx_mesh", SX + "1Slash Mesh") })
         { var go = AssetDatabase.LoadAssetAtPath<GameObject>(p + ".prefab"); if (!go) Debug.LogError("[NovaBuild] missing fx " + p); else cat.fx.Add(new Catalog.Entry { id = id, prefab = go }); }
         cat.heroController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Game/Animations/Hero.controller");
         cat.glowMat = glow; cat.grassMat = grass;

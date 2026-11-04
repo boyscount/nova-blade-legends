@@ -7,11 +7,14 @@ using UnityEngine;
 
 public static class NovaFx
 {
-    public static void ConvertHovl()
+    public static void ConvertHovl() => ConvertParticles("Assets/Hovl Studio");
+    // Matthew Guz "Slash Effects FREE": Particles/Standard Unlit too
+    public static void ConvertSlash() => ConvertParticles("Assets/Matthew Guz");
+    static void ConvertParticles(string folder)
     {
         var unlit = Shader.Find("Universal Render Pipeline/Particles/Unlit"); var lit = Shader.Find("Universal Render Pipeline/Lit");
         int n = 0;
-        foreach (var path in AssetDatabase.FindAssets("t:Material", new[] { "Assets/Hovl Studio" }).Select(AssetDatabase.GUIDToAssetPath))
+        foreach (var path in AssetDatabase.FindAssets("t:Material", new[] { folder }).Select(AssetDatabase.GUIDToAssetPath))
         {
             var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m || m.shader.name.StartsWith("Universal Render Pipeline")) continue;
             var tex = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : null; var col = m.HasProperty("_Color") ? m.GetColor("_Color") : Color.white;
@@ -31,7 +34,7 @@ public static class NovaFx
             m.SetOverrideTag("RenderType", "Transparent");
             n++; EditorUtility.SetDirty(m);
         }
-        AssetDatabase.SaveAssets(); Debug.Log($"[NovaFx] converted {n} Hovl materials to URP");
+        AssetDatabase.SaveAssets(); Debug.Log($"[NovaFx] converted {n} materials in {folder} to URP");
     }
 
     // contact sheet of every prefab under the given folders (Builds/peek/props_<n>.png) with its size in metres, for planning stages

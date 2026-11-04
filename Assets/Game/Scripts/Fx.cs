@@ -126,6 +126,9 @@ namespace NovaBlade
             I.Add(Sector(1 - w, 1, 0, Mathf.PI * 2, 48), I.add, col, p + Vector3.up * .06f, 0, life, (t, k) =>
             { float s = .3f + r * Mathf.Sqrt(k); t.go.transform.localScale = new Vector3(s, 1, s); t.mat.SetColor("_Color", col * (1 - k)); });
         }
+        // Slash Effects pack: spawned at p facing along face (radians, like the hero), sized by scale; tilt rolls the arc
+        public static GameObject SlashFx(string id, Vector3 p, float face, float scale = 1, float tilt = 0, float life = 1.6f)
+            => Spawn(id, p, scale, life, Quaternion.Euler(0, face * Mathf.Rad2Deg, tilt));
         public static void Slash(Vector3 p, float face, Color c, float r = 2, float span = 2.4f, float life = .22f)
         {
             if (!I) return; var col = c * 1.5f; col.a = .8f;

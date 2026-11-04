@@ -31,10 +31,15 @@ namespace NovaBlade
             if (pet)
             {   // pets: size and seat the wings from the model's bounds (top of the back)
                 var rs = anchor.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
-                span = Mathf.Max(b.size.x, b.size.y) * 1.6f;
+                span = Mathf.Max(b.size.x, b.size.y) * 1.25f;
                 var c = anchor.InverseTransformPoint(b.center); petOffset = new Vector3(0, c.y + b.extents.y * .25f, c.z - b.extents.z * .55f);
             }
-            else span = 1.75f;   // a little wider than the hero is tall reads well from the game camera
+            else span = 1.75f;   // full spread, a little wider than the hero is tall
+            // tall pairs (the angel wings are as tall as they are wide) are held to ~60% of the spread in height,
+            // so the tips stay below the head-room of the lobby frame
+            pivot.rotation = Quaternion.identity;   // measure upright (LateUpdate turns it to the wearer)
+            var wr = w.GetComponentsInChildren<Renderer>(); var wb = wr[0].bounds; foreach (var r in wr) wb.Encapsulate(r.bounds);
+            float aspect = wb.size.y / Mathf.Max(.01f, wb.size.x); if (aspect > .62f) span *= .62f / aspect;
             pivot.localScale = Vector3.one * span;
             Motes(); lastPos = transform.position;
         }

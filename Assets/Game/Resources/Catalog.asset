@@ -146,6 +146,18 @@ MonoBehaviour:
     prefab: {fileID: 2965222256817593503, guid: a164e676dbbd6e54587237e619372c98, type: 3}
   - id: mx_magic_circle
     prefab: {fileID: 3744133877081091469, guid: a2a060732547fe64581bb0cb3c2bdf1d, type: 3}
+  - id: sx_basic
+    prefab: {fileID: 5503505460791601945, guid: 74c549d1b06b6b140a1fd9536eea637f, type: 3}
+  - id: sx_double
+    prefab: {fileID: 3600389243222657682, guid: 3fee2e03e4bdc854bb38f7bcbca7c75d, type: 3}
+  - id: sx_explode
+    prefab: {fileID: 1205478487176026167, guid: 8436419d5cd706242bb810378b8a8835, type: 3}
+  - id: sx_multi
+    prefab: {fileID: 1400255665468144947, guid: 6c21e7a6e514dd9499418cbbb66211cf, type: 3}
+  - id: sx_shiny
+    prefab: {fileID: 158789456559184324, guid: 87167b19fb4a32a4e8e4f2c5f40a40b3, type: 3}
+  - id: sx_mesh
+    prefab: {fileID: 539289997039638868, guid: 844eb5aef40a0214f81a15775e5293e1, type: 3}
   clips:
   - id: idle
     length: 7.55
