@@ -6,6 +6,7 @@ namespace NovaBlade
     public class StageLook : MonoBehaviour
     {
         public Color fog = Color.gray; public float fogDensity = .02f; public Color skyAmb, eqAmb, groundAmb; public Material sky; public Light sun;
+        public bool lowCam;   // a stage whose surroundings are the show (the 360° plaza): the battle camera drops to a three-quarter view
         public void Apply()
         {
             // the CartoonFX torch/brazier fires carry a cartoon smoke column: keep the flame, drop the smoke

@@ -23,7 +23,7 @@ namespace NovaBlade
         public Hero hero; public Pet pet;
         public Camera cam; Vector3 camPos, camLook; float gameZoom = 1;   // battle camera distance, mouse wheel
         public Ui ui;
-        public Transform[] stageRoots;
+        public Transform[] stageRoots; StageLook stageLook;
         public ThemeDef Theme => Data.Themes[Data.ThemeOf(stage)];
 
         [System.Serializable]
@@ -69,12 +69,28 @@ namespace NovaBlade
             var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
             if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
             int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
+            int si = System.Array.IndexOf(args, "-stageshot"); if (si >= 0 && si + 2 < args.Length) StartCoroutine(StageShot(int.Parse(args[si + 1]), args[si + 2]));
             int xi = System.Array.IndexOf(args, "-slashtest"); if (xi >= 0 && xi + 1 < args.Length) StartCoroutine(SlashTest(args[xi + 1]));
             int wa = System.Array.IndexOf(args, "-wingall"); if (wa >= 0 && wa + 1 < args.Length) StartCoroutine(WingAll(args[wa + 1]));
             int wi = System.Array.IndexOf(args, "-wingtest"); if (wi >= 0 && wi + 1 < args.Length) StartCoroutine(WingTest(args[wi + 1]));
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
         }
 
+        // Test mode (-stageshot <stage> <dir>): fight one stage on autopilot (shots at 3 s and 7 s), then its boss, then quit.
+        System.Collections.IEnumerator StageShot(int st, string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            save.hero = "warrior"; save.best = 9; StartGame(st);
+            for (float t = 0, n = 0; t < 8; t += Time.unscaledDeltaTime)
+            {
+                if (Random.value < .08f) ui.atkP = true; ui.Joy = new Vector2(Mathf.Sin(t * .6f), Mathf.Cos(t * .4f)) * .7f; hero.hp = Mathf.Max(hero.hp, hero.max * .5f);
+                if (n < 2 && t > 3 + n * 4) { ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"stage{st}_{n}.png")); n++; }
+                yield return null;
+            }
+            ui.Joy = Vector2.zero; foreach (var f in foes) if (f) Destroy(f.gameObject); foes.Clear(); wave = Theme.waves.Length; SpawnBoss();
+            yield return new WaitForSecondsRealtime(3.5f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"stage{st}_boss.png")); yield return new WaitForSecondsRealtime(.5f);
+            Application.Quit();
+        }
         // Test mode (-slashtest <dir>): each slash effect next to the hero in a stage, caught early and at its peak, then a
         // few seconds of real combo and skills, then quit.
         System.Collections.IEnumerator SlashTest(string dir)
@@ -289,7 +305,7 @@ namespace NovaBlade
             LobbyNight.Set(false);
             for (int k = 0; k < stageRoots.Length; k++) if (stageRoots[k]) stageRoots[k].gameObject.SetActive(k == i);
             River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river";
-            var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null;
+            var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null; stageLook = look;
             if (look) look.Apply();
             Obstacles.Use(stageRoots[i]);
         }
@@ -492,9 +508,10 @@ namespace NovaBlade
                 if (ms != null && mode == Mode.Game && !ui.PointerOverUi) { float sc = ms.scroll.ReadValue().y; if (Mathf.Abs(sc) > .01f) gameZoom = Mathf.Clamp(gameZoom - Mathf.Sign(sc) * .1f, .6f, 1.8f); }
                 float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom * (lane ? 1.35f : 1);   // lanes: higher and further back so whole towers fit
                 if (hero.dead) far *= .42f;   // death: close in on the fallen hero
-                var focus = ui.Pan ?? hero.Pos; var want = focus + new Vector3(0, 8.6f * far, 7.4f * far);
+                bool low = stageLook && stageLook.lowCam && !lane;   // three-quarter view: the top of the screen shows the skyline
+                var focus = ui.Pan ?? hero.Pos; var want = focus + (low ? new Vector3(0, 4.1f * far, 9.6f * far) : new Vector3(0, 8.6f * far, 7.4f * far));
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * (hero.dead ? 2.2f : 6)));
-                camLook = new Vector3(camPos.x, hero.dead ? .5f : lane ? 1.6f : .9f, camPos.z - 7.4f * far);
+                camLook = new Vector3(camPos.x, hero.dead ? .5f : lane ? 1.6f : low ? 1.3f : .9f, camPos.z - (low ? 9.6f : 7.4f) * far);
             }
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, soul && mode != Mode.Lobby ? 55 : 40, 1 - Mathf.Exp(-dt * 6));
             shake = Mathf.Max(0, shake - dt);

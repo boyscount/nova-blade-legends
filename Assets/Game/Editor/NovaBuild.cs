@@ -36,7 +36,7 @@ public static class NovaBuild
         int n = 0;
         foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets" }))
         {
-            var path = AssetDatabase.GUIDToAssetPath(guid); if (path.Contains("/Resources/UI/") || path.Contains("NovaBlade_SkillIcons")) continue;
+            var path = AssetDatabase.GUIDToAssetPath(guid); if (path.Contains("/Resources/UI/") || path.Contains("NovaBlade_SkillIcons") || path.Contains("/Game/Skybox/")) continue;
             if (!(AssetImporter.GetAtPath(path) is TextureImporter ti)) continue;
             bool scenery = path.Contains("/Models/Nature/") || path.StartsWith("Assets/Art/") || path.Contains("Polytope") || path.Contains("/ThirdParty/") || path.Contains("/Textures/PBR/") || path.Contains("/Models/Props/");
             int want = scenery ? 512 : 1024; var ps = ti.GetPlatformTextureSettings("WebGL");
@@ -297,7 +297,7 @@ public static class NovaBuild
         vol.sharedProfile = prof;
         // game
         var mainGo = new GameObject("Game"); var main = mainGo.AddComponent<Main>(); main.cam = cam;
-        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage() };   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
+        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), PlazaStage(), LaneStage(), Lane3Stage() };   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
         for (int i = 1; i < main.stageRoots.Length; i++) main.stageRoots[i].gameObject.SetActive(false);
         LobbySet(mainGo.transform);
         main.stageRoots[0].GetComponent<StageLook>().Apply();
@@ -519,6 +519,54 @@ public static class NovaBuild
     }
 
     // ======================= stage 2: abandoned castle hall (Dungeon kit) =======================
+    // City plaza at night, made from one 360° photo (Skybox AI sample "City Central Square Night"): the photo is projected
+    // back onto a bowl around the arena (NovaBlade/PanoProject), so the paving under the fight and the lit cathedral and
+    // houses all round are the photo itself, keeping their depth as the camera moves. Moonlight for shadows, warm lamp
+    // light on the fighters to match the street lamps in the photo.
+    static Transform PlazaStage()
+    {
+        NewRoot("Stage_plaza", new Color(.08f, .09f, .16f), .003f, new Color(.38f, .44f, .7f), new Color(.5f, .42f, .32f), new Color(.2f, .17f, .14f));
+        var sun = Sun(new Color(.7f, .78f, 1f), .9f, new Vector3(55, 200, 0)); root.GetComponent<StageLook>().sun = sun; root.GetComponent<StageLook>().lowCam = true;
+        var pano = AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Game/Skybox/City Central Square Night" }).Select(AssetDatabase.GUIDToAssetPath).FirstOrDefault();
+        if (pano == null) { Debug.LogError("[NovaBuild] plaza panorama missing"); return root; }
+        if (AssetImporter.GetAtPath(pano) is TextureImporter ti)
+        {   // full size on PC, 4096 on the web; repeat across the seam, trilinear + anisotropic for the paving seen at a slant
+            ti.maxTextureSize = 8192; ti.wrapModeU = TextureWrapMode.Repeat; ti.wrapModeV = TextureWrapMode.Clamp; ti.mipmapEnabled = true; ti.anisoLevel = 8; ti.filterMode = FilterMode.Trilinear;
+            ti.npotScale = TextureImporterNPOTScale.None; ti.textureCompression = TextureImporterCompression.CompressedHQ;
+            var web = ti.GetPlatformTextureSettings("WebGL"); web.overridden = true; web.maxTextureSize = 4096; web.format = TextureImporterFormat.Automatic; web.textureCompression = TextureImporterCompression.Compressed; ti.SetPlatformTextureSettings(web);
+            ti.SaveAndReimport();
+        }
+        const float H0 = 6, Rb = 90, Top = 80;   // photo taken 6 m up (the plaza reads grand at the game's scale); bowl radius and height
+        var mat = Mat($"{Gen}/Plaza.mat", "NovaBlade/PanoProject", m =>
+        {
+            m.shader = Shader.Find("NovaBlade/PanoProject"); m.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(pano));
+            m.SetVector("_Center", new Vector4(0, H0, 0, 0)); m.SetFloat("_Rotate", .5f); m.SetFloat("_Exposure", 1.45f); m.SetFloat("_ShadowDark", .45f);
+        });
+        // the bowl: rings out to the rim (denser near the middle where the fight is), a wall up the rim, a cap on top
+        var prof = new List<Vector2>();
+        for (int k = 0; k <= 40; k++) { float t = k / 40f; prof.Add(new Vector2(Rb * t * t, 0)); }
+        for (int k = 1; k <= 16; k++) prof.Add(new Vector2(Rb, Top * k / 16f));
+        for (int k = 1; k <= 8; k++) prof.Add(new Vector2(Rb * (1 - k / 8f), Top));
+        const int SEG = 160; var verts = new List<Vector3>(); var tris = new List<int>();
+        for (int s = 0; s <= SEG; s++) { float a = s / (float)SEG * Mathf.PI * 2; foreach (var p in prof) verts.Add(new Vector3(Mathf.Sin(a) * p.x, p.y, Mathf.Cos(a) * p.x)); }
+        int P = prof.Count;
+        for (int s = 0; s < SEG; s++) for (int k = 0; k < P - 1; k++) { int a = s * P + k, b = a + P; tris.AddRange(new[] { a, b, a + 1, a + 1, b, b + 1 }); }
+        var mesh = new Mesh { name = "PlazaBowl", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; mesh.SetVertices(verts); mesh.SetTriangles(tris, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        var mp = Gen + "/PlazaBowl.asset"; if (File.Exists(mp)) AssetDatabase.DeleteAsset(mp); AssetDatabase.CreateAsset(mesh, mp);
+        var bowl = MeshObj("PlazaBowl", mesh, mat, Vector3.zero, 0, 1); var br = bowl.GetComponent<MeshRenderer>(); br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; br.receiveShadows = true;
+        // straight below the photo's camera the picture smears into a swirl: a round stone dais with a brazier covers it
+        var stone = Lit("PlazaStone", "rock_face_04", 2, .35f, new Color(1.3f, 1.18f, 1.05f)); var rim = Lit("PlazaRim", "rock_face_04", 2, .35f, new Color(.95f, .86f, .76f));
+        MeshObj("dais_rim", Combine("PlazaDaisRim", (PrimitiveType.Cylinder, T(0, .05f, 0, 6.6f, .05f, 6.6f))), rim, Vector3.zero, 0, 1);
+        MeshObj("dais", Combine("PlazaDais", (PrimitiveType.Cylinder, T(0, .1f, 0, 5.8f, .1f, 5.8f))), stone, Vector3.zero, 0, 1);
+        var pit = Load("Assets/Game/Models/Props/stone_fire_pit/stone_fire_pit_1k.gltf"); if (pit) Fit(pit, new Vector3(0, .2f, 0), 0, .35f);
+        var fireFx = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
+        if (fireFx) { var f = (GameObject)PrefabUtility.InstantiatePrefab(fireFx, root); f.transform.position = new Vector3(0, .35f, 0); f.transform.localScale *= .4f; }
+        PointLight(new Vector3(0, 1.4f, 0), new Color(1, .6f, .3f), 10, 9);
+        // warm lamp light round the arena edge, like the street lamps in the photo, so the fighters are lit to match
+        for (int i = 0; i < 6; i++) { float a = (i + .5f) / 6 * Mathf.PI * 2; PointLight(new Vector3(Mathf.Cos(a) * 15, 3.2f, Mathf.Sin(a) * 15), new Color(1, .72f, .42f), 2.6f, 12); }
+        return root;
+    }
+
     static Transform Castle()
     {
         NewRoot("Stage_castle", new Color(.07f, .07f, .1f), .012f, new Color(.6f, .62f, .78f), new Color(.38f, .33f, .32f), new Color(.14f, .11f, .1f));
