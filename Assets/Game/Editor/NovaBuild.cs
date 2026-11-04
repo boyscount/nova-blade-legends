@@ -165,6 +165,7 @@ public static class NovaBuild
         foreach (var w in Data.Wings) { var pf = WingPrefab(w); if (!pf) Debug.LogError("[NovaBuild] missing wings " + w.id); cat.models.Add(new Catalog.Entry { id = "wing_" + w.id, prefab = pf }); }
         foreach (var b in new[] { "reaper", "captain" }) M(b, $"Assets/Game/Models/Bosses/{b}.glb");
         foreach (var w in Data.Swords) M(w.id, $"Assets/Game/Models/Weapons/{w.id}.glb");
+        foreach (var w in Data.Shields) M(w.id, $"Assets/Game/Models/Weapons/{w.id}.glb");
         foreach (var f in Data.Foes.Where(f => f.model.StartsWith("q_"))) M(f.model, $"Assets/Game/Models/Foes/{f.model}.glb");
         M("q_dragon", "Assets/Game/Models/Foes/q_dragon.glb");
         M("column", "Assets/ThirdParty/PrisonCell/Prefabs/Walls/Column.prefab"); Towers(cat, false); M("fire_pit", "Assets/Game/Models/Props/stone_fire_pit/stone_fire_pit_1k.gltf");

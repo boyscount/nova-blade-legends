@@ -5,10 +5,12 @@ namespace NovaBlade
     // Game data (ported from the web prototype arena/index.html).
     public class HeroDef
     {
-        public string id, name, title, desc, cls = "warrior"; public float hp, spd, atk; public bool rig, ranged, blade = true, ownWeapon; public string[] skills;
+        public string id, name, title, desc, cls = "warrior"; public float hp, spd, atk; public bool rig, ranged, blade = true, ownWeapon, ownBow; public string[] skills;
         public (string n, Color tint, Color glow)[] skins; public float[] stats;
     }
     public class SwordDef { public string id, name, desc, type = "sword"; public Color color; public float dmg, spd, len, m, crit, steal; public string burn; public bool slow; public int price; }
+    // shields: worn on the left forearm by warriors and clerics, next to the weapon; block = share of damage taken away
+    public class ShieldDef { public string id, name, desc; public float block; public int price; }
     public class WingDef { public string id, name, desc; public Color glow; public int gems; }
     public class PetDef { public string id, name, desc, kind; public Color color; public float cd, dmg, h, steal; public bool fly, gold; }
     public class SkillDef { public string id, n; public float cd; public Color c; public string icon; }
@@ -37,7 +39,7 @@ namespace NovaBlade
             new HeroDef { id = "spartan", ownWeapon = true, name = Loc.S("ไลร่า", "Lyra"), title = Loc.S("นักรบโล่แห่งหุบเขา", "Shieldmaiden of the Vale"), desc = Loc.S("สายนักรบ ถือโล่หนัก ทนทาน ปั่นดาบกลางฝูงศัตรู", "Warrior: heavy shield, tough, spins through crowds"), cls = "warrior", hp = 1350, spd = 4.9f, atk = 1.15f, rig = true,
                 skills = new[] { "whirl", "slam", "cry" }, stats = new[] { 0.95f, 0.8f, 0.5f, 0.5f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("ทองสัมฤทธิ์", "Bronze"), C(0xffe2a2), G(0xffb52e, .22f)), (Loc.S("เงาราตรี", "Night Shade"), C(0x9d97c4), G(0x5a4dff, .22f)), (Loc.S("เลือดศึก", "War Blood"), C(0xffb4a4), G(0xff3a1a, .22f)) } },
-            new HeroDef { id = "elf", name = Loc.S("เอลวีน", "Elwyn"), title = Loc.S("พรานธนูแห่งพงไพร", "Forest Ranger"), desc = Loc.S("สายธนู ยิงไกล ปล่อยห่าลูกศร แล้วกระโดดถอยตั้งหลัก", "Archer: long range, arrow volleys, leaps back to reposition"), cls = "archer", hp = 900, spd = 5.5f, atk = 1.05f, rig = true, ranged = true, blade = false,
+            new HeroDef { id = "elf", ownBow = true, name = Loc.S("เอลวีน", "Elwyn"), title = Loc.S("พรานธนูแห่งพงไพร", "Forest Ranger"), desc = Loc.S("สายธนู ยิงไกล ปล่อยห่าลูกศร แล้วกระโดดถอยตั้งหลัก", "Archer: long range, arrow volleys, leaps back to reposition"), cls = "archer", hp = 900, spd = 5.5f, atk = 1.05f, rig = true, ranged = true, blade = false,
                 skills = new[] { "feather", "dive", "gale" }, stats = new[] { 0.5f, 0.75f, 0.8f, 1f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("ใบไม้ผลิ", "Spring Leaf"), C(0xc8ffc0), G(0x5fff7a, .22f)), (Loc.S("หิมะเงิน", "Silver Snow"), C(0xdff2ff), G(0x7fd8ff, .22f)), (Loc.S("ใบไม้ร่วง", "Autumn Leaf"), C(0xffc89a), G(0xff7a1a, .22f)) } },
             new HeroDef { id = "ninja", ownWeapon = true, name = Loc.S("คาเงะ", "Kage"), title = Loc.S("นินจาเงาราตรี", "Night Shadow Ninja"), desc = Loc.S("สายนักฆ่า พุ่งฟันทะลุศัตรู เร็วที่สุดในบรรดาฮีโร่", "Assassin: dashes through foes, the fastest hero"), cls = "assassin", hp = 950, spd = 6.0f, atk = 1.1f, rig = true,
@@ -83,13 +85,23 @@ namespace NovaBlade
             new SwordDef { id = "w_mace", price = 850, type = "mace", name = Loc.S("ค้อนศักดิ์สิทธิ์", "Holy Mace"), desc = Loc.S("ทุบหนัก ทุกการโจมตีฟื้นพลัง 4%", "Heavy blows that heal you for 4%"), color = C(0xfff0b0), dmg = 1.2f, spd = .9f, len = .9f, m = .69f, steal = .04f },
             new SwordDef { id = "w_arcanestaff", price = 900, type = "staff", name = Loc.S("คทาผลึกคราม", "Azure Crystal Staff"), desc = Loc.S("คทาเวท เพิ่มพลังเวทอย่างมั่นคง", "A mage's staff: steady, strong magic"), color = C(0x5fb4ff), dmg = 1.22f, spd = 1, len = 1.1f, m = 1.02f },
             new SwordDef { id = "w_holystaff", price = 1000, type = "staff", name = Loc.S("คทาสุริยะ", "Sunburst Staff"), desc = Loc.S("คทาศักดิ์สิทธิ์ ฟื้นพลัง 5% ทุกการโจมตี", "Holy staff: every hit heals you for 5%"), color = C(0xffd35a), dmg = 1.12f, spd = 1, len = 1.1f, m = 1.02f, steal = .05f },
+            // round 2: bows in the left hand, the crossbow in the right, fist weapons on both hands
+            new SwordDef { id = "w_longbow", price = 900, type = "bow", name = Loc.S("ธนูยาวเอลฟ์", "Elven Longbow"), desc = Loc.S("ธนูของสายธนู ยิงแรงและไกล", "An archer's bow: strong, long shots"), color = C(0x9fe86a), dmg = 1.2f, spd = 1, len = 1.2f, m = .7f, crit = .1f },
+            new SwordDef { id = "w_crossbow", price = 1000, type = "crossbow", name = Loc.S("หน้าไม้เหล็กกล้า", "Steel Crossbow"), desc = Loc.S("ช้าแต่ทะลวงแรงที่สุดในสายธนู", "Slow, but the hardest-hitting bow"), color = C(0xc0c8d0), dmg = 1.4f, spd = .8f, len = 1.1f, m = .6f },
+            new SwordDef { id = "w_gauntlet", price = 800, type = "fist", name = Loc.S("สนับมือเหล็ก", "Steel Gauntlets"), desc = Loc.S("หมัดหนัก ทุบแรงขึ้น", "Heavier fists, harder punches"), color = C(0xff6a4a), dmg = 1.18f, spd = 1.05f, len = .9f, m = .25f },
+            new SwordDef { id = "w_claws", price = 950, type = "claw", name = Loc.S("กรงเล็บพยัคฆ์", "Tiger Claws"), desc = Loc.S("ข่วนไวมาก คริติคอลสูง ดูดเลือด 3%", "Very fast slashes, high criticals, 3% lifesteal"), color = C(0xd8e6ff), dmg = 1, spd = 1.3f, len = .95f, m = .45f, crit = .2f, steal = .03f },
             new SwordDef { id = "w_orb", price = 950, type = "orb", name = Loc.S("ลูกแก้ววิญญาณม่วง", "Violet Soul Orb"), desc = Loc.S("ร่ายไวขึ้น คริติคอลดี", "Faster casting, good criticals"), color = C(0xb06bff), dmg = 1.18f, spd = 1.1f, len = 1, m = .5f, crit = .12f },
         };
 
         // wings: looks only, worn by the hero (and the pet, if chosen); glow = emission, mote and bloom colour
         // weapon affinity: a class fights best with its own weapon type (first) and fairly well with a second
         public static float AffinityMain = .06f, AffinitySecond = .025f;
-        public static string[] Affinity(string cls) => cls switch { "warrior" => new[] { "axe", "sword" }, "assassin" => new[] { "katana", "dagger" }, "mage" => new[] { "staff", "orb" }, "cleric" => new[] { "staff", "mace" }, _ => System.Array.Empty<string>() };
+        public static readonly ShieldDef[] Shields =
+        {
+            new ShieldDef { id = "sh_knight", price = 900, block = .18f, name = Loc.S("โล่อัศวินสิงห์ทอง", "Golden Lion Shield"), desc = Loc.S("โล่ใส่แขนซ้าย ลดดาเมจที่โดน", "Worn on the left arm: takes the edge off every hit") },
+        };
+        public static bool ShieldFits(HeroDef h) => (h.cls == "warrior" || h.cls == "cleric") && !h.ownWeapon && h.rig;
+        public static string[] Affinity(string cls) => cls switch { "warrior" => new[] { "axe", "sword" }, "assassin" => new[] { "katana", "dagger" }, "mage" => new[] { "staff", "orb" }, "cleric" => new[] { "staff", "mace" }, "archer" => new[] { "bow", "crossbow" }, "monk" => new[] { "claw", "fist" }, _ => System.Array.Empty<string>() };
         public static float AffinityBonus(string cls, string type) { var a = Affinity(cls); return a.Length > 0 && a[0] == type ? AffinityMain : a.Length > 1 && a[1] == type ? AffinitySecond : 0; }
         // weapon mastery, per weapon: kills with it earn points; each tier adds damage and critical chance, Master also
         // strengthens the combo finisher

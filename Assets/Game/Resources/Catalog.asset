@@ -71,8 +71,18 @@ MonoBehaviour:
     prefab: {fileID: -2295210395951047170, guid: 32920b971bb420e45b4ed9337a1e3dd6, type: 3}
   - id: w_holystaff
     prefab: {fileID: -2295210395951047170, guid: 886a0b705b1f33e4285e178e4e5d026f, type: 3}
+  - id: w_longbow
+    prefab: {fileID: -2295210395951047170, guid: 51f80ac6b7359d14ab5cf4f4d10da7ae, type: 3}
+  - id: w_crossbow
+    prefab: {fileID: -2295210395951047170, guid: cee0390d4c99e324f8ec33f3640ee870, type: 3}
+  - id: w_gauntlet
+    prefab: {fileID: -2295210395951047170, guid: cf78e2cccbc1fd84caf419c9a540c9bf, type: 3}
+  - id: w_claws
+    prefab: {fileID: -2295210395951047170, guid: 3f815b9b931dfb748a42b82c5afc74c2, type: 3}
   - id: w_orb
     prefab: {fileID: -2295210395951047170, guid: f15a799aa63a1544ab7f41a6bd76c592, type: 3}
+  - id: sh_knight
+    prefab: {fileID: -2295210395951047170, guid: a7a0328c7f59bf94cb9f4118f9120da0, type: 3}
   - id: q_ghost
     prefab: {fileID: 2242888416370347441, guid: 8ee8ae02d724e654093c459babe09204, type: 3}
   - id: q_dragon

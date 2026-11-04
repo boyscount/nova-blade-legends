@@ -41,6 +41,7 @@ namespace NovaBlade
             foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
             foreach (var w in Data.Wings) tex["wing_" + w.id] = Shoot(Catalog.I.Model("wing_" + w.id), .45f, 1.1f, Mathf.PI);   // seen from behind
             foreach (var w in Data.Swords) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
+            foreach (var w in Data.Shields) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
             Object.Destroy(key.gameObject); Object.Destroy(rim.gameObject); Object.Destroy(fill.gameObject);
             (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe) = amb;
             for (int i = 0; i < Data.Themes.Length; i++) tex["stage_" + i] = StageShot(i);

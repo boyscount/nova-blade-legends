@@ -356,11 +356,26 @@ namespace NovaBlade
                     Card(w.name, Studio.Weapon(w.id), null, G.hero.sword.id == w.id, () =>
                     {
                         if (pickOff && Shop.Owns(ItemKind.Weapon, ww.id)) { s.sword2 = ww.id == s.sword ? "" : ww.id; pickOff = false; Pick(); return; }
+                        shieldFocus = false;
                         if (Shop.Owns(ItemKind.Weapon, ww.id)) { G.ClearPreview(); s.sword = ww.id; if (s.sword2 == ww.id) s.sword2 = ""; } else G.pvSword = ww.id; Pick();
                     }, false, badge, MasteryLine(w, true));
                 }
+                // shields: worn on the left arm with the weapon (warriors and clerics)
+                bool canShield = Data.ShieldFits(G.hero.def); string shs = G.pvShield ?? s.shield;
+                Card(Loc.S("ไม่ใช้โล่", "No shield"), null, null, shs == "", () => { G.ClearPreview(); s.shield = ""; shieldFocus = true; Pick(); }, false, s.shield == "" ? Loc.S("ใส่อยู่", "Equipped") : null);
+                foreach (var sh in Data.Shields)
+                { var hh = sh; Card(sh.name, Studio.Weapon(sh.id), null, shs == sh.id, () => { shieldFocus = true; if (Shop.Owns(ItemKind.Shield, hh.id)) { G.ClearPreview(); s.shield = hh.id; } else G.pvShield = hh.id; Pick(); }, false, Badge(ItemKind.Shield, sh.id, s.shield == sh.id)); }
+                if (shieldFocus)
+                {
+                    var sd = Data.Shields.FirstOrDefault(x => x.id == shs);
+                    Offer(ItemKind.Shield, sd?.id, sd?.name, sd == null ? Loc.S("ไม่ใช้โล่", "No shield") : Loc.S($"{sd.name} · {sd.desc}\nโดนดาเมจลดลง {sd.block * 100:0}%", $"{sd.name} · {sd.desc}\nDamage taken -{sd.block * 100:0}%")
+                        + (canShield ? "" : Loc.S("\nใช้ได้เฉพาะสายนักรบและนักบวช", "\nOnly warriors and clerics can use shields")));
+                }
+                else
+                {
                 var sw = G.hero.sword; Offer(ItemKind.Weapon, sw.id, sw.name, Loc.S($"{sw.name} · {sw.desc}\nดาเมจ ×{sw.dmg} · ความเร็ว ×{sw.spd} · ระยะ ×{sw.len} · อาวุธได้จาก Gold ที่หาในเกมเท่านั้น", $"{sw.name} · {sw.desc}\nDamage ×{sw.dmg} · Speed ×{sw.spd} · Range ×{sw.len} · Weapons are bought only with Gold earned in play"));
                 detail.text += "\n" + MasteryLine(sw, false);
+                }
             }
             else if (tab == "wskin")
             {   // weapon skins: the model changes, the equipped weapon's stats do not
@@ -405,6 +420,7 @@ namespace NovaBlade
         }
         string Badge(ItemKind k, string id, bool worn) => Shop.Owns(k, id) ? (worn ? Loc.S("ใส่อยู่", "Equipped") : Loc.S("มีแล้ว", "Owned")) : Shop.PriceText(k, id);
         // detail text, plus the buy button when the item being tried on is not owned yet
+        bool shieldFocus;   // weapons tab: the detail line shows the shield picked last
         void Offer(ItemKind k, string id, string name, string text)
         {
             detail.text = text;
@@ -844,6 +860,8 @@ namespace NovaBlade
             var s = G.save;
             if (k == ItemKind.HeroSkin) G.SetSkin(G.hero.def.id, int.Parse(id.Split(':')[1]));
             else if (k == ItemKind.Weapon) s.sword = id;
+            else if (k == ItemKind.Wings) s.wings = id;
+            else if (k == ItemKind.Shield) s.shield = id;
             else { var weapon = Data.Swords.FirstOrDefault(w => w.id == s.sword) ?? Data.Swords[0]; s.SetWeaponSkin(weapon.id, id); }
             confirmOv.style.display = DisplayStyle.None; G.ClearPreview(); Fx.Burst(Vector3.up, 40, Gold, 4, 1.4f, .1f); Pick();
         }

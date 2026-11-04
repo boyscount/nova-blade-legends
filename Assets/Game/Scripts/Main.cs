@@ -41,13 +41,14 @@ namespace NovaBlade
             public List<string> mastKeys = new(); public List<int> mastVals = new();   // weapon mastery points per weapon
             public int Mastery(string weapon) { int i = mastKeys.IndexOf(weapon); return i < 0 ? 0 : mastVals[i]; }
             public void AddMastery(string weapon, int n) { int i = mastKeys.IndexOf(weapon); if (i < 0) { mastKeys.Add(weapon); mastVals.Add(n); } else mastVals[i] += n; }
+            public string shield = "";                             // shield on the left arm ("" = none; warriors and clerics)
             public string wings = ""; public bool petWings = true; // equipped wings ("" = none) and whether the pet wears a pair too
             public string WeaponSkin(string weapon) { int i = wsKeys.IndexOf(weapon); return i < 0 ? null : wsVals[i]; }
             public void SetWeaponSkin(string weapon, string model) { int i = wsKeys.IndexOf(weapon); if (i < 0) { wsKeys.Add(weapon); wsVals.Add(model); } else wsVals[i] = model; }
         }
         // lobby try-on: shown on the hero in the lobby only, never taken into a match unless owned
-        [System.NonSerialized] public string pvSword, pvWeaponSkin, pvWings; [System.NonSerialized] public int pvSkin = -1;   // runtime only (a serialized string would come back as "")
-        public void ClearPreview() { pvSword = pvWeaponSkin = pvWings = null; pvSkin = -1; }
+        [System.NonSerialized] public string pvSword, pvWeaponSkin, pvWings, pvShield; [System.NonSerialized] public int pvSkin = -1;   // runtime only (a serialized string would come back as "")
+        public void ClearPreview() { pvSword = pvWeaponSkin = pvWings = pvShield = null; pvSkin = -1; }
         // wings on show: a pair being tried on in the lobby, else the equipped pair if owned ("" = none)
         public string WingsShown => mode == Mode.Lobby && pvWings != null ? pvWings : Shop.Owns(ItemKind.Wings, save.wings) && Data.Wing(save.wings) != null ? save.wings : null;
         public Save save;
@@ -245,16 +246,21 @@ namespace NovaBlade
         {
             System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
             var log = new System.Text.StringBuilder();
-            foreach (var (h, w) in new[] { ("warrior", "w_greataxe"), ("samurai", "w_katana"), ("samurai", "w_kunai"), ("sunpriest", "w_mace"), ("sunpriest", "w_holystaff"), ("mage", "w_arcanestaff"), ("sorceress", "w_orb") })
+            var only = System.Environment.GetCommandLineArgs().Contains("-round2");
+            var list = new[] { ("warrior", "w_greataxe", ""), ("samurai", "w_katana", ""), ("samurai", "w_kunai", ""), ("sunpriest", "w_mace", ""), ("sunpriest", "w_holystaff", ""), ("mage", "w_arcanestaff", ""), ("sorceress", "w_orb", ""),
+                ("harpy", "w_longbow", ""), ("harpy", "w_crossbow", ""), ("elf", "w_longbow", ""), ("monk", "w_gauntlet", ""), ("monk", "w_claws", ""), ("warrior", "w_lava", "sh_knight"), ("sunpriest", "w_mace", "sh_knight") };
+            foreach (var (h, w, sh) in only ? list.Skip(7) : list)
             {
-                save.hero = h; save.sword = w; save.owned.Add(Shop.Key(ItemKind.Weapon, w));
-                hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.lobbyZoom = .7f; ui.heroYaw = 35; yield return new WaitForSecondsRealtime(1.6f);
-                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_{w}_lobby.png"));
+                save.hero = h; save.sword = w; save.owned.Add(Shop.Key(ItemKind.Weapon, w)); save.shield = sh; if (sh != "") save.owned.Add(Shop.Key(ItemKind.Shield, sh));
+                if (only) save.wings = "";
+                hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.lobbyZoom = only ? 0 : .7f; ui.heroYaw = 35; yield return new WaitForSecondsRealtime(1.6f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_{w}{sh}_lobby.png"));
+                if (only) { ui.heroYaw = -70; yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_{w}{sh}_left.png")); }
                 log.AppendLine($"{h}	{w}	equipped={hero.sword.id}	aff={Data.AffinityBonus(hero.def.cls, hero.sword.type)}	pow={hero.AtkPow:0}");
                 yield return new WaitForSecondsRealtime(.4f);
                 save.best = 5; StartGame(1); yield return new WaitForSecondsRealtime(2.5f);
                 ui.atkP = true; yield return new WaitForSecondsRealtime(.35f); ui.atkP = false;
-                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_{w}_fight.png")); yield return new WaitForSecondsRealtime(.8f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_{w}{sh}_fight.png")); yield return new WaitForSecondsRealtime(.8f);
                 ShowLobby(); yield return new WaitForSecondsRealtime(1);
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "weapons.txt"), log.ToString());

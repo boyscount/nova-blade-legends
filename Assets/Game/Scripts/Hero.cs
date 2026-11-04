@@ -52,6 +52,7 @@ namespace NovaBlade
                 lockBones = lobby && anim ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
                 lockRot = lockBones?.Select(t => t.localRotation).ToArray();
                 socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
+                BuildMounts();
                 holder = model.transform; pivot = null;
             }
             else
@@ -60,19 +61,50 @@ namespace NovaBlade
                 holder = Instantiate(Catalog.I.Model("toybot"), model.transform).transform;
                 pivot = new GameObject("pivot").transform; pivot.SetParent(model.transform, false); pivot.localPosition = new Vector3(0, .62f, 0);
                 socket = new GameObject("socket").transform; socket.SetParent(pivot, false); socket.localPosition = new Vector3(.62f, 0, 0);
-                anim = null; animSet = null;
+                anim = null; animSet = null; mFistR = mFistL = mBowL = mCrossR = mShieldL = null;
             }
             foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             int skinIdx = Mathf.Clamp(G.Skin(def.id), 0, def.skins.Length - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{def.id}:{skinIdx}")) skinIdx = 0;
             if (lobby && G.pvSkin >= 0) skinIdx = Mathf.Clamp(G.pvSkin, 0, def.skins.Length - 1);
             look = new Look(model); var sk = def.skins[skinIdx]; look.Set(sk.tint, sk.glow);
-            EquipSword(lobby);
+            EquipSword(lobby); EquipShield(lobby);
             WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, def.id == "harpy" ? null : G.WingsShown, !anim);   // Aeris has wings of her own
             state = St.Idle; Play(G.mode == Main.Mode.Lobby ? "show" : "idle", .1f);
         }
+        // Mounts for the round-2 weapons, made while the model is still in its rest pose (arms out): frames on the bones
+        // with X along the arm or the grip and Y toward the chest's front, so each weapon sits the same on every rig.
+        Transform mFistR, mFistL, mBowL, mCrossR, mShieldL; GameObject offGo, shieldGo; public ShieldDef ShieldOn;
+        static Quaternion Basis(Vector3 x, Vector3 y) { x.Normalize(); y = (y - x * Vector3.Dot(x, y)).normalized; return Quaternion.LookRotation(Vector3.Cross(x, y), y); }   // model X -> x exactly, model Y -> y (made square to x)
+        void BuildMounts()
+        {
+            mFistR = mFistL = mBowL = mCrossR = mShieldL = null;
+            if (!anim || !anim.isHuman) return;
+            Transform rh = anim.GetBoneTransform(HumanBodyBones.RightHand), lh = anim.GetBoneTransform(HumanBodyBones.LeftHand),
+                rf = anim.GetBoneTransform(HumanBodyBones.RightLowerArm), lf = anim.GetBoneTransform(HumanBodyBones.LeftLowerArm);
+            if (!rh || !lh || !rf || !lf) return;
+            Vector3 right = (rh.position - lh.position).normalized, F = Vector3.Cross(right, Vector3.up).normalized, aR = (rh.position - rf.position).normalized, aL = (lh.position - lf.position).normalized;
+            Transform Mk(string n, Transform bone, Vector3 p, Quaternion r) { var t = new GameObject(n).transform; t.SetParent(bone, false); t.SetPositionAndRotation(p, r); return t; }
+            mFistR = Mk("MountFistR", rh, rh.position + aR * .03f, Basis(aR, F));
+            mFistL = Mk("MountFistL", lh, lh.position + aL * .03f, Basis(aL, F));
+            mCrossR = Mk("MountCrossR", rh, rh.position + aR * .07f, Basis(aR, F));
+            mBowL = Mk("MountBowL", lh, lh.position + aL * .07f, Basis(F * .5f + aL * .87f, -aL));   // limbs through the fist, tipped 60° toward the arm so the bow hangs upright at rest; string toward the body
+            mShieldL = Mk("MountShieldL", lf, Vector3.Lerp(lf.position, lh.position, .45f) + Vector3.up * .07f, Basis(-aL, F));   // strapped along the forearm: top toward the elbow, face out over the back of the arm
+        }
+        // which mount a weapon type uses (null = the sword socket)
+        Transform MountFor(string type) => type switch { "bow" => mBowL, "crossbow" => mCrossR, "fist" or "claw" => mFistR, _ => null };
+        static bool Special(string type) => type is "bow" or "crossbow" or "fist" or "claw";
+        void EquipShield(bool lobby)
+        {
+            if (shieldGo) Destroy(shieldGo); ShieldOn = null;
+            string id = lobby && G.pvShield != null ? G.pvShield : Shop.Owns(ItemKind.Shield, G.save.shield) ? G.save.shield : "";
+            var sd = Data.Shields.FirstOrDefault(x => x.id == id); if (sd == null || !mShieldL || !Data.ShieldFits(def)) return;
+            shieldGo = Instantiate(Catalog.I.Model(sd.id), mShieldL); shieldGo.transform.localPosition = Vector3.zero; shieldGo.transform.localRotation = Quaternion.identity;
+            foreach (var r in shieldGo.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            if (!lobby) ShieldOn = sd;
+        }
         void EquipSword(bool lobby)
         {
-            if (swordGo) Destroy(swordGo);
+            if (swordGo) Destroy(swordGo); if (offGo) Destroy(offGo);
             // the weapon's stats stay "sword"; a weapon skin only swaps the model that is shown
             ModelId = lobby && G.pvWeaponSkin != null ? G.pvWeaponSkin : Shop.ModelFor(sword);
             var mdef = Data.Swords.First(w => w.id == ModelId);
@@ -82,7 +114,19 @@ namespace NovaBlade
             if (!def.rig) { swordGo.transform.localScale = Vector3.one * .85f; swordGo.transform.localRotation = Quaternion.Euler(0, 180, 0); }
             if (def.rig && ModelId == "w_daggers") swordGo.transform.localScale = Vector3.one * 1.15f;
             // bows and fists: the weapon's stats still count, its model is not shown; casters do show a weapon of their own kind (a staff, an orb)
-            swordGo.SetActive(def.blade || System.Array.IndexOf(Data.Affinity(def.cls), mdef.type) >= 0);
+            bool fits = System.Array.IndexOf(Data.Affinity(def.cls), mdef.type) >= 0;
+            swordGo.SetActive(Special(mdef.type) ? fits && !def.ownWeapon && !(def.ownBow && mdef.type is "bow" or "crossbow") : def.blade || fits);
+            var mount = MountFor(mdef.type);
+            if (mount && Special(mdef.type))
+            {   // bows, the crossbow and fist weapons: on their own mount; the bulk of the model points along the arm / the limbs run through the fist
+                swordGo.transform.SetParent(mount, false); swordGo.transform.localPosition = Vector3.zero; swordGo.transform.localScale = Vector3.one;
+                swordGo.transform.localRotation = mdef.type != "bow" && BladeSign(swordGo) < 0 ? Quaternion.Euler(0, 180, 0) : Quaternion.identity;
+                if (mdef.type is "fist" or "claw" && mFistL)
+                {   // the left hand wears a mirror image
+                    offGo = Instantiate(swordGo, mFistL); offGo.transform.localPosition = Vector3.zero; offGo.transform.localRotation = swordGo.transform.localRotation;
+                    offGo.transform.localScale = new Vector3(1, 1, -1); offGo.SetActive(swordGo.activeSelf);
+                }
+            }
             if (def.ownWeapon) foreach (var r in swordGo.GetComponentsInChildren<Renderer>()) r.enabled = false;   // the model holds its own blade; keep the tip for the trail
             float sign = BladeSign(swordGo);
             tipT = new GameObject("tip").transform; tipT.SetParent(swordGo.transform, false); tipT.localPosition = new Vector3(sign * mdef.m * .9f, 0, 0);
@@ -226,7 +270,7 @@ namespace NovaBlade
         {
             if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
             if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
-            float d = CombatRules.Current.ModifyDamage(dmg) * (1 + (G.stage - 1) * .15f); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
+            float d = CombatRules.Current.ModifyDamage(dmg) * (1 + (G.stage - 1) * .15f) * (ShieldOn != null ? 1 - ShieldOn.block : 1); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
             d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
             look.Flash(.5f); flashT = .12f; G.Number(Pos + Vector3.up * 2.1f, "-" + d, "hurt");
             Fx.Spawn("hit_red", Pos + Vector3.up * 1.1f, .8f, 2);
