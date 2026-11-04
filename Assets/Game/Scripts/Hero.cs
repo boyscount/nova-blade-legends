@@ -145,7 +145,7 @@ namespace NovaBlade
         public void ResetForGame()
         {
             mp = mpMax; offActive = false; swapCD = 0;
-            transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = def.hp; dead = false; state = St.Idle; inv = 1;
+            transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = def.hp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
             buffT = shieldT = dodgeCD = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
             if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
             Play("idle", .05f);
@@ -195,6 +195,8 @@ namespace NovaBlade
         {
             var kb = Keyboard.current; var ui = G.ui;
             swapCD -= Time.deltaTime; if (ui.swapP) { ui.swapP = false; SwapWeapon(); }
+            potCD -= Time.deltaTime; if (ui.potP) { ui.potP = false; UsePotion(); }
+            if (Keyboard.current != null && Keyboard.current.hKey.wasPressedThisFrame) UsePotion();
             if (ui.WebPc)
             {
                 if (kb != null)
@@ -238,9 +240,16 @@ namespace NovaBlade
         bool AtkHeld => G.ui.atkHold || ClickAttacking || (Keyboard.current?.jKey.isPressed ?? false) || (Mouse.current != null && Mouse.current.leftButton.isPressed && !G.ui.PointerOverUi);
 
         // ---------- helpers ----------
-        public float AtkPow => 100 * def.atk * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier]) * (buffT > 0 ? 1.5f : 1);
+        public float AtkPow => 100 * def.atk * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier] + Items.Bonus(G.save).atk) * (buffT > 0 ? 1.5f : 1);
         public int MasteryTier => Data.Tier(G.save.Mastery(sword.id));
-        public float CritBonus => Data.MasteryCrit[MasteryTier];
+        public float CritBonus => Data.MasteryCrit[MasteryTier] + Items.Bonus(G.save).crit;
+        // a healing potion from the bag: 35% of health, 3 s apart
+        public float potCD;
+        public void UsePotion()
+        {
+            if (dead || potCD > 0 || G.save.potions <= 0 || G.mode != Main.Mode.Game) return;
+            G.save.potions--; potCD = 3; Heal(max * .35f); Fx.Burst(Pos + Vector3.up, 26, new Color(1, .35f, .4f), 4); Fx.Spawn("mx_heal_circle", Pos + Vector3.up * .05f, .8f, 1.2f); G.Persist();
+        }
         // off-hand: a second owned weapon swapped in mid-fight (X on PC, the swap button on phones); a short cooldown
         public bool offActive; float swapCD;
         public SwordDef OffHand { get { var s = G.save; return Data.Swords.FirstOrDefault(w => w.id == s.sword2 && w.id != s.sword && Shop.Owns(ItemKind.Weapon, w.id)); } }
@@ -270,7 +279,7 @@ namespace NovaBlade
         {
             if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
             if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
-            float d = CombatRules.Current.ModifyDamage(dmg) * (1 + (G.stage - 1) * .15f) * (ShieldOn != null ? 1 - ShieldOn.block : 1); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
+            float d = CombatRules.Current.ModifyDamage(dmg) * (1 + (G.stage - 1) * .15f) * (ShieldOn != null ? 1 - ShieldOn.block : 1) * (1 - Items.Bonus(G.save).def); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
             d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
             look.Flash(.5f); flashT = .12f; G.Number(Pos + Vector3.up * 2.1f, "-" + d, "hurt");
             Fx.Spawn("hit_red", Pos + Vector3.up * 1.1f, .8f, 2);
@@ -400,7 +409,7 @@ namespace NovaBlade
                 if (buf > 0) StartAtk(chain > 0 ? (lastI + 1) % 3 : 0);
                 else if (mv.magnitude > .08f)
                 {
-                    float sp = def.spd * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
+                    float sp = (def.spd + Items.Bonus(G.save).spd) * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);

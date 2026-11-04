@@ -11,7 +11,7 @@ namespace NovaBlade
     public class Ui : MonoBehaviour
     {
         // input read by Hero
-        public Vector2 Joy; public bool atkP, atkHold, dodgeP, swapP; bool pickOff; VisualElement swapBtn; Button viewBtn;
+        public Vector2 Joy; public bool atkP, atkHold, dodgeP, swapP, potP; bool pickOff; VisualElement swapBtn; Button viewBtn;
         string ViewLabel() => Loc.S("มุม ", "View ") + (G.ViewStyle + 1); public readonly bool[] skP = new bool[3];
         public bool heavyP, lockP, blockHold;   // Soulslike buttons
         Vector2 lookAcc; public Vector2 TakeLook() { var d = lookAcc; lookAcc = Vector2.zero; return d; }
@@ -191,7 +191,10 @@ namespace NovaBlade
             heroN = L("", 72, Color.white, true); heroN.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 10, color = new Color(0, 0, 0, .9f) }; heroN.style.marginTop = -4; info.Add(heroN);
             heroD = L("", touchUi ? 27 : 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
             var sk = Btn(Loc.S("ⓘ ดูรายละเอียดสกิล", "ⓘ Skill details"), ShowSkills, false); sk.style.alignSelf = Align.FlexStart; sk.style.marginTop = 10; sk.style.fontSize = touchUi ? 24 : 18;
-            sk.style.paddingTop = sk.style.paddingBottom = touchUi ? 10 : 6; sk.style.paddingLeft = sk.style.paddingRight = 16; Round(sk, 18); sk.pickingMode = PickingMode.Position; info.Add(sk);
+            sk.style.paddingTop = sk.style.paddingBottom = touchUi ? 10 : 6; sk.style.paddingLeft = sk.style.paddingRight = 16; Round(sk, 18); sk.pickingMode = PickingMode.Position;
+            var bagB = Btn(Loc.S("กระเป๋า", "Bag"), () => ShowBag(true)); bagB.style.fontSize = touchUi ? 24 : 18; bagB.style.marginTop = 10; bagB.style.marginLeft = 10;
+            bagB.style.paddingTop = bagB.style.paddingBottom = touchUi ? 10 : 6; bagB.style.paddingLeft = bagB.style.paddingRight = 20; Round(bagB, 18); bagB.pickingMode = PickingMode.Position;
+            var brow = Box(); brow.style.flexDirection = FlexDirection.Row; brow.style.alignItems = Align.Center; brow.Add(sk); brow.Add(bagB); info.Add(brow);
             var st = Box(); st.style.marginTop = 12; info.Add(st); stats = new VisualElement[4];
             string[] names = { Loc.S("พลังชีวิต", "Health"), Loc.S("โจมตี", "Attack"), Loc.S("ความเร็ว", "Speed"), Loc.S("ระยะ", "Range") };
             for (int i = 0; i < 4; i++)
@@ -214,7 +217,7 @@ namespace NovaBlade
             }
             var hintV = L(touchUi ? Loc.S("ลากเพื่อหมุน · ถ่างนิ้วเพื่อซูม", "Drag to rotate · Pinch to zoom") : Loc.S("ลากเพื่อหมุน · ล้อเมาส์เพื่อซูม", "Drag to rotate · Mouse wheel to zoom"), 17, new Color(1, 1, 1, .8f)); Shadow(hintV); hintV.style.unityTextAlign = TextAnchor.MiddleCenter; vc.Add(hintV);
             // right panel: dark glass with a thin gold rim
-            var panel = Box(new Color(.03f, .045f, .06f, .62f), 18); Border(panel, new Color(1, .82f, .5f, .45f), 2); Abs(panel, null, 70, 30, 30); panel.style.width = Length.Percent(44); Pad(panel, 18); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
+            var panel = Box(new Color(.03f, .045f, .06f, .62f), 18); lobbyPanel = panel; Border(panel, new Color(1, .82f, .5f, .45f), 2); Abs(panel, null, 70, 30, 30); panel.style.width = Length.Percent(44); Pad(panel, 18); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
             var tabs = Box(new Color(0, 0, 0, .3f), 12); Border(tabs, new Color(1, .84f, .55f, .25f)); tabs.style.flexDirection = FlexDirection.Row; Pad(tabs, 4); panel.Add(tabs);
             int ti = 0;
             foreach (var (id, label) in new[] { ("hero", Loc.S("ฮีโร่", "Heroes")), ("skin", Loc.S("สกิน", "Skins")), ("sword", Loc.S("อาวุธ", "Weapons")), ("wskin", Loc.S("สกินอาวุธ", "Weapon Skins")), ("wings", Loc.S("ปีก", "Wings")), ("pet", Loc.S("สัตว์เลี้ยง", "Pets")), ("stage", Loc.S("ด่าน", "Stages")) })
@@ -486,7 +489,149 @@ namespace NovaBlade
             skillOv.style.display = DisplayStyle.Flex;
         }
         public void TestSkills() => ShowSkills();
-        bool shieldFocus;   // weapons tab: the detail line shows the shield picked last
+        bool shieldFocus;
+        VisualElement potBtn, lobbyPanel; Label potN;
+
+        // ---------- the bag (inventory) ----------
+        // left: the five worn slots beside the hero; right: filters, the grid, the chosen item's details and actions
+        VisualElement bagOv, bagGrid, bagDetail, bagEquip; Label bagCap, bagMsg; string bagFilter = "all", bagSel;
+        class BagEntry { public string kind, id, key; public int count, index; public bool worn; }
+        public void ShowBag(bool on)
+        {
+            if (bagOv == null) BuildBag();
+            bagOv.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            if (lobbyPanel != null) lobbyPanel.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
+            if (on) { bagMsg.text = ""; RenderBag(); } else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderCards(); }
+        }
+        void BuildBag()
+        {
+            float big = touchUi ? 1.2f : 1;
+            bagOv = Box(); Abs(bagOv, 0, 0, 0, 0); bagOv.pickingMode = PickingMode.Ignore; lobby.Add(bagOv);
+            // worn slots
+            bagEquip = Box(); Abs(bagEquip, touchUi ? 250 : 330, touchUi ? 100 : 110); bagEquip.style.alignItems = Align.Center; bagEquip.pickingMode = PickingMode.Ignore; bagOv.Add(bagEquip);
+            // the panel
+            var pn = Box(new Color(.03f, .045f, .06f, .8f), 18); Border(pn, new Color(1, .82f, .5f, .5f), 2); Abs(pn, null, 70, 30, 30); pn.style.width = Length.Percent(54); Pad(pn, 18); pn.pickingMode = PickingMode.Position; bagOv.Add(pn);
+            var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
+            var tl = L(Loc.S("กระเป๋าและไอเทม", "INVENTORY & BAG"), 40 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; top.Add(tl);
+            bagCap = L("", 22 * big, Muted, true); top.Add(bagCap);
+            var plus = new Button(() => { var s = G.save; if (s.bagCap >= 120) { bagMsg.text = Loc.S("กระเป๋าขยายเต็มที่แล้ว", "The bag is at its largest"); return; } if (s.gems < 50) { bagMsg.text = Loc.S("Gem ไม่พอ (ต้องใช้ 50)", "Not enough Gems (50 needed)"); return; } s.gems -= 50; s.bagCap += 10; G.Persist(); bagMsg.text = Loc.S("ขยายกระเป๋า +10 ช่อง (-50 Gem)", "Bag +10 slots (-50 Gems)"); RenderBag(); }) { text = "+" };
+            plus.style.fontSize = 26 * big; plus.style.width = plus.style.height = 40 * big; Round(plus, 20 * big); plus.style.color = Ink; plus.style.backgroundColor = new Color(1, .7f, .25f, .25f); Border(plus, Gold, 1.5f); plus.style.marginLeft = 8; top.Add(plus);
+            var x = new Button(() => ShowBag(false)) { text = "✕" }; x.style.fontSize = 28 * big; x.style.color = Ink; x.style.width = x.style.height = 48 * big; x.style.marginLeft = 14;
+            x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); x.style.unityFontDefinition = fontBold; top.Add(x);
+            var fr = Box(); fr.style.flexDirection = FlexDirection.Row; fr.style.marginTop = 12; pn.Add(fr);
+            foreach (var (id, th, en) in new[] { ("all", "ทั้งหมด", "ALL"), ("weapon", "อาวุธ", "WEAPONS"), ("gear", "อุปกรณ์", "ARMOR"), ("potion", "ยา", "CONSUMABLES"), ("mat", "วัตถุดิบ", "MATERIALS") })
+            {
+                var f = id; var b = new Button(() => { bagFilter = f; RenderBag(); }) { text = Loc.S(th, en), name = "bf_" + id }; b.style.unityFontDefinition = fontBold; b.style.fontSize = 18 * big; b.style.color = Ink;
+                Round(b, 16); b.style.paddingLeft = b.style.paddingRight = 14; b.style.paddingTop = b.style.paddingBottom = 6; b.style.marginRight = 8; fr.Add(b);
+            }
+            var body = Box(); body.style.flexDirection = FlexDirection.Row; body.style.flexGrow = 1; body.style.marginTop = 12; pn.Add(body);
+            var sv = new ScrollView(ScrollViewMode.Vertical); sv.style.flexGrow = 1; body.Add(sv);
+            bagGrid = sv.contentContainer; bagGrid.style.flexDirection = FlexDirection.Row; bagGrid.style.flexWrap = Wrap.Wrap;
+            bagDetail = Box(new Color(0, 0, 0, .35f), 14); Border(bagDetail, new Color(1, .84f, .55f, .3f), 1.5f); Pad(bagDetail, 14); bagDetail.style.width = 330 * big; bagDetail.style.marginLeft = 12; bagDetail.style.flexShrink = 0; body.Add(bagDetail);
+            var bot = Box(); bot.style.flexDirection = FlexDirection.Row; bot.style.alignItems = Align.Center; bot.style.marginTop = 10; pn.Add(bot);
+            var sort = Btn(Loc.S("เรียง", "SORT"), () => { G.save.bag = G.save.bag.OrderBy(i => Items.Get(i)?.slot ?? Slot.Material).ThenByDescending(i => Items.Get(i)?.rarity ?? 0).ToList(); bagSel = null; RenderBag(); }, false);
+            sort.style.fontSize = 20 * big; sort.style.paddingLeft = sort.style.paddingRight = 26; bot.Add(sort);
+            var bulk = Btn(Loc.S("ขายของธรรมดา", "BULK SELL"), () =>
+            {
+                var s = G.save; var junk = s.bag.Where(i => (Items.Get(i)?.rarity ?? 9) <= 1).ToList(); int g = junk.Sum(i => Items.Get(i).Sell);
+                foreach (var i in junk) s.bag.Remove(i); s.gold += g; bagSel = null; G.Persist();
+                bagMsg.text = junk.Count == 0 ? Loc.S("ไม่มีของธรรมดาให้ขาย", "Nothing common to sell") : Loc.S($"ขาย {junk.Count} ชิ้น ได้ {g} Gold", $"Sold {junk.Count} pieces for {g} Gold"); RenderBag();
+            }, false);
+            bulk.style.fontSize = 20 * big; bulk.style.marginLeft = 10; bulk.style.paddingLeft = bulk.style.paddingRight = 26; bot.Add(bulk);
+            bagMsg = L("", 19 * big, Gold); bagMsg.style.marginLeft = 16; bagMsg.style.flexGrow = 1; bagMsg.style.whiteSpace = WhiteSpace.Normal; bot.Add(bagMsg);
+            bagOv.style.display = DisplayStyle.None;
+        }
+        List<BagEntry> BagEntries()
+        {
+            var s = G.save; var list = new List<BagEntry>();
+            if (bagFilter is "all" or "weapon") foreach (var w in Data.Swords.Where(w => Shop.Owns(ItemKind.Weapon, w.id))) list.Add(new BagEntry { kind = "w", id = w.id, key = "w:" + w.id, count = 1, worn = s.sword == w.id });
+            if (bagFilter is "all" or "gear") for (int i = 0; i < s.bag.Count; i++) list.Add(new BagEntry { kind = "g", id = s.bag[i], key = "g:" + i, index = i, count = 1 });
+            if (bagFilter is "all" or "potion" && s.potions > 0) list.Add(new BagEntry { kind = "p", id = "potion", key = "p", count = s.potions });
+            if (bagFilter is "all" or "mat") for (int r = 0; r < 5; r++) if (s.mats[r] > 0) list.Add(new BagEntry { kind = "m", id = "shard_" + r, key = "m:" + r, index = r, count = s.mats[r] });
+            return list;
+        }
+        VisualElement ItemPic(string kind, string id, float size)
+        {
+            var v = Box(); v.style.width = v.style.height = size; v.pickingMode = PickingMode.Ignore;
+            if (kind == "w") { var t = Studio.Weapon(id); if (t) v.style.backgroundImage = new StyleBackground(t); return v; }
+            var d = Items.Get(id); if (d == null) return v;
+            var png = Resources.Load<Texture2D>("UI/Items/" + id); if (png) { v.style.backgroundImage = new StyleBackground(png); return v; }   // painted icon (ITEM-PROMPTS.md)
+            var c = Color.Lerp(Color.white, Items.RarityColor(d.rarity), .55f);
+            v.generateVisualContent += ctx => Items.Icon(ctx, d.slot, v.resolvedStyle.width, c); return v;
+        }
+        int Rarity(BagEntry e) => e.kind == "w" ? Mathf.Clamp(Mathf.RoundToInt((Data.Swords.First(w => w.id == e.id).price) / 300f), 0, 4) : Items.Get(e.id)?.rarity ?? 0;
+        void RenderBag()
+        {
+            var s = G.save; float big = touchUi ? 1.2f : 1, cs = 104 * big;
+            bagCap.text = Loc.S($"ความจุ: {s.BagUsed} / {s.bagCap}", $"CAPACITY: {s.BagUsed} / {s.bagCap}");
+            foreach (var b in bagOv.Query<Button>().Where(b => b.name != null && b.name.StartsWith("bf_")).ToList())
+            { bool on = b.name == "bf_" + bagFilter; b.style.backgroundColor = on ? new Color(1, .7f, .25f, .25f) : new Color(1, 1, 1, .05f); Border(b, on ? Gold : new Color(1, 1, 1, .15f), 1.5f); }
+            // worn slots
+            bagEquip.Clear(); var eqT = L(Loc.S("สวมใส่", "EQUIPPED"), 24 * big, Gold, true); eqT.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 6, color = Color.black }; eqT.style.marginBottom = 8; bagEquip.Add(eqT);
+            var wornList = new List<(string label, string kind, string id, string key)> { (Loc.S("อาวุธ", "WEAPON"), "w", s.sword, "w:" + s.sword) };
+            foreach (var sl in new[] { Slot.Helm, Slot.Armor, Slot.Boots, Slot.Accessory }) { var id = Items.Worn(s, sl); wornList.Add((Items.SlotName(sl).ToUpper(), "g", id, "worn:" + sl)); }
+            foreach (var (label, kind, id, key) in wornList)
+            {
+                float ws = 88 * big; var cell = Box(); cell.style.alignItems = Align.Center; cell.style.marginBottom = 8; cell.pickingMode = PickingMode.Position; bagEquip.Add(cell);
+                int r = string.IsNullOrEmpty(id) ? 0 : kind == "w" ? Rarity(new BagEntry { kind = "w", id = id }) : Items.Get(id)?.rarity ?? 0; var rc = Items.RarityColor(r);
+                var ring = Box(new Color(.03f, .05f, .07f, .85f), ws / 2); ring.style.width = ring.style.height = ws; Border(ring, string.IsNullOrEmpty(id) ? new Color(1, .84f, .55f, .35f) : rc, bagSel == key ? 4 : 2.5f);
+                ring.style.alignItems = Align.Center; ring.style.justifyContent = Justify.Center; ring.pickingMode = PickingMode.Ignore; cell.Add(ring);
+                if (!string.IsNullOrEmpty(id)) ring.Add(ItemPic(kind, id, ws * .7f));
+                var lb = L(label, 16 * big, Ink, true); lb.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 5, color = Color.black }; lb.style.marginTop = 3; cell.Add(lb);
+                string k2 = key; cell.RegisterCallback<PointerDownEvent>(e => { if (!string.IsNullOrEmpty(id)) { bagSel = k2; RenderBag(); } });
+            }
+            // the grid
+            bagGrid.Clear(); var entries = BagEntries(); BagEntry sel = null;
+            foreach (var e in entries)
+            {
+                int r = Rarity(e); var rc = Items.RarityColor(r); bool on = e.key == bagSel; if (on) sel = e;
+                var c = Box(new Color(rc.r * .16f, rc.g * .16f, rc.b * .16f, .92f), 12); c.style.width = c.style.height = cs; c.style.marginRight = c.style.marginBottom = 8; Border(c, on ? Gold : new Color(rc.r, rc.g, rc.b, .75f), on ? 3.5f : 2);
+                c.style.alignItems = Align.Center; c.style.justifyContent = Justify.Center; c.pickingMode = PickingMode.Position; c.Add(ItemPic(e.kind, e.id, cs * .7f));
+                if (e.count > 1) { var n = L("x" + e.count, 17 * big, Ink, true); Abs(n, null, null, 6, 4); n.style.textShadow = new TextShadow { offset = new Vector2(0, 1), blurRadius = 3, color = Color.black }; c.Add(n); }
+                if (e.worn) { var w = L("E", 17 * big, Gold, true); Abs(w, 6, 4); c.Add(w); }
+                var ee = e; c.RegisterCallback<PointerDownEvent>(ev => { bagSel = ee.key; RenderBag(); }); bagGrid.Add(c);
+            }
+            for (int i = entries.Count; i < Mathf.Max(entries.Count + (5 - entries.Count % 5) % 5, 15); i++)
+            { var c = Box(new Color(1, 1, 1, .03f), 12); c.style.width = c.style.height = cs; c.style.marginRight = c.style.marginBottom = 8; Border(c, new Color(1, 1, 1, .08f), 1.5f); bagGrid.Add(c); }
+            // details
+            bagDetail.Clear();
+            if (bagSel != null && bagSel.StartsWith("worn:")) { var sl = (Slot)System.Enum.Parse(typeof(Slot), bagSel.Substring(5)); var id = Items.Worn(s, sl); if (!string.IsNullOrEmpty(id)) sel = new BagEntry { kind = "g", id = id, key = bagSel, worn = true }; }
+            if (sel == null)
+            {
+                var hint = L(Loc.S("แตะไอเทมเพื่อดูรายละเอียด\n\nไอเทมได้จากมอนสเตอร์และบอส ยิ่งด่านไกล ยิ่งมีโอกาสได้ของหายาก", "Tap an item to see it.\n\nItems drop from monsters and bosses; later stages give better odds of rare ones."), 19 * big, Muted);
+                hint.style.whiteSpace = WhiteSpace.Normal; bagDetail.Add(hint); return;
+            }
+            var hd = L(Loc.S("รายละเอียด", "ITEM DETAILS"), 20 * big, Gold, true); hd.style.unityTextAlign = TextAnchor.MiddleCenter; bagDetail.Add(hd);
+            int sr = Rarity(sel); var src = Items.RarityColor(sr); var def = Items.Get(sel.id); var wdef = sel.kind == "w" ? Data.Swords.First(w => w.id == sel.id) : null;
+            var nm = L(wdef != null ? wdef.name : def.name, 22 * big, Ink, true); nm.style.whiteSpace = WhiteSpace.Normal; nm.style.unityTextAlign = TextAnchor.MiddleCenter; nm.style.marginTop = 8; bagDetail.Add(nm);
+            var rl = L($"({Items.RarityName(sr)}" + (def != null ? $" · {Items.SlotName(def.slot)})" : ")"), 18 * big, src, true); rl.style.unityTextAlign = TextAnchor.MiddleCenter; bagDetail.Add(rl);
+            var pic = ItemPic(sel.kind, sel.id, 120 * big); pic.style.alignSelf = Align.Center; pic.style.marginTop = 8; pic.style.marginBottom = 8; bagDetail.Add(pic);
+            IEnumerable<(string k, string v)> lines = wdef != null ? new[] { (Loc.S("ดาเมจ", "DMG"), $"x{wdef.dmg:0.##}"), (Loc.S("ความเร็ว", "SPD"), $"x{wdef.spd:0.##}"), (Loc.S("คริติคอล", "CRIT"), $"+{wdef.crit * 100:0}%") } : Items.Lines(def);
+            foreach (var (k, v) in lines) { var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.justifyContent = Justify.SpaceBetween; row.Add(L(k + ":", 20 * big, Ink, true)); row.Add(L(v, 20 * big, Green, true)); bagDetail.Add(row); }
+            var ds = L(wdef != null ? wdef.desc : def.desc, 17 * big, Muted); ds.style.whiteSpace = WhiteSpace.Normal; ds.style.marginTop = 8; ds.style.flexGrow = 1; bagDetail.Add(ds);
+            void Act(string text, bool primary, System.Action a) { var b = Btn(text, () => { a(); G.Persist(); RenderBag(); }, primary); b.style.fontSize = (primary ? 20 : 16) * big; b.style.whiteSpace = WhiteSpace.Normal; b.style.marginTop = 8; b.style.paddingTop = b.style.paddingBottom = 8; bagDetail.Add(b); }
+            if (sel.kind == "w")
+            {
+                if (s.sword == sel.id) bagDetail.Add(L(Loc.S("ใส่อยู่", "Equipped"), 20 * big, Gold, true));
+                else Act(Loc.S("สวมใส่", "EQUIP"), true, () => { s.sword = sel.id; if (s.sword2 == sel.id) s.sword2 = ""; G.hero.Equip(); bagSel = "w:" + sel.id; bagMsg.text = Loc.S("เปลี่ยนอาวุธแล้ว", "Weapon equipped"); });
+            }
+            else if (sel.worn)
+                Act(Loc.S("ถอดออก", "UNEQUIP"), true, () => { if (s.BagUsed >= s.bagCap) { bagMsg.text = Loc.S("กระเป๋าเต็ม", "The bag is full"); return; } s.bag.Add(sel.id); Items.SetWorn(s, def.slot, ""); bagSel = null; });
+            else if (sel.kind == "g")
+            {
+                Act(Loc.S("สวมใส่", "EQUIP"), true, () => { var old = Items.Worn(s, def.slot); s.bag.RemoveAt(sel.index); if (!string.IsNullOrEmpty(old)) s.bag.Add(old); Items.SetWorn(s, def.slot, sel.id); bagSel = "worn:" + def.slot; bagMsg.text = Loc.S($"สวม {def.name} แล้ว", $"{def.name} equipped"); });
+                Act(Loc.S($"ย่อย (ได้ผลึก{Items.RarityTh[def.rarity]} x{1 + def.rarity / 2})", $"DISMANTLE (+{1 + def.rarity / 2} {Items.RarityEn[def.rarity]} Shard)"), false, () => { s.bag.RemoveAt(sel.index); s.mats[def.rarity] += 1 + def.rarity / 2; bagSel = null; bagMsg.text = Loc.S("ย่อยแล้ว", "Dismantled"); });
+                Act(Loc.S($"ขาย (+{def.Sell} Gold)", $"SELL (+{def.Sell} Gold)"), false, () => { s.bag.RemoveAt(sel.index); s.gold += def.Sell; bagSel = null; bagMsg.text = Loc.S($"ขายแล้ว +{def.Sell} Gold", $"Sold +{def.Sell} Gold"); });
+            }
+            else if (sel.kind == "p")
+            {
+                var u = L(Loc.S("ใช้ตอนสู้: ปุ่มยาบนจอ หรือกด H", "Use it in a fight: the potion button or H"), 18 * big, Gold); u.style.whiteSpace = WhiteSpace.Normal; bagDetail.Add(u);
+                Act(Loc.S($"ขาย 1 ขวด (+{def.Sell} Gold)", $"SELL 1 (+{def.Sell} Gold)"), false, () => { if (s.potions > 0) { s.potions--; s.gold += def.Sell; } if (s.potions == 0) bagSel = null; });
+            }
+            else
+                Act(Loc.S($"ขายทั้งหมด (+{def.Sell * sel.count} Gold)", $"SELL ALL (+{def.Sell * sel.count} Gold)"), false, () => { s.gold += def.Sell * s.mats[sel.index]; s.mats[sel.index] = 0; bagSel = null; });
+        }
+        public void TestBag(string sel) { ShowBag(true); bagSel = sel; RenderBag(); }   // weapons tab: the detail line shows the shield picked last
         void Offer(ItemKind k, string id, string name, string text)
         {
             detail.text = text;
@@ -661,6 +806,14 @@ namespace NovaBlade
                 Border(swapBtn, new Color(1, .84f, .55f, .8f), 3); swapBtn.pickingMode = PickingMode.Position; swapBtn.style.justifyContent = Justify.Center; swapBtn.style.alignItems = Align.Center;
                 var sl = L("⇄", touchUi ? 46 : 32, Gold, true); sl.pickingMode = PickingMode.Ignore; swapBtn.Add(sl);
                 swapBtn.RegisterCallback<PointerDownEvent>(e => { swapP = true; e.StopPropagation(); }); btns.Add(swapBtn);
+            }
+            {   // healing potion: count and a cooldown dim; H on a keyboard
+                float ps = touchUi ? 96 : 70; potBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(potBtn, touchUi ? 30 : 24, touchUi ? 150 : 120); potBtn.style.width = potBtn.style.height = ps; Round(potBtn, ps / 2);
+                Border(potBtn, new Color(1, .45f, .5f, .85f), 3); potBtn.pickingMode = PickingMode.Position; potBtn.style.alignItems = Align.Center; potBtn.style.justifyContent = Justify.Center;
+                var pi = Box(); pi.style.width = pi.style.height = ps * .62f; pi.pickingMode = PickingMode.Ignore; pi.generateVisualContent += ctx => Items.Icon(ctx, Slot.Potion, pi.resolvedStyle.width, Color.white); potBtn.Add(pi);
+                potN = L("0", touchUi ? 26 : 20, Ink, true); Abs(potN, null, null, -4, -6); potN.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 4, color = Color.black }; potBtn.Add(potN);
+                if (!touchUi) { var hk = L("H", 16, Gold, true); Abs(hk, -2, -4); potBtn.Add(hk); }
+                potBtn.RegisterCallback<PointerDownEvent>(e => { potP = true; e.StopPropagation(); }); hud.Add(potBtn);
             }
             sk[0].Q<Label>("lb").style.display = DisplayStyle.None;   // the sword icon is enough for the big button
             bool pcBarOn = !touchUi && PcArt("hud_bar_frame"); if (pcBarOn) { BuildPcBar(); btns.style.display = DisplayStyle.None; }
@@ -965,6 +1118,8 @@ namespace NovaBlade
         void Update()
         {
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
+            if (bagOv != null && G && G.mode != Main.Mode.Lobby && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
+            if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }
             if (G == null || G.hero == null) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) TogglePause();
             float dt = Time.unscaledDeltaTime;

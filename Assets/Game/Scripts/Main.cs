@@ -43,7 +43,11 @@ namespace NovaBlade
             public int Mastery(string weapon) { int i = mastKeys.IndexOf(weapon); return i < 0 ? 0 : mastVals[i]; }
             public void AddMastery(string weapon, int n) { int i = mastKeys.IndexOf(weapon); if (i < 0) { mastKeys.Add(weapon); mastVals.Add(n); } else mastVals[i] += n; }
             public string shield = "";                             // shield on the left arm ("" = none; warriors and clerics)
-            public string wings = ""; public bool petWings = true; // equipped wings ("" = none) and whether the pet wears a pair too
+            public string wings = ""; public bool petWings = true;
+            // the bag: gear pieces (one entry each), potions and crafting shards as stacks, worn gear in its four slots
+            public List<string> bag = new(); public int potions = 3, bagCap = 40; public List<int> mats = new() { 0, 0, 0, 0, 0 };
+            public string helm = "", armor = "", boots = "", acc = "";
+            public int BagUsed => bag.Count + (potions > 0 ? 1 : 0) + mats.Count(m => m > 0); // equipped wings ("" = none) and whether the pet wears a pair too
             public string WeaponSkin(string weapon) { int i = wsKeys.IndexOf(weapon); return i < 0 ? null : wsVals[i]; }
             public void SetWeaponSkin(string weapon, string model) { int i = wsKeys.IndexOf(weapon); if (i < 0) { wsKeys.Add(weapon); wsVals.Add(model); } else wsVals[i] = model; }
         }
@@ -93,6 +97,7 @@ namespace NovaBlade
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
             int pk = System.Array.IndexOf(args, "-posecheck"); if (pk >= 0 && pk + 2 < args.Length) StartCoroutine(PoseCheck(args[pk + 1], args[pk + 2]));
             int nt = System.Array.IndexOf(args, "-newtest"); if (nt >= 0 && nt + 1 < args.Length) StartCoroutine(NewTest(args[nt + 1]));
+            int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
         }
@@ -286,6 +291,31 @@ namespace NovaBlade
                 log.AppendLine($"trees shot {k}: fader {(fader ? fader.FadedCount : -1)} faded renderers");
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "new.txt"), log.ToString());
+            Application.Quit();
+        }
+        // Test mode (-bagtest <dir>): a bag with some of everything, the bag screen (a piece chosen, then worn), a boss's loot
+        // dropping and being picked up in a fight, a potion drunk; shots and bag.txt, then quit.
+        System.Collections.IEnumerator BagTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            save.hero = "samurai"; save.bag.Clear(); save.helm = save.armor = save.boots = save.acc = "";
+            foreach (var id in new[] { "helm_iron", "armor_knight", "boots_leather", "ring_shadow", "helm_dragon", "armor_leather", "boots_knight", "ring_leather" }) save.bag.Add(id);
+            save.potions = 5; save.mats = new List<int> { 3, 1, 0, 2, 0 }; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            ui.TestBag("g:4"); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "bag_select.png")); yield return new WaitForSecondsRealtime(.4f);
+            // wear four pieces the way the buttons do
+            save.helm = "helm_dragon"; save.armor = "armor_knight"; save.boots = "boots_knight"; save.acc = "ring_shadow"; save.bag.RemoveAll(i => i is "helm_dragon" or "armor_knight" or "boots_knight" or "ring_shadow");
+            ui.TestBag("worn:Armor"); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "bag_worn.png")); yield return new WaitForSecondsRealtime(.4f);
+            var gb = Items.Bonus(save); log.AppendLine($"gear bonus hp {gb.hp} def {gb.def:0.000} spd {gb.spd:0.00} crit {gb.crit:0.000} atk {gb.atk:0.000}");
+            ui.ShowBag(false); StartGame(1); yield return new WaitForSecondsRealtime(2);
+            log.AppendLine($"in fight: max hp {hero.max} (base {hero.def.hp}) atk {hero.AtkPow:0}");
+            int bagBefore = save.bag.Count, potBefore = save.potions;
+            DropLoot(hero.Pos + new Vector3(2.5f, 0, 0), true, 10); yield return new WaitForSecondsRealtime(.9f);
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "loot_drop.png")); yield return new WaitForSecondsRealtime(4);
+            log.AppendLine($"after boss loot: bag {bagBefore} -> {save.bag.Count}, potions {potBefore} -> {save.potions}");
+            hero.hp = hero.max * .4f; float h0 = hero.hp; hero.UsePotion(); yield return new WaitForSecondsRealtime(.4f);
+            log.AppendLine($"potion: hp {h0:0} -> {hero.hp:0}, potions left {save.potions}");
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "potion.png")); yield return new WaitForSecondsRealtime(.5f);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "bag.txt"), log.ToString());
             Application.Quit();
         }
         // Test mode (-movetest <dir>): every hero runs forward on the joystick; logs the playing state, its speed, how far the
@@ -620,13 +650,38 @@ namespace NovaBlade
         public void Number(Vector3 p, string txt, string cls) => ui?.Number(p, txt, cls);
 
         // ---------- drops ----------
-        class Drop { public GameObject go; public bool orb; public int v; public Vector3 p, vel; public float t; }
+        class Drop { public GameObject go; public bool orb; public int v; public Vector3 p, vel; public float t; public string item; }
+        // an item on the ground: a glowing gem in its rarity colour with a beam of light, picked up by walking over it
+        void AddItemDrop(Vector3 p, string id)
+        {
+            var d = Items.Get(id); if (d == null) return; var c = Items.RarityColor(d.rarity);
+            var go = new GameObject("item_" + id); go.AddComponent<MeshFilter>().sharedMesh = SphereMesh();
+            var m = new Material(Catalog.I.glowMat); m.SetFloat("_SrcBlend", 1); m.SetFloat("_DstBlend", 0); m.SetFloat("_UseVC", 0); m.SetColor("_Color", c * 2.2f);
+            go.AddComponent<MeshRenderer>().sharedMaterial = m; go.transform.localScale = new Vector3(.34f, .42f, .34f);
+            var beam = GameObject.CreatePrimitive(PrimitiveType.Cylinder); Destroy(beam.GetComponent<Collider>()); beam.transform.SetParent(go.transform, false);
+            beam.transform.localPosition = new Vector3(0, 3.2f, 0); beam.transform.localScale = new Vector3(.18f, 3.2f, .18f);
+            var bm = new Material(Catalog.I.glowMat); bm.SetColor("_Color", new Color(c.r, c.g, c.b, .35f)); beam.GetComponent<Renderer>().sharedMaterial = bm;
+            drops.Add(new Drop { go = go, item = id, p = p + Vector3.up * .6f, vel = new Vector3(Random.Range(-2f, 2f), Random.Range(4f, 6f), Random.Range(-2f, 2f)) });
+        }
+        // into the bag (potions and shards stack); a full bag turns the piece into gold
+        public bool AddItem(string id)
+        {
+            var d = Items.Get(id); if (d == null) return false;
+            if (d.slot == Slot.Potion) save.potions++;
+            else if (d.slot == Slot.Material) save.mats[d.rarity]++;
+            else if (save.BagUsed >= save.bagCap) { gold += d.Sell; Number(hero.Pos + Vector3.up * 2.2f, Loc.S("กระเป๋าเต็ม +" + d.Sell, "Bag full +" + d.Sell), "gold"); return false; }
+            else save.bag.Add(id);
+            return true;
+        }
         static Mesh coinMesh; static Material coinMat, orbMat;
         public void DropLoot(Vector3 p, bool isBoss, int g)
         {
             int n = isBoss ? 24 : Random.Range(1, 4);
             for (int i = 0; i < n; i++) AddDrop(p, false, isBoss ? 8 : Mathf.CeilToInt(g / 2f));
             if (Random.value < (isBoss ? 1 : .12f)) AddDrop(p, true, 0);
+            // items: one monster in eight drops something, a boss always drops two pieces and a potion
+            if (isBoss) { AddItemDrop(p, Items.Roll(true, save.stage)); AddItemDrop(p, Items.Roll(true, save.stage)); AddItemDrop(p, "potion"); }
+            else if (Random.value < .13f) AddItemDrop(p, Items.Roll(false, save.stage));
         }
         void AddDrop(Vector3 p, bool orb, int v)
         {
@@ -652,15 +707,20 @@ namespace NovaBlade
                 if (d.p.y > .25f || d.vel.y > 0) { d.vel.y -= 18 * dt; d.p += d.vel * dt; if (d.p.y < .25f) { d.p.y = .25f; d.vel = Mathf.Abs(d.vel.y) > 2 ? new Vector3(d.vel.x * .5f, -d.vel.y * .35f, d.vel.z * .5f) : Vector3.zero; } }
                 var to = Flat(hero.Pos - d.p); float dd = to.magnitude;
                 if (d.t > .5f && dd < mag && !hero.dead) { float k = Mathf.Min(1, dt * (12 / Mathf.Max(dd, .5f))); d.p += new Vector3(to.x * k, (1 - d.p.y) * k, to.z * k); }
-                bool dead = d.t > 25;
+                bool dead = d.t > (d.item != null ? 60 : 25);
                 if (d.t > .5f && dd < .6f)
                 {
                     dead = true;
-                    if (!d.orb) { int v = Mathf.RoundToInt(d.v * (pet.def != null && pet.def.gold ? 1.5f : 1)); gold += v; Number(hero.Pos + Vector3.up * 1.8f, "+" + v, "gold"); }
+                    if (d.item != null)
+                    {
+                        var it = Items.Get(d.item); var c = Items.RarityColor(it.rarity);
+                        if (AddItem(d.item)) { Number(hero.Pos + Vector3.up * 2.4f, "+ " + it.name, "crit"); Fx.Burst(hero.Pos + Vector3.up, 20, c, 4); Persist(); }
+                    }
+                    else if (!d.orb) { int v = Mathf.RoundToInt(d.v * (pet.def != null && pet.def.gold ? 1.5f : 1)); gold += v; Number(hero.Pos + Vector3.up * 1.8f, "+" + v, "gold"); }
                     else { hero.Heal(hero.max * .1f); Fx.Burst(hero.Pos + Vector3.up, 14, new Color(.4f, 1, .55f), 3); }
                 }
                 d.go.transform.position = d.p + (d.orb ? Vector3.up * Mathf.Sin(d.t * 4) * .08f : Vector3.zero);
-                d.go.transform.rotation = Quaternion.Euler(d.orb ? 0 : 90, d.t * 280, 0);
+                d.go.transform.rotation = d.item != null ? Quaternion.Euler(0, d.t * 120, 0) : Quaternion.Euler(d.orb ? 0 : 90, d.t * 280, 0);
                 if (dead) { Destroy(d.go); drops.RemoveAt(i); }
             }
         }
