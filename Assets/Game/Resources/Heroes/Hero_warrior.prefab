@@ -44,6 +44,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: warrior
       objectReference: {fileID: 0}
+    - target: {fileID: -7119603925180978124, guid: 7123f4341818dfc4ea7d50f9ce3b9edc, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.54544765
+      objectReference: {fileID: 0}
+    - target: {fileID: -7119603925180978124, guid: 7123f4341818dfc4ea7d50f9ce3b9edc, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.51170075
+      objectReference: {fileID: 0}
+    - target: {fileID: -1980568702291896898, guid: 7123f4341818dfc4ea7d50f9ce3b9edc, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.54544765
+      objectReference: {fileID: 0}
+    - target: {fileID: -1980568702291896898, guid: 7123f4341818dfc4ea7d50f9ce3b9edc, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.51170075
+      objectReference: {fileID: 0}
     - target: {fileID: 7512201547712726738, guid: 7123f4341818dfc4ea7d50f9ce3b9edc, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

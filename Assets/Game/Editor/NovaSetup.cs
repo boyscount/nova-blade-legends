@@ -43,12 +43,12 @@ public static class NovaSetup
     public static readonly Dictionary<string, Dictionary<string, (string file, bool loop)>> Sets = new()
     {
         ["mage"] = new() { ["idle"] = ("mage_idle", true), ["show"] = ("show_mage|mage_idle", true), ["walk"] = ("mage_walk", true), ["run"] = ("mage_run", true), ["cast2"] = ("mage_cast_big", false) },
-        ["bow"] = new() { ["idle"] = ("bow_idle", true), ["show"] = ("show_bow|bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
-        ["ninja"] = new() { ["idle"] = ("ninja_idle", true), ["show"] = ("show_ninja|ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
-        ["monk"] = new() { ["idle"] = ("monk_idle", true), ["show"] = ("show_monk|monk_idle", true), ["walk"] = ("monk_walk", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
-        ["warrior"] = new() { ["show"] = ("show_warrior", true) },
-        ["shield"] = new() { ["show"] = ("show_shield", true), ["walk"] = ("shield_walk", true), ["run"] = ("shield_run", true) },
-        ["samurai"] = new() { ["show"] = ("show_samurai", true) },
+        ["bow"] = new() { ["idle"] = ("bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
+        ["ninja"] = new() { ["idle"] = ("ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
+        ["monk"] = new() { ["idle"] = ("monk_idle", true), ["walk"] = ("monk_walk", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
+        ["warrior"] = new() { },
+        ["shield"] = new() { ["walk"] = ("shield_walk", true), ["run"] = ("shield_run", true) },
+        ["samurai"] = new() { },
     };
     public static string SetPath(string clip)
     {
@@ -63,7 +63,9 @@ public static class NovaSetup
         // overrides swap clips, not states: "show" needs a base clip of its own or it always plays whatever replaces "idle"
         var states = ctrl.layers[0].stateMachine.states.Select(s => s.state).ToArray();
         var show = states.First(s => s.name == "show"); var idle = states.First(s => s.name == "idle");
-        if (show.motion == idle.motion)
+        // one showcase idle for every hero in the lobby (the same lively motion for all): the mage's
+        var shared = SetClip("show_mage"); if (shared && show.motion != shared) { show.motion = shared; EditorUtility.SetDirty(ctrl); AssetDatabase.SaveAssets(); }
+        if (!shared && show.motion == idle.motion)
         {
             const string ShowBase = Anim + "/show_base.anim";
             var copy = Object.Instantiate((AnimationClip)idle.motion); copy.name = "show_base";
@@ -107,7 +109,7 @@ public static class NovaSetup
     }
     public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
     // class heroes (auto-rigged by arena_autorig.py): build their avatars and prefabs against the existing controller
-    public static readonly string[] ClassHeroes = { "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
+    public static readonly string[] ClassHeroes = { "warrior", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
     public static void NewHeroes()
     {
         AssetDatabase.ImportAsset(Heroes, ImportAssetOptions.ImportRecursive);

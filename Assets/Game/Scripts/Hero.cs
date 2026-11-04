@@ -49,7 +49,7 @@ namespace NovaBlade
                 animSet = Data.AnimSet(def.id); if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
                 // lobby: a bowed head warps the faces of the auto-rigged heroes, so the head keeps its sculpted angle
                 // on the neck (the neck and body still move; see LateUpdate)
-                lockBones = lobby && anim && !OldRig ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
+                lockBones = lobby && anim ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
                 lockRot = lockBones?.Select(t => t.localRotation).ToArray();
                 socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 holder = model.transform; pivot = null;
@@ -372,8 +372,15 @@ namespace NovaBlade
         public string animSet; Transform[] lockBones; Quaternion[] lockRot;
         void LateUpdate()
         {
-            if (lockBones == null || G.mode != Main.Mode.Lobby) return;
-            for (int i = 0; i < lockBones.Length; i++) if (lockBones[i]) lockBones[i].localRotation = lockRot[i];
+            if (G.mode != Main.Mode.Lobby || !anim || !anim.isHuman) return;
+            // every hero breathes and shifts its weight the same way on top of its own idle, so none stands frozen
+            float t = Time.time, breath = Mathf.Sin(t * 1.7f), shift = Mathf.Sin(t * .55f);
+            void Turn(HumanBodyBones b, Vector3 e) { var tr = anim.GetBoneTransform(b); if (tr) tr.localRotation *= Quaternion.Euler(e); }
+            Turn(HumanBodyBones.Spine, new Vector3(breath * 1.2f, shift * 3.5f, shift * 1.8f));
+            Turn(HumanBodyBones.Chest, new Vector3(-breath * 2.6f, shift * 2f, 0));
+            Turn(HumanBodyBones.LeftUpperArm, new Vector3(0, 0, breath * 2.5f + shift * 2));
+            Turn(HumanBodyBones.RightUpperArm, new Vector3(0, 0, -breath * 2.5f + shift * 2));
+            if (lockBones != null) for (int i = 0; i < lockBones.Length; i++) if (lockBones[i]) lockBones[i].localRotation = lockRot[i];
         }
         void LobbyIdle() { if (!def.rig) { transform.position = new Vector3(transform.position.x, .35f + Mathf.Sin(Time.time * 3) * .08f, transform.position.z); pivot.localRotation = Quaternion.Euler(0, .35f * Mathf.Rad2Deg, 0); socket.localRotation = Quaternion.Euler(0, 0, 57); } }
 
@@ -405,6 +412,21 @@ namespace NovaBlade
         }
         IEnumerator Run(string id)
         {
+            // classes rework the shared skills into their own: mages call meteors and freeze, the cleric holds a sanctuary
+            // and smites, the monk fights with fists and qi, the forest archer rains and drives arrows
+            IEnumerator body = (def.cls, id) switch
+            {
+                ("mage", "missile") => Meteors(), ("mage", "shield") => FrostWard(),
+                ("cleric", "shield") => Sanctuary(), ("cleric", "cry") => Smite(),
+                ("monk", "slam") => Palm(), ("monk", "whirl") => Flurry(), ("monk", "cry") => QiBurst(),
+                ("archer", "dive") when def.id != "harpy" => ArrowRain(), ("archer", "gale") when def.id != "harpy" => Pierce(),
+                _ => Shared(id),
+            };
+            yield return body;
+            spin = 0; state = St.Idle; skillCo = null;
+        }
+        IEnumerator Shared(string id)
+        {
             IEnumerator body = id switch
             {
                 "whirl" => Whirl(), "slam" => Leap(9, 5, "leap", 1.6f, 1.5f, 3.8f, 3.2f, new Color(1, .78f, .35f)), "cry" => Cry(),
@@ -413,7 +435,104 @@ namespace NovaBlade
                 "laser" => Laser(), "missile" => Missile(), "heal" => Heal(), _ => Shield(),
             };
             yield return body;
-            spin = 0; state = St.Idle; skillCo = null;
+        }
+
+        // ---------- class skills ----------
+        Vector3 TargetSpot(float maxD, float ahead) { var e = G.Nearest(Pos, maxD); if (e) { FaceTo(e); return e.Pos; } return Pos + Main.Dir(face) * ahead; }
+        // mage: a shower of meteors on the nearest crowd
+        IEnumerator Meteors()
+        {
+            Play("cast2", .08f, 1.2f); var at = TargetSpot(12, 6);
+            Fx.Spawn("mx_meteors", at, 1.2f, 3.5f); yield return Wait(.85f);
+            for (int i = 0; i < 3; i++) { G.HitArea(at, 4.6f, AtkPow * .9f, new Main.Hit { kb = 3, col = new Color(1, .6f, .3f) }); G.shake = Mathf.Max(G.shake, .25f); Fx.Spawn("mx_spark_y", at + Main.Dir(i * 2.1f) * 1.4f + Vector3.up * .3f, 1, 2); yield return Wait(.28f); }
+        }
+        // mage: the ward, and a burst of frost that throws back and slows everything close
+        IEnumerator FrostWard()
+        {
+            Fx.Spawn("mx_snow", Pos, 1.1f, 3); G.HitArea(Pos, 4.2f, AtkPow * .9f, new Main.Hit { kb = 5, slow = 2.5f, col = new Color(.6f, .9f, 1) });
+            yield return Shield();
+        }
+        // cleric: a holy circle on the ground; standing in it heals, enemies in it burn
+        IEnumerator Sanctuary()
+        {
+            Play("cast2", .08f, 1.2f); var c = Pos; Fx.Spawn("mx_heal_circle", c + Vector3.up * .05f, 1.6f, 5.2f); yield return Wait(.35f);
+            StartCoroutine(SanctuaryZone(c));   // the circle keeps working on its own while she fights on
+        }
+        IEnumerator SanctuaryZone(Vector3 c)
+        {
+            for (float t = 0; t < 5 && !dead; t += .5f)
+            {
+                if (Main.Flat(Pos - c).magnitude < 3.8f) { float amt = max * .035f; hp = Mathf.Min(max, hp + amt); G.Number(Pos + Vector3.up * 2.2f, "+" + Mathf.RoundToInt(amt), "heal"); }
+                G.HitArea(c, 3.8f, AtkPow * .4f, new Main.Hit { col = new Color(1, .9f, .5f) });
+                yield return Wait(.5f);
+            }
+        }
+        // cleric: pillars of light strike the three nearest enemies
+        IEnumerator Smite()
+        {
+            Play("cast1", .08f, 1.1f); yield return Wait(.25f);
+            var tg = G.Live.Where(e => Main.Flat(e.Pos - Pos).magnitude < 11).OrderBy(e => (e.Pos - Pos).sqrMagnitude).Take(3).ToList();
+            if (tg.Count == 0) { var p = Pos + Main.Dir(face) * 5; Fx.Spawn("mx_holy_hit", p, 1.6f, 2); G.HitArea(p, 2.4f, AtkPow * 2, new Main.Hit { kb = 3 }); }
+            foreach (var e in tg)
+            {
+                if (!e || !e.alive) continue; Fx.Spawn("mx_holy_hit", e.Pos, 1.6f, 2); Fx.Spawn("mx_spark_y", e.Pos + Vector3.up, 1, 2);
+                G.HitArea(e.Pos, 2.4f, AtkPow * 2.1f, new Main.Hit { kb = 3, poise = 30, col = new Color(1, .9f, .5f) }); G.shake = Mathf.Max(G.shake, .18f); yield return Wait(.16f);
+            }
+        }
+        // monk: a driving palm that dashes through the line and hurls them back
+        IEnumerator Palm()
+        {
+            Play("atk0", .04f, 1.6f, Mathf.Max(0, Catalog.I.Clip(animSet, "atk0").hit - .35f)); var f = Main.Dir(face); var s = Pos; var hit = new HashSet<Foe>(); inv = Mathf.Max(inv, .4f);
+            var cf = Fx.Spawn("mx_charge", Pos + Vector3.up, 1, 1.5f, Quaternion.Euler(0, face * Mathf.Rad2Deg, 0));
+            for (float t = 0; t < .35f; t += Time.deltaTime)
+            {
+                float k = Mathf.Clamp01(t / .25f); var n = s + f * k * 5; MoveBy(n.x - Pos.x, n.z - Pos.z);
+                G.HitArea(Pos + f * .8f, 1.8f, AtkPow * 2.2f, new Main.Hit { skip = hit, kb = 8, melee = true, poise = 25 }); yield return null;
+            }
+            Fx.SlashFx("sx_shiny", Pos + Vector3.up + f, face, 1.4f); if (hit.Count > 0) { G.hitStop = .08f; G.shake = .25f; }
+            yield return Wait(.15f);
+        }
+        // monk: a flurry of punches finished with a kick
+        IEnumerator Flurry()
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                var e = G.Nearest(Pos, 3.5f); if (e) FaceTo(e); var f = Main.Dir(face);
+                Play(i % 2 == 0 ? "atk0" : "atk1", .03f, 2.6f, Mathf.Max(0, Catalog.I.Clip(animSet, i % 2 == 0 ? "atk0" : "atk1").hit - .2f));
+                G.HitArea(Pos + f * 1.1f, 1.9f, AtkPow * .5f, new Main.Hit { face = face, half = 1.1f, kb = 1, melee = true });
+                Fx.SlashFx("sx_shiny", Pos + Vector3.up * 1.2f + f * 1.1f, face, .7f, Random.Range(-60, 60)); yield return Wait(.12f);
+            }
+            Play("atk2", .03f, 1.6f, Mathf.Max(0, Catalog.I.Clip(animSet, "atk2").hit - .3f)); yield return Wait(.2f);
+            G.HitArea(Pos + Main.Dir(face) * 1.2f, 2.4f, AtkPow * 1.8f, new Main.Hit { face = face, half = 1.3f, kb = 7, melee = true, poise = 30 });
+            Fx.Spawn("mx_spark_w", Pos + Vector3.up + Main.Dir(face) * 1.4f, 1, 2); G.hitStop = .07f; G.shake = .2f; yield return Wait(.2f);
+        }
+        // monk: inner qi bursts out through the ground; he fights harder for a while
+        IEnumerator QiBurst()
+        {
+            Play("cast", .08f, 1.3f, .25f); yield return Wait(.45f);
+            Fx.SlashFx("sx_explode", Pos + Vector3.up * .5f, face, 1.5f); Fx.Spawn("mx_spark_y", Pos + Vector3.up * .4f, 1.3f, 2); G.HitArea(Pos, 4.4f, AtkPow * 1.4f, new Main.Hit { kb = 8, poise = 40 });
+            buffT = 6; Attach("mx_buff", 6); G.shake = .35f; G.hitStop = .06f; yield return Wait(.25f);
+        }
+        // archer: a rain of arrows on the nearest crowd
+        IEnumerator ArrowRain()
+        {
+            Play("bowdraw", .06f, 1.4f); var at = TargetSpot(13, 7); yield return Wait(.35f);
+            var col = Data.SkillLook(def.id, "dive").c;
+            for (int i = 0; i < 22; i++)
+            {
+                var p = at + new Vector3(Random.Range(-2.6f, 2.6f), 9, Random.Range(-2.6f, 2.6f));
+                Shot.Fire(p, new Vector3(Random.Range(-1, 1), -20, Random.Range(-1, 1)), AtkPow * .55f, col, "feather", 1, aoe: .9f);
+                yield return Wait(.05f);
+            }
+        }
+        // archer: a drawn, charged arrow that drives through the whole line
+        IEnumerator Pierce()
+        {
+            var e = G.Nearest(Pos, 16); if (e) FaceTo(e);
+            Play("bowdraw", .06f, .9f); var glow = Fx.Spawn("mx_spark_w", Pos + Vector3.up * 1.4f + Main.Dir(face) * .6f, .7f, 1); yield return Wait(.5f);
+            Play("bowshot", .04f, 1.2f); var f = Main.Dir(face);
+            Shot.Fire(Pos + Vector3.up * 1.3f + f * .7f, f * 34, AtkPow * 3.2f, Data.SkillLook(def.id, "gale").c, "feather", 1.1f, pierce: true, kb: 5, r: .8f);
+            Fx.SlashFx("sx_mesh", Pos + Vector3.up * 1.3f + f * 3, face, 1.6f); G.shake = .15f; yield return Wait(.3f);
         }
         IEnumerator Wait(float s) { float t = 0; while (t < s) { t += Time.deltaTime; yield return null; } }
 
@@ -441,7 +560,7 @@ namespace NovaBlade
                 if (!done && t >= impact)
                 {
                     done = true; G.HitArea(Pos, r, AtkPow * mul, new Main.Hit { kb = 8 });
-                    Fx.Ring(Pos, r + .2f, col, .5f, .25f); if (!Fx.Spawn("mx_ground", Pos, .9f, 3)) Fx.Spawn("ground_hit", Pos, 1.4f, 3); Fx.Burst(Pos + Vector3.up * .2f, 50, col, 8, .6f, 1.2f, .16f, true);
+                    Fx.Ring(Pos, r + .2f, col, .5f, .25f); Fx.Spawn("mx_spark_y", Pos + Vector3.up * .3f, 1.2f, 2);   // Hovl's dust/ground smoke renders black in URP: sparks + the slash explosion instead Fx.Burst(Pos + Vector3.up * .2f, 50, col, 8, .6f, 1.2f, .16f, true);
                     G.shake = .45f; G.hitStop = .08f; Fx.SlashFx("sx_explode", Pos + Vector3.up * .6f, face, 1.7f);
                     if (feathers) for (int i = 0; i < 10; i++) { float a = i / 10f * Mathf.PI * 2; Shot.Fire(Pos + Vector3.up * .8f, Main.Dir(a) * 12, AtkPow * .5f, new Color(.85f, .94f, 1), "feather", .5f, pierce: true); }
                 }

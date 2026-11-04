@@ -189,6 +189,8 @@ public static class NovaBuild
             // slash effects: light, second and heavy swings, multi-hit, critical sparkle, a single mesh arc
             ("sx_basic", SX + "Basic Slash Blue"), ("sx_double", SX + "Double Slash"), ("sx_explode", SX + "Explosion Slash "),
             ("sx_multi", SX + "Multiple Slash 2 "), ("sx_shiny", SX + "Shiny Slash "), ("sx_mesh", SX + "1Slash Mesh"),
+            ("mx_meteors", HV + "AoE effects/Meteors AOE"), ("mx_snow", HV + "AoE effects/Snow AOE"), ("mx_dust", HV + "Smoke effects/Dust ground"),
+            ("mx_charge", HV + "Slash effects/Charge slash red"), ("mx_spark_y", HV + "Sparks/Sparks explode yellow"), ("mx_spark_w", HV + "Sparks/Sparks explode white"),
             ("aoe_orange", HV + "AoE effects/AoE slash orange"), ("aoe_blue", HV + "AoE effects/AoE slash blue"), ("aoe_green", HV + "AoE effects/AoE slash green") })
         { var go = AssetDatabase.LoadAssetAtPath<GameObject>(p + ".prefab"); if (!go) Debug.LogError("[NovaBuild] missing fx " + p); else cat.fx.Add(new Catalog.Entry { id = id, prefab = go }); }
         cat.heroController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Game/Animations/Hero.controller");

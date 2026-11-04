@@ -80,6 +80,7 @@ namespace NovaBlade
             var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
             if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
             int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
+            int kt = System.Array.IndexOf(args, "-skilltest"); if (kt >= 0 && kt + 1 < args.Length) StartCoroutine(SkillTest(args[kt + 1]));
             int p2 = System.Array.IndexOf(args, "-phase2test"); if (p2 >= 0 && p2 + 1 < args.Length) StartCoroutine(Phase2Test(args[p2 + 1]));
             int cs = System.Array.IndexOf(args, "-camstyle"); if (cs >= 0 && cs + 1 < args.Length) CamStyle = int.Parse(args[cs + 1]);
             int si = System.Array.IndexOf(args, "-stageshot"); if (si >= 0 && si + 2 < args.Length) StartCoroutine(StageShot(int.Parse(args[si + 1]), args[si + 2]));
@@ -89,6 +90,22 @@ namespace NovaBlade
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
         }
 
+        // Test mode (-skilltest <dir>): the class-reworked heroes cast each skill in a fight; a shot mid-cast of each, then quit.
+        System.Collections.IEnumerator SkillTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            foreach (var id in new[] { "mage", "darkmage", "sorceress", "sunpriest", "monk", "elf" })
+            {
+                save.hero = id; save.best = 5; StartGame(1); yield return new WaitForSecondsRealtime(2.5f);
+                for (int k = 0; k < 3; k++)
+                {
+                    hero.hp = hero.max; hero.mp = hero.mpMax; for (int c = 0; c < 3; c++) hero.cds[c] = 0;
+                    ui.skP[k] = true; yield return new WaitForSecondsRealtime(k == 0 && id == "elf" ? .5f : .7f);
+                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{id}_{k}.png")); yield return new WaitForSecondsRealtime(1.3f);
+                }
+            }
+            Application.Quit();
+        }
         // Test mode (-phase2test <dir>): weapon mastery, affinity and the off-hand swap, checked and logged (phase2.txt), then quit.
         System.Collections.IEnumerator Phase2Test(string dir)
         {
