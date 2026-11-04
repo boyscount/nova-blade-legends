@@ -18,8 +18,8 @@ namespace NovaBlade
             model = Instantiate(Catalog.I.Model(def.id), transform);
             WingRig.Wear(gameObject, model.transform, G.save.petWings ? G.WingsShown : null, true);
         }
-        // with wings on show the pet steps in front of the hero's spread, clear of the panel
-        public void PlaceLobby() { bool w = G.WingsShown != null; transform.position = new Vector3(w ? -.7f : -.95f, def.fly ? 1 : 0, w ? 1.25f : .55f); transform.rotation = Quaternion.Euler(0, 20, 0); }
+        // in front of the hero's right foot: the whole pet in frame, clear of the lobby zoom buttons and the hero's wings
+        public void PlaceLobby() { bool w = G.WingsShown != null; transform.position = new Vector3(w ? -.75f : -.75f, def.fly ? 1 : 0, w ? .95f : .85f); transform.rotation = Quaternion.Euler(0, 20, 0); }
         public void ResetForGame() { transform.position = new Vector3(1.2f, 0, 7); cd = 1; biting = false; }
 
         void Update()

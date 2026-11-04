@@ -202,7 +202,8 @@ namespace NovaBlade
                 track.Add(stats[i]); row.Add(track); st.Add(row);
             }
             // view controls: zoom in / out / reset + hint
-            var vc = Box(); Abs(vc, null, null, null, 40); vc.style.right = Length.Percent(47); vc.style.alignItems = Align.Center; lobby.Add(vc);
+            // left edge, mid-height: clear of the pet, the wings and the hero's name
+            var vc = Box(); Abs(vc, 36, 330); vc.style.alignItems = Align.Center; lobby.Add(vc);
             foreach (var (txt, act) in new (string, System.Action)[] { ("+", () => lobbyZoom = Mathf.Clamp01(lobbyZoom + .25f)), ("−", () => lobbyZoom = Mathf.Clamp01(lobbyZoom - .25f)), (Loc.S("คืน", "Reset"), () => { lobbyZoom = 0; heroYaw = petYaw = 0; yawVel = 0; }) })
             {
                 var b = new Button(act) { text = txt }; b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced; b.style.fontSize = txt.Length > 1 ? (touchUi ? 22 : 18) : (touchUi ? 34 : 28); b.style.color = Color.white;
