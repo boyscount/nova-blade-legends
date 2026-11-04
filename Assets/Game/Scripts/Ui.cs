@@ -190,7 +190,7 @@ namespace NovaBlade
             heroT = L("", touchUi ? 29 : 24, Gold, true); Shadow(heroT); info.Add(heroT);
             heroN = L("", 72, Color.white, true); heroN.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 10, color = new Color(0, 0, 0, .9f) }; heroN.style.marginTop = -4; info.Add(heroN);
             heroD = L("", touchUi ? 27 : 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
-            var sk = Btn(Loc.S("ⓘ ดูรายละเอียดสกิล", "ⓘ Skill details"), ShowSkills, false); sk.style.alignSelf = Align.FlexStart; sk.style.marginTop = 10; sk.style.fontSize = touchUi ? 24 : 18;
+            var sk = Btn(Loc.S("ดูรายละเอียดสกิล", "Skill details"), ShowSkills, false); sk.style.alignSelf = Align.FlexStart; sk.style.marginTop = 10; sk.style.fontSize = touchUi ? 24 : 18;
             sk.style.paddingTop = sk.style.paddingBottom = touchUi ? 10 : 6; sk.style.paddingLeft = sk.style.paddingRight = 16; Round(sk, 18); sk.pickingMode = PickingMode.Position;
             var bagB = Btn(Loc.S("กระเป๋า", "Bag"), () => ShowBag(true)); bagB.style.fontSize = touchUi ? 24 : 18; bagB.style.marginTop = 10; bagB.style.marginLeft = 10;
             bagB.style.paddingTop = bagB.style.paddingBottom = touchUi ? 10 : 6; bagB.style.paddingLeft = bagB.style.paddingRight = 20; Round(bagB, 18); bagB.pickingMode = PickingMode.Position;
@@ -353,7 +353,7 @@ namespace NovaBlade
             {
                 // off-hand: tap this, then an owned weapon; tapping the main weapon clears it
                 var off = Data.Swords.FirstOrDefault(w => w.id == s.sword2 && w.id != s.sword);
-                Card(pickOff ? Loc.S("เลือกอาวุธรอง: แตะอาวุธที่มีแล้ว", "Choose the off-hand: tap an owned weapon") : off != null ? Loc.S($"อาวุธรอง: {off.name} · กดสลับ X / ⇄", $"Off-hand: {off.name} · swap with X / ⇄") : Loc.S("ตั้งอาวุธรอง (สลับระหว่างสู้)", "Set an off-hand weapon (swap mid-fight)"),
+                Card(pickOff ? Loc.S("เลือกอาวุธรอง: แตะอาวุธที่มีแล้ว", "Choose the off-hand: tap an owned weapon") : off != null ? Loc.S($"อาวุธรอง: {off.name} · กดสลับ X หรือปุ่มสลับ", $"Off-hand: {off.name} · swap with X or the swap button") : Loc.S("ตั้งอาวุธรอง (สลับระหว่างสู้)", "Set an off-hand weapon (swap mid-fight)"),
                     off != null ? Studio.Weapon(off.id) : null, null, pickOff, () => { pickOff = !pickOff; RenderCards(); }, true);
                 foreach (var w in Data.Swords)
                 {
@@ -442,7 +442,7 @@ namespace NovaBlade
             var cr = Box(); cr.style.flexDirection = FlexDirection.Row; cr.style.alignItems = Align.Center; cr.style.marginTop = 4; tt.Add(cr);
             var ci = Box(); ci.style.width = ci.style.height = 30 * big; ci.style.marginRight = 8; string cid = h.cls; ci.generateVisualContent += ctx => ClassIcon(ctx, cid, ci.resolvedStyle.width, true); cr.Add(ci);
             cr.Add(L(cl.th, 24 * big, Gold, true)); var ttl = L("  ·  " + h.title, 19 * big, Muted); cr.Add(ttl);
-            var x = new Button(() => skillOv.style.display = DisplayStyle.None) { text = "✕" }; x.style.fontSize = 30 * big; x.style.color = Ink; x.style.width = x.style.height = 52 * big;
+            var x = new Button(() => skillOv.style.display = DisplayStyle.None) { text = "" }; DrawX(x); x.style.fontSize = 30 * big; x.style.color = Ink; x.style.width = x.style.height = 52 * big;
             x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 26 * big); x.style.unityFontDefinition = fontBold; x.style.flexShrink = 0; top.Add(x);
             // stats: 2 x 2, each with its picture, value and a bar against the strongest hero
             var sb = Box(new Color(1, 1, 1, .035f), 14); Border(sb, new Color(1, .84f, .55f, .22f), 1.5f); Pad(sb, 16); sb.style.marginTop = 16; sb.style.flexDirection = FlexDirection.Row; sb.style.flexWrap = Wrap.Wrap; skillBox.Add(sb);
@@ -489,6 +489,23 @@ namespace NovaBlade
             skillOv.style.display = DisplayStyle.Flex;
         }
         public void TestSkills() => ShowSkills();
+        // drawn symbols (the font has none): a close cross, and the swap arrows
+        static void DrawX(VisualElement b)
+        {
+            b.generateVisualContent += ctx =>
+            {
+                var r = b.contentRect; float w = Mathf.Min(r.width, r.height) * .36f; var c = r.center; var p = ctx.painter2D;
+                p.strokeColor = Ink; p.lineWidth = Mathf.Max(2.5f, w * .2f); p.lineCap = LineCap.Round;
+                p.BeginPath(); p.MoveTo(c + new Vector2(-w, -w)); p.LineTo(c + new Vector2(w, w)); p.MoveTo(c + new Vector2(w, -w)); p.LineTo(c + new Vector2(-w, w)); p.Stroke();
+            };
+        }
+        static void SwapArrows(MeshGenerationContext ctx, float w)
+        {
+            var p = ctx.painter2D; float k = w / 24; Vector2 P(float x, float y) => new(x * k, y * k);
+            p.strokeColor = Gold; p.fillColor = Gold; p.lineWidth = 2.4f * k; p.lineCap = LineCap.Round;
+            p.BeginPath(); p.MoveTo(P(3, 8)); p.LineTo(P(18, 8)); p.Stroke(); p.BeginPath(); p.MoveTo(P(22, 8)); p.LineTo(P(16, 3.5f)); p.LineTo(P(16, 12.5f)); p.ClosePath(); p.Fill();
+            p.BeginPath(); p.MoveTo(P(21, 16)); p.LineTo(P(6, 16)); p.Stroke(); p.BeginPath(); p.MoveTo(P(2, 16)); p.LineTo(P(8, 11.5f)); p.LineTo(P(8, 20.5f)); p.ClosePath(); p.Fill();
+        }
         bool shieldFocus;
         VisualElement potBtn, lobbyPanel, lobbyInfo; Label potN;
 
@@ -525,7 +542,7 @@ namespace NovaBlade
             bagCap = L("", 22 * big, Muted, true); top.Add(bagCap);
             var plus = new Button(() => { var s = G.save; if (s.bagCap >= 120) { bagMsg.text = Loc.S("กระเป๋าขยายเต็มที่แล้ว", "The bag is at its largest"); return; } if (s.gems < 50) { bagMsg.text = Loc.S("Gem ไม่พอ (ต้องใช้ 50)", "Not enough Gems (50 needed)"); return; } s.gems -= 50; s.bagCap += 10; G.Persist(); bagMsg.text = Loc.S("ขยายกระเป๋า +10 ช่อง (-50 Gem)", "Bag +10 slots (-50 Gems)"); RenderBag(); }) { text = "+" };
             plus.style.fontSize = 26 * big; plus.style.width = plus.style.height = 40 * big; Round(plus, 20 * big); plus.style.color = Ink; plus.style.backgroundColor = new Color(1, .7f, .25f, .25f); Border(plus, Gold, 1.5f); plus.style.marginLeft = 8; top.Add(plus);
-            var x = new Button(() => ShowBag(false)) { text = "✕" }; x.style.fontSize = 28 * big; x.style.color = Ink; x.style.width = x.style.height = 48 * big; x.style.marginLeft = 14;
+            var x = new Button(() => ShowBag(false)) { text = "" }; DrawX(x); x.style.fontSize = 28 * big; x.style.color = Ink; x.style.width = x.style.height = 48 * big; x.style.marginLeft = 14;
             x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); x.style.unityFontDefinition = fontBold; top.Add(x);
             var fr = Box(); fr.style.flexDirection = FlexDirection.Row; fr.style.marginTop = 12; pn.Add(fr);
             foreach (var (id, th, en) in new[] { ("all", "ทั้งหมด", "ALL"), ("weapon", "อาวุธ", "WEAPONS"), ("gear", "อุปกรณ์", "ARMOR"), ("potion", "ยา", "CONSUMABLES"), ("mat", "วัตถุดิบ", "MATERIALS") })
@@ -810,7 +827,7 @@ namespace NovaBlade
                 lb.style.borderTopLeftRadius = lb.style.borderTopRightRadius = lb.style.borderBottomLeftRadius = lb.style.borderBottomRightRadius = 12; lb.name = "lb"; lbRow.Add(lb);
                 b.Add(Layer(Gloss(true), sz * .06f));
                 var cd = L("", sz * .3f, Color.white, true); Abs(cd, 0, 0, 0, 0); cd.style.unityTextAlign = TextAnchor.MiddleCenter; cd.style.unityTextOutlineWidth = .2f; cd.style.unityTextOutlineColor = new Color(0, 0, 0, .8f); cd.name = "cd"; b.Add(cd);
-                var key = L((WebPc ? new[] { "A", "Q", "W", "E", "R" } : new[] { "J", "U", "I", "O", "␣" })[k], WebPc ? 19 : 15, WebPc ? Gold : Muted, WebPc); Abs(key, null, -6, -4); key.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; b.Add(key);
+                var key = L((WebPc ? new[] { "A", "Q", "W", "E", "R" } : new[] { "J", "U", "I", "O", "SPC" })[k], WebPc ? 19 : 15, WebPc ? Gold : Muted, WebPc); Abs(key, null, -6, -4); key.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; b.Add(key);
                 b.RegisterCallback<PointerDownEvent>(e => { b.CapturePointer(e.pointerId); b.style.scale = new Scale(Vector3.one * .9f); ((SkBtn)b.userData).down = true; b.MarkDirtyRepaint(); Press(k, true); });
                 System.Action<IPointerEvent> release = e => { if (b.HasPointerCapture(e.pointerId)) b.ReleasePointer(e.pointerId); b.style.scale = new Scale(Vector3.one); ((SkBtn)b.userData).down = false; b.MarkDirtyRepaint(); Press(k, false); };
                 b.RegisterCallback<PointerUpEvent>(e => release(e)); b.RegisterCallback<PointerCancelEvent>(e => release(e));
@@ -820,13 +837,14 @@ namespace NovaBlade
                 float ss = touchUi ? 110 : 76; var c = at[4].c + new Vector2(0, at[4].s / 2 + ss / 2 + 18);
                 swapBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(swapBtn, null, null, c.x - ss / 2, c.y - ss / 2); swapBtn.style.width = swapBtn.style.height = ss; Round(swapBtn, ss / 2);
                 Border(swapBtn, new Color(1, .84f, .55f, .8f), 3); swapBtn.pickingMode = PickingMode.Position; swapBtn.style.justifyContent = Justify.Center; swapBtn.style.alignItems = Align.Center;
-                var sl = L("⇄", touchUi ? 46 : 32, Gold, true); sl.pickingMode = PickingMode.Ignore; swapBtn.Add(sl);
+                var sl = Box(); sl.style.width = sl.style.height = touchUi ? 56 : 40; sl.pickingMode = PickingMode.Ignore; sl.generateVisualContent += ctx => SwapArrows(ctx, sl.resolvedStyle.width); swapBtn.Add(sl);
                 swapBtn.RegisterCallback<PointerDownEvent>(e => { swapP = true; e.StopPropagation(); }); btns.Add(swapBtn);
             }
             {   // healing potion: count and a cooldown dim; H on a keyboard
                 float ps = touchUi ? 96 : 70; potBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(potBtn, touchUi ? 30 : 24, touchUi ? 150 : 120); potBtn.style.width = potBtn.style.height = ps; Round(potBtn, ps / 2);
                 Border(potBtn, new Color(1, .45f, .5f, .85f), 3); potBtn.pickingMode = PickingMode.Position; potBtn.style.alignItems = Align.Center; potBtn.style.justifyContent = Justify.Center;
-                var pi = Box(); pi.style.width = pi.style.height = ps * .62f; pi.pickingMode = PickingMode.Ignore; pi.generateVisualContent += ctx => Items.Icon(ctx, Slot.Potion, pi.resolvedStyle.width, Color.white); potBtn.Add(pi);
+                var pi = Box(); pi.style.width = pi.style.height = ps * .72f; pi.pickingMode = PickingMode.Ignore; var potPng = Resources.Load<Texture2D>("UI/Items/potion");
+                if (potPng) pi.style.backgroundImage = new StyleBackground(potPng); else pi.generateVisualContent += ctx => Items.Icon(ctx, Slot.Potion, pi.resolvedStyle.width, Color.white); potBtn.Add(pi);
                 potN = L("0", touchUi ? 26 : 20, Ink, true); Abs(potN, null, null, -4, -6); potN.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 4, color = Color.black }; potBtn.Add(potN);
                 if (!touchUi) { var hk = L("H", 16, Gold, true); Abs(hk, -2, -4); potBtn.Add(hk); }
                 potBtn.RegisterCallback<PointerDownEvent>(e => { potP = true; e.StopPropagation(); }); hud.Add(potBtn);
@@ -893,7 +911,7 @@ namespace NovaBlade
             }
             var xp = At(300, 34, 1000, 40, pcBar); xp.style.overflow = Overflow.Hidden; pcXp = Box(); Abs(pcXp, 0, 0, null, 0); Img(pcXp, "hud_xp_bar"); pcXp.style.width = 1000 * K; xp.Add(pcXp);
             var xpClip = xp; xpClip.style.width = 1000 * K;
-            string[] keys = WebPc ? new[] { "A", "Q", "W", "E", "R", "" } : new[] { "J", "U", "I", "O", "␣", "" };
+            string[] keys = WebPc ? new[] { "A", "Q", "W", "E", "R", "" } : new[] { "J", "U", "I", "O", "SPC", "" };
             for (int i = 0; i < 6; i++)
             {
                 int k = i; float sx = 321 + i * 164;                 var slot = At(sx, 100, 138, 138, pcBar); slot.pickingMode = PickingMode.Position; pcSlot[i] = slot;
