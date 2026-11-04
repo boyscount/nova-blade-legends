@@ -508,7 +508,14 @@ namespace NovaBlade
             float big = touchUi ? 1.2f : 1;
             bagOv = Box(); Abs(bagOv, 0, 0, 0, 0); bagOv.pickingMode = PickingMode.Ignore; lobby.Add(bagOv);
             // worn slots
-            bagEquip = Box(); Abs(bagEquip, touchUi ? 250 : 330, touchUi ? 100 : 110); bagEquip.style.alignItems = Align.Center; bagEquip.pickingMode = PickingMode.Ignore; bagOv.Add(bagEquip);
+            // the worn slots sit on an arc that curves round the hero, with a thin gold line through them
+            bagEquip = Box(); Abs(bagEquip, touchUi ? 220 : 300, touchUi ? 120 : 130); bagEquip.style.width = ArcW; bagEquip.style.height = ArcH; bagEquip.pickingMode = PickingMode.Ignore; bagOv.Add(bagEquip);
+            bagEquip.generateVisualContent += ctx =>
+            {
+                var p = ctx.painter2D; var c = ArcC;
+                p.lineWidth = 2; p.strokeColor = new Color(1, .84f, .55f, .55f); p.BeginPath(); p.Arc(c, ArcR, 106, 254); p.Stroke();
+                p.lineWidth = 6; p.strokeColor = new Color(1, .7f, .3f, .08f); p.BeginPath(); p.Arc(c, ArcR, 110, 250); p.Stroke();
+            };
             // the panel
             var pn = Box(new Color(.03f, .045f, .06f, .8f), 18); Border(pn, new Color(1, .82f, .5f, .5f), 2); Abs(pn, null, 70, 30, 30); pn.style.width = Length.Percent(54); Pad(pn, 18); pn.pickingMode = PickingMode.Position; bagOv.Add(pn);
             var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
@@ -559,6 +566,10 @@ namespace NovaBlade
             var c = Color.Lerp(Color.white, Items.RarityColor(d.rarity), .55f);
             v.generateVisualContent += ctx => Items.Icon(ctx, d.slot, v.resolvedStyle.width, c); return v;
         }
+        // the arc: a circle centred to the right of the slots (on the hero), the five slots spread over its left side
+        float ArcW => touchUi ? 330 : 280; float ArcH => touchUi ? 720 : 600; float ArcR => touchUi ? 380 : 320;
+        Vector2 ArcC => new Vector2(ArcW + (touchUi ? 140 : 120), ArcH / 2);
+        Vector2 ArcPos(int i) { float a = (242 - i * 31) * Mathf.Deg2Rad; return ArcC + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * ArcR; }
         int Rarity(BagEntry e) => e.kind == "w" ? Mathf.Clamp(Mathf.RoundToInt((Data.Swords.First(w => w.id == e.id).price) / 300f), 0, 4) : Items.Get(e.id)?.rarity ?? 0;
         void RenderBag()
         {
@@ -567,12 +578,15 @@ namespace NovaBlade
             foreach (var b in bagOv.Query<Button>().Where(b => b.name != null && b.name.StartsWith("bf_")).ToList())
             { bool on = b.name == "bf_" + bagFilter; b.style.backgroundColor = on ? new Color(1, .7f, .25f, .25f) : new Color(1, 1, 1, .05f); Border(b, on ? Gold : new Color(1, 1, 1, .15f), 1.5f); }
             // worn slots
-            bagEquip.Clear(); var eqT = L(Loc.S("สวมใส่", "EQUIPPED"), 24 * big, Gold, true); eqT.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 6, color = Color.black }; eqT.style.marginBottom = 8; bagEquip.Add(eqT);
+            bagEquip.Clear(); var eqT = L(Loc.S("สวมใส่", "EQUIPPED"), 24 * big, Gold, true); eqT.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 6, color = Color.black };
+            { var a0 = ArcPos(0); Abs(eqT, a0.x - 60 * big, a0.y - 88 * big); } bagEquip.Add(eqT);
+            int slotN = 0;
             var wornList = new List<(string label, string kind, string id, string key)> { (Loc.S("อาวุธ", "WEAPON"), "w", s.sword, "w:" + s.sword) };
             foreach (var sl in new[] { Slot.Helm, Slot.Armor, Slot.Boots, Slot.Accessory }) { var id = Items.Worn(s, sl); wornList.Add((Items.SlotName(sl).ToUpper(), "g", id, "worn:" + sl)); }
             foreach (var (label, kind, id, key) in wornList)
             {
-                float ws = 88 * big; var cell = Box(); cell.style.alignItems = Align.Center; cell.style.marginBottom = 8; cell.pickingMode = PickingMode.Position; bagEquip.Add(cell);
+                float ws = 88 * big; var cell = Box(); cell.style.alignItems = Align.Center; cell.pickingMode = PickingMode.Position; cell.style.width = ws + 60;
+                var at = ArcPos(slotN++); Abs(cell, at.x - (ws + 60) / 2, at.y - ws / 2); bagEquip.Add(cell);
                 int r = string.IsNullOrEmpty(id) ? 0 : kind == "w" ? Rarity(new BagEntry { kind = "w", id = id }) : Items.Get(id)?.rarity ?? 0; var rc = Items.RarityColor(r);
                 var ring = Box(new Color(.03f, .05f, .07f, .85f), ws / 2); ring.style.width = ring.style.height = ws; Border(ring, string.IsNullOrEmpty(id) ? new Color(1, .84f, .55f, .35f) : rc, bagSel == key ? 4 : 2.5f);
                 ring.style.alignItems = Align.Center; ring.style.justifyContent = Justify.Center; ring.pickingMode = PickingMode.Ignore; cell.Add(ring);
