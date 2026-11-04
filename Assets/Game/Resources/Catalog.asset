@@ -59,6 +59,20 @@ MonoBehaviour:
     prefab: {fileID: -2295210395951047170, guid: 13d4f0b7317184646bfa4c3928f88e86, type: 3}
   - id: w_gold2
     prefab: {fileID: -2295210395951047170, guid: a4ffd4e6aac0a8546a53e36f91f2c06d, type: 3}
+  - id: w_greataxe
+    prefab: {fileID: -2295210395951047170, guid: 3bd3e53c28570e448aa92a085412262e, type: 3}
+  - id: w_katana
+    prefab: {fileID: -2295210395951047170, guid: 0dab0bad0fd52cd438b4ed6a6bb4e3d2, type: 3}
+  - id: w_kunai
+    prefab: {fileID: -2295210395951047170, guid: 9174cb3c1c28f4a40bf6f6259ca871df, type: 3}
+  - id: w_mace
+    prefab: {fileID: -2295210395951047170, guid: 45927b6de395bdb43b95a4d1f78072dc, type: 3}
+  - id: w_arcanestaff
+    prefab: {fileID: -2295210395951047170, guid: 32920b971bb420e45b4ed9337a1e3dd6, type: 3}
+  - id: w_holystaff
+    prefab: {fileID: -2295210395951047170, guid: 886a0b705b1f33e4285e178e4e5d026f, type: 3}
+  - id: w_orb
+    prefab: {fileID: -2295210395951047170, guid: f15a799aa63a1544ab7f41a6bd76c592, type: 3}
   - id: q_ghost
     prefab: {fileID: 2242888416370347441, guid: 8ee8ae02d724e654093c459babe09204, type: 3}
   - id: q_dragon

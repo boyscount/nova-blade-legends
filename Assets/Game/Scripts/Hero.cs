@@ -81,7 +81,8 @@ namespace NovaBlade
             swordGo.transform.localPosition = Vector3.zero; swordGo.transform.localRotation = Quaternion.identity;
             if (!def.rig) { swordGo.transform.localScale = Vector3.one * .85f; swordGo.transform.localRotation = Quaternion.Euler(0, 180, 0); }
             if (def.rig && ModelId == "w_daggers") swordGo.transform.localScale = Vector3.one * 1.15f;
-            swordGo.SetActive(def.blade);   // bows, staves and fists: the weapon's stats still count, its sword model is not shown
+            // bows and fists: the weapon's stats still count, its model is not shown; casters do show a weapon of their own kind (a staff, an orb)
+            swordGo.SetActive(def.blade || System.Array.IndexOf(Data.Affinity(def.cls), mdef.type) >= 0);
             if (def.ownWeapon) foreach (var r in swordGo.GetComponentsInChildren<Renderer>()) r.enabled = false;   // the model holds its own blade; keep the tip for the trail
             float sign = BladeSign(swordGo);
             tipT = new GameObject("tip").transform; tipT.SetParent(swordGo.transform, false); tipT.localPosition = new Vector3(sign * mdef.m * .9f, 0, 0);
@@ -117,7 +118,8 @@ namespace NovaBlade
             anim.CrossFadeInFixedTime(st, fade, 0, from);
         }
         string curLoop;
-        void Loop(string st, float speed = 1) { if (!anim) return; anim.SetFloat("Speed", speed); if (curLoop == st && !anim.IsInTransition(0) && anim.GetCurrentAnimatorStateInfo(0).IsName(st)) return; curLoop = st; anim.CrossFadeInFixedTime(st, .15f); }
+        void Loop(string st, float speed = 1) { if (!anim) return; anim.SetFloat("Speed", speed); if (curLoop == st && (anim.IsInTransition(0) ? anim.GetNextAnimatorStateInfo(0).IsName(st) : anim.GetCurrentAnimatorStateInfo(0).IsName(st))) return; curLoop = st; anim.CrossFadeInFixedTime(st, .15f); }
+        // (already blending into this loop: let the blend finish; starting it again every frame kept heroes frozen in idle, gliding)
 
         // ---------- input ----------
         Vector3? clickGoal; ITarget clickFoe;   // web on a PC: right-click destination / target
@@ -358,7 +360,7 @@ namespace NovaBlade
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);
-                    var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 1.9f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
+                    var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 2.4f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
                 }
                 else Loop(G.mode == Main.Mode.Lobby ? "show" : "idle");
             }

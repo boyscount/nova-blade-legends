@@ -76,12 +76,20 @@ namespace NovaBlade
             new SwordDef { id = "w_winged", price = 800, name = Loc.S("ดาบปีกโลหิต", "Bloodwing Sword"), desc = Loc.S("โอกาสคริติคอลสูง", "High critical chance"), color = C(0xff3355), dmg = 1.05f, spd = 1.05f, len = 1, m = 1.1f, crit = .28f },
             new SwordDef { id = "w_gold1", price = 1000, name = Loc.S("ดาบทองแห่งแสง", "Golden Light Blade"), desc = Loc.S("ทุกการฟันดูดเลือดคืน 6%", "Every hit heals you for 6%"), color = C(0xffe08a), dmg = 1.05f, spd = 1, len = 1.08f, m = 1.2f, steal = .06f },
             new SwordDef { id = "w_gold2", price = 1200, name = Loc.S("มหาดาบอัศวิน", "Knight's Greatsword"), desc = Loc.S("หนักและยาว แรงที่สุด แต่ฟันช้า", "Heavy and long: the strongest, but slow"), color = C(0xcfe8ff), dmg = 1.4f, spd = .8f, len = 1.15f, m = 1.25f },
+            // class weapons: each class fights best with its own type (see Affinity)
+            new SwordDef { id = "w_greataxe", price = 1100, type = "axe", name = Loc.S("ขวานศึกรูนดำ", "Runed Greataxe"), desc = Loc.S("ขวานสองมือ หนักสุด ฟันช้าแต่แรงมาก", "Two-handed: the heaviest hits, slow swings"), color = C(0xff8a3d), dmg = 1.45f, spd = .75f, len = 1.12f, m = .82f },
+            new SwordDef { id = "w_katana", price = 950, type = "katana", name = Loc.S("คาตานะคลื่นเงิน", "Silver-Wave Katana"), desc = Loc.S("ไวและคม คริติคอลดี", "Fast and keen, good criticals"), color = C(0xd8e6ff), dmg = 1.1f, spd = 1.15f, len = 1.05f, m = .89f, crit = .15f },
+            new SwordDef { id = "w_kunai", price = 700, type = "dagger", name = Loc.S("คุไนเงา", "Shadow Kunai"), desc = Loc.S("สั้นและไวที่สุด คริติคอลสูงมาก", "Shortest and fastest, very high criticals"), color = C(0xff4a4a), dmg = .85f, spd = 1.45f, len = .72f, m = .47f, crit = .32f },
+            new SwordDef { id = "w_mace", price = 850, type = "mace", name = Loc.S("ค้อนศักดิ์สิทธิ์", "Holy Mace"), desc = Loc.S("ทุบหนัก ทุกการโจมตีฟื้นพลัง 4%", "Heavy blows that heal you for 4%"), color = C(0xfff0b0), dmg = 1.2f, spd = .9f, len = .9f, m = .69f, steal = .04f },
+            new SwordDef { id = "w_arcanestaff", price = 900, type = "staff", name = Loc.S("คทาผลึกคราม", "Azure Crystal Staff"), desc = Loc.S("คทาเวท เพิ่มพลังเวทอย่างมั่นคง", "A mage's staff: steady, strong magic"), color = C(0x5fb4ff), dmg = 1.22f, spd = 1, len = 1.1f, m = 1.02f },
+            new SwordDef { id = "w_holystaff", price = 1000, type = "staff", name = Loc.S("คทาสุริยะ", "Sunburst Staff"), desc = Loc.S("คทาศักดิ์สิทธิ์ ฟื้นพลัง 5% ทุกการโจมตี", "Holy staff: every hit heals you for 5%"), color = C(0xffd35a), dmg = 1.12f, spd = 1, len = 1.1f, m = 1.02f, steal = .05f },
+            new SwordDef { id = "w_orb", price = 950, type = "orb", name = Loc.S("ลูกแก้ววิญญาณม่วง", "Violet Soul Orb"), desc = Loc.S("ร่ายไวขึ้น คริติคอลดี", "Faster casting, good criticals"), color = C(0xb06bff), dmg = 1.18f, spd = 1.1f, len = 1, m = .5f, crit = .12f },
         };
 
         // wings: looks only, worn by the hero (and the pet, if chosen); glow = emission, mote and bloom colour
         // weapon affinity: a class fights best with its own weapon type (first) and fairly well with a second
         public static float AffinityMain = .06f, AffinitySecond = .025f;
-        public static string[] Affinity(string cls) => cls switch { "warrior" => new[] { "sword", "dagger" }, "assassin" => new[] { "dagger", "sword" }, _ => System.Array.Empty<string>() };
+        public static string[] Affinity(string cls) => cls switch { "warrior" => new[] { "axe", "sword" }, "assassin" => new[] { "katana", "dagger" }, "mage" => new[] { "staff", "orb" }, "cleric" => new[] { "staff", "mace" }, _ => System.Array.Empty<string>() };
         public static float AffinityBonus(string cls, string type) { var a = Affinity(cls); return a.Length > 0 && a[0] == type ? AffinityMain : a.Length > 1 && a[1] == type ? AffinitySecond : 0; }
         // weapon mastery, per weapon: kills with it earn points; each tier adds damage and critical chance, Master also
         // strengthens the combo finisher

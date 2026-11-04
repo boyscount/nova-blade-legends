@@ -88,6 +88,8 @@ namespace NovaBlade
             int wa = System.Array.IndexOf(args, "-wingall"); if (wa >= 0 && wa + 1 < args.Length) StartCoroutine(WingAll(args[wa + 1]));
             int wi = System.Array.IndexOf(args, "-wingtest"); if (wi >= 0 && wi + 1 < args.Length) StartCoroutine(WingTest(args[wi + 1]));
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
+            int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
+            int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
         }
 
         // Test mode (-skilltest <dir>): the class-reworked heroes cast each skill in a fight; a shot mid-cast of each, then quit.
@@ -200,6 +202,62 @@ namespace NovaBlade
                 if (n < 2 && t > 3 + n * 3) { Shot($"game_{n}"); n++; }
                 yield return null;
             }
+            Application.Quit();
+        }
+        // Test mode (-movetest <dir>): every hero runs forward on the joystick; logs the playing state, its speed, how far the
+        // body moves vs how fast the feet sweep, and the lowest foot above the ground (feet should touch: ~0), then quit.
+        System.Collections.IEnumerator MoveTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            var log = new System.Text.StringBuilder();
+            foreach (var d in Data.Heroes)
+            {
+                save.hero = d.id; save.best = 5; StartGame(1); yield return new WaitForSecondsRealtime(2);
+                foreach (var f in G.Live.ToList()) if (f) f.gameObject.SetActive(false);
+                var an = hero.GetComponentInChildren<Animator>();
+                Transform B(HumanBodyBones b) => an && an.isHuman ? an.GetBoneTransform(b) : null;
+                var lf = B(HumanBodyBones.LeftFoot); var rf = B(HumanBodyBones.RightFoot); var hips = B(HumanBodyBones.Hips);
+                float idleHip = hips ? hips.position.y - hero.transform.position.y : 0;
+                ui.Joy = new Vector2(0, 1); yield return new WaitForSecondsRealtime(.6f);
+                var slides = new List<float>(); Transform lastPl = null; Vector3 lastP = default;
+                float minF = 99, maxF = -99, minLow = 99, t0 = Time.time; var p0 = hero.transform.position; float hipSum = 0; int n = 0; string st = "-"; float spd = 0;
+                for (float w = 0; w < 1.6f; w += Time.unscaledDeltaTime)
+                {
+                    float gy = River.Ground(hero.transform.position.x, hero.transform.position.z);
+                    if (lf && rf) { float lo = Mathf.Min(lf.position.y, rf.position.y) - gy; minLow = Mathf.Min(minLow, lo); maxF = Mathf.Max(maxF, lo);
+                        var pl = lf.position.y < rf.position.y ? lf : rf; if (pl == lastPl && Time.deltaTime > 0) slides.Add(Main.Flat(pl.position - lastP).magnitude / Time.deltaTime); lastPl = pl; lastP = pl.position; }
+                    if (hips) { hipSum += hips.position.y - hero.transform.position.y; n++; }
+                    if (an) { var ci = an.GetCurrentAnimatorClipInfo(0); st = ci.Length > 0 ? ci[0].clip.name : "-"; spd = an.GetFloat("Speed"); }
+                    if (w > .7f && w < .7f + Time.unscaledDeltaTime * 1.5f) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, d.id + "_run.png"));
+                    yield return null;
+                }
+                float dist = Main.Flat(hero.transform.position - p0).magnitude, v = dist / (Time.time - t0);
+                ui.Joy = Vector2.zero;
+                if (an) { var si = an.GetCurrentAnimatorStateInfo(0); log.AppendLine($"  diag en={an.enabled} act={an.isActiveAndEnabled} spd={an.speed} ctrl={(an.runtimeAnimatorController ? an.runtimeAnimatorController.name : "null")} run={si.IsName("run")} idle={si.IsName("idle")} nt={si.normalizedTime:0.00} len={si.length:0.00} clips={an.GetCurrentAnimatorClipInfoCount(0)} cull={an.cullingMode} ts={Time.timeScale} human={an.isHuman} avatar={(an.avatar ? an.avatar.name + "/" + an.avatar.isValid : "none")} anims={hero.GetComponentsInChildren<Animator>(true).Length}"); }
+                log.AppendLine($"{d.id}	set={hero.animSet ?? "-"}	clip={st}	animSpeed={spd:0.00}	move={v:0.00}m/s	gaitClip={Catalog.I.Clip(hero.animSet, "run").speed:0.00}	scale={hero.transform.lossyScale.y:0.00}	lowestFoot={minLow:0.00}..{maxF:0.00}	hipIdle={idleHip:0.00}	hipRun={(n > 0 ? hipSum / n : 0):0.00}	plantedFootSpeed={(slides.Count > 0 ? slides.OrderBy(x => x).ElementAt(slides.Count / 10) : -1):0.00}m/s");
+                ShowLobby(); yield return new WaitForSecondsRealtime(.8f);
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "move.txt"), log.ToString());
+            Application.Quit();
+        }
+        // Test mode (-weapontest <dir>): each class weapon on a hero of its class, in the lobby (three-quarter) and mid-attack, then quit.
+        System.Collections.IEnumerator WeaponTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            var log = new System.Text.StringBuilder();
+            foreach (var (h, w) in new[] { ("warrior", "w_greataxe"), ("samurai", "w_katana"), ("samurai", "w_kunai"), ("sunpriest", "w_mace"), ("sunpriest", "w_holystaff"), ("mage", "w_arcanestaff"), ("sorceress", "w_orb") })
+            {
+                save.hero = h; save.sword = w; save.owned.Add(Shop.Key(ItemKind.Weapon, w));
+                hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.lobbyZoom = .7f; ui.heroYaw = 35; yield return new WaitForSecondsRealtime(1.6f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_{w}_lobby.png"));
+                log.AppendLine($"{h}	{w}	equipped={hero.sword.id}	aff={Data.AffinityBonus(hero.def.cls, hero.sword.type)}	pow={hero.AtkPow:0}");
+                yield return new WaitForSecondsRealtime(.4f);
+                save.best = 5; StartGame(1); yield return new WaitForSecondsRealtime(2.5f);
+                ui.atkP = true; yield return new WaitForSecondsRealtime(.35f); ui.atkP = false;
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_{w}_fight.png")); yield return new WaitForSecondsRealtime(.8f);
+                ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "weapons.txt"), log.ToString());
             Application.Quit();
         }
         // Test mode (-heroaudit <dir>): every hero on the lobby stage, front and three-quarter shots, and how far the

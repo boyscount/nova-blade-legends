@@ -71,6 +71,69 @@
             "range": 1.15,
             "crit": 0.0,
             "lifesteal": 0.0
+        },
+        {
+            "id": "w_greataxe",
+            "price": 1100,
+            "damage": 1.45,
+            "speed": 0.75,
+            "range": 1.12,
+            "crit": 0.0,
+            "lifesteal": 0.0
+        },
+        {
+            "id": "w_katana",
+            "price": 950,
+            "damage": 1.1,
+            "speed": 1.15,
+            "range": 1.05,
+            "crit": 0.15,
+            "lifesteal": 0.0
+        },
+        {
+            "id": "w_kunai",
+            "price": 700,
+            "damage": 0.85,
+            "speed": 1.45,
+            "range": 0.72,
+            "crit": 0.32,
+            "lifesteal": 0.0
+        },
+        {
+            "id": "w_mace",
+            "price": 850,
+            "damage": 1.2,
+            "speed": 0.9,
+            "range": 0.9,
+            "crit": 0.0,
+            "lifesteal": 0.04
+        },
+        {
+            "id": "w_arcanestaff",
+            "price": 900,
+            "damage": 1.22,
+            "speed": 1.0,
+            "range": 1.1,
+            "crit": 0.0,
+            "lifesteal": 0.0
+        },
+        {
+            "id": "w_holystaff",
+            "price": 1000,
+            "damage": 1.12,
+            "speed": 1.0,
+            "range": 1.1,
+            "crit": 0.0,
+            "lifesteal": 0.05
+        },
+        {
+            "id": "w_orb",
+            "price": 950,
+            "damage": 1.18,
+            "speed": 1.1,
+            "range": 1.0,
+            "crit": 0.12,
+            "lifesteal": 0.0
         }
     ],
     "heroes": [

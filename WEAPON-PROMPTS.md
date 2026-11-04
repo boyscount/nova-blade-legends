@@ -71,15 +71,15 @@ PBR textures, highly detailed, game-ready
 4. `w_gauntlet` (นักสู้)
 
 ## เช็กลิสต์
-- [ ] w_greataxe
-- [ ] sh_knight
-- [ ] w_katana
-- [ ] w_kunai
-- [ ] w_longbow
-- [ ] w_crossbow
-- [ ] w_arcanestaff
-- [ ] w_orb
-- [ ] w_holystaff
-- [ ] w_mace
-- [ ] w_gauntlet
-- [ ] w_claws
+- [x] w_greataxe (อยู่ในเกมแล้ว)
+- [~] sh_knight (ได้โมเดลแล้ว รอบสอง)
+- [x] w_katana (อยู่ในเกมแล้ว)
+- [x] w_kunai (อยู่ในเกมแล้ว)
+- [~] w_longbow (ได้โมเดลแล้ว รอบสอง)
+- [~] w_crossbow (ได้โมเดลแล้ว รอบสอง)
+- [x] w_arcanestaff (อยู่ในเกมแล้ว)
+- [x] w_orb (อยู่ในเกมแล้ว)
+- [x] w_holystaff (อยู่ในเกมแล้ว)
+- [x] w_mace (อยู่ในเกมแล้ว)
+- [~] w_gauntlet (ได้โมเดลแล้ว รอบสอง)
+- [~] w_claws (ได้โมเดลแล้ว รอบสอง)
