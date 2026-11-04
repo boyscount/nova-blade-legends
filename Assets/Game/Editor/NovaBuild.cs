@@ -31,13 +31,16 @@ public static class NovaBuild
     [MenuItem("Nova Blade/Build WebGL (phones)")]
     // web build only: scenery textures at 512 px and character/other textures at most 1024 (WebGL platform override),
     // compressed meshes for the Fantasy Kingdom set; keeps each file of the web build under GitHub Pages' 100 MB limit
-    static void WebSlim()
+    // slim = the phone web build: textures capped (scenery 512, the rest 1024) under the WebGL platform override;
+    // !slim = the PC web build: the overrides come off, so textures go in at their own size
+    static void WebSlim(bool slim)
     {
         int n = 0;
         foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets" }))
         {
             var path = AssetDatabase.GUIDToAssetPath(guid); if (path.Contains("/Resources/UI/") || path.Contains("NovaBlade_SkillIcons") || path.Contains("/Game/Skybox/")) continue;
             if (!(AssetImporter.GetAtPath(path) is TextureImporter ti)) continue;
+            if (!slim) { var po = ti.GetPlatformTextureSettings("WebGL"); if (po.overridden) { po.overridden = false; ti.SetPlatformTextureSettings(po); ti.SaveAndReimport(); n++; } continue; }
             bool scenery = path.Contains("/Models/Nature/") || path.StartsWith("Assets/Art/") || path.Contains("Polytope") || path.Contains("/ThirdParty/") || path.Contains("/Textures/PBR/") || path.Contains("/Models/Props/");
             int want = scenery ? 512 : 1024; var ps = ti.GetPlatformTextureSettings("WebGL");
             if (ps.overridden && ps.maxTextureSize <= want) continue;
@@ -49,18 +52,30 @@ public static class NovaBuild
         Debug.Log($"[NovaBuild] web slim: {n} assets adjusted");
     }
 
+    // Two web builds, picked by the page: PC browsers get Builds/WebGL_PC (DXT textures at full size, deployed under /pc/),
+    // phones get Builds/WebGL (ASTC, capped textures). The PC one is built first so the project ends on the phone settings.
     public static void BuildWebGL()
     {
-        WebSlim(); Towers(Cat(), false);
+        BuildWeb(false); BuildWeb(true);
+        // the two builds share the same code files (same hashed names) and the second build takes them over: give the PC
+        // build its copies back
+        foreach (var f in Directory.GetFiles("Builds/WebGL/Build").Where(f => !f.Contains(".data.")))
+        { var to = Path.Combine("Builds/WebGL_PC/Build", Path.GetFileName(f)); if (!File.Exists(to)) File.Copy(f, to); }
+    }
+    public static void BuildWebPhone() => BuildWeb(true);
+    static void BuildWeb(bool phone)
+    {
+        WebSlim(phone); Towers(Cat(), false);
         PlayerSettings.WebGL.template = "PROJECT:NovaBlade";
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli; PlayerSettings.WebGL.decompressionFallback = true;
         PlayerSettings.WebGL.dataCaching = true; PlayerSettings.WebGL.memoryGrowthMode = WebGLMemoryGrowthMode.Geometric; PlayerSettings.WebGL.maximumMemorySize = 2048;
         PlayerSettings.WebGL.nameFilesAsHashes = true;
-        EditorUserBuildSettings.webGLBuildSubtarget = WebGLTextureSubtarget.ASTC;
-        var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, "Builds/WebGL", BuildTarget.WebGL, BuildOptions.None);
-        Debug.Log($"[NovaBuild] webgl build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
+        EditorUserBuildSettings.webGLBuildSubtarget = phone ? WebGLTextureSubtarget.ASTC : WebGLTextureSubtarget.DXT;
+        var dir = phone ? "Builds/WebGL" : "Builds/WebGL_PC";
+        var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, dir, BuildTarget.WebGL, BuildOptions.None);
+        Debug.Log($"[NovaBuild] webgl {(phone ? "phone" : "PC")} build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
-        SplitData("Builds/WebGL");
+        SplitData(dir);
     }
 
     // GitHub Pages refuses files over 100 MB: cut the data file into 90 MB parts (<name>.part0, .part1, ...);
@@ -284,6 +299,12 @@ public static class NovaBuild
         var camGo = new GameObject("Main Camera") { tag = "MainCamera" }; var cam = camGo.AddComponent<Camera>(); cam.fieldOfView = 40; cam.nearClipPlane = .3f; cam.farClipPlane = 160;
         var cd = camGo.AddComponent<UniversalAdditionalCameraData>(); cd.renderPostProcessing = true; cd.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
         camGo.transform.position = new Vector3(0, 9, 14); camGo.transform.LookAt(Vector3.zero);
+        {   // lobby depth of field: the hero sharp, the forest behind softly out of focus (LobbyNight sets the weight)
+            var dofGo = new GameObject("LobbyDOF"); var dv = dofGo.AddComponent<Volume>(); dv.isGlobal = true; dv.priority = 5; dv.weight = 0;
+            var dp = ScriptableObject.CreateInstance<VolumeProfile>(); var dof = dp.Add<DepthOfField>(true);
+            dof.mode.Override(DepthOfFieldMode.Gaussian); dof.gaussianStart.Override(6.5f); dof.gaussianEnd.Override(17); dof.gaussianMaxRadius.Override(1.1f); dof.highQualitySampling.Override(true);
+            var dpath = $"{Gen}/LobbyDOF.asset"; if (File.Exists(dpath)) AssetDatabase.DeleteAsset(dpath); AssetDatabase.CreateAsset(dp, dpath); AssetDatabase.AddObjectToAsset(dof, dp); dv.sharedProfile = dp;
+        }
         var volGo = new GameObject("Post"); var vol = volGo.AddComponent<Volume>(); vol.isGlobal = true;
         var prof = ScriptableObject.CreateInstance<VolumeProfile>();
         var bloom = prof.Add<Bloom>(true); bloom.intensity.Override(.6f); bloom.threshold.Override(1.05f); bloom.scatter.Override(.65f);

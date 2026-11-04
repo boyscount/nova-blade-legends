@@ -62,6 +62,8 @@ namespace NovaBlade
             G = this;
             Application.targetFrameRate = 60;
             if (Application.isMobilePlatform) QualitySettings.SetQualityLevel(0, true);   // phones (also mobile browsers): the Mobile URP asset
+            else if (Camera.main && Camera.main.TryGetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(out var cd))
+                cd.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;   // PC: the pipeline's 4x MSAA keeps edges sharp; FXAA would soften the whole frame
             save = JsonUtility.FromJson<Save>(PlayerPrefs.GetString("novaBlade", "{}")) ?? new Save();
             if (save.skinKeys == null) { save.skinKeys = new(); save.skinVals = new(); }
             save.owned ??= new(); save.ledger ??= new(); save.wsKeys ??= new(); save.wsVals ??= new();

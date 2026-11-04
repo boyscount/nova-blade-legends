@@ -212,8 +212,8 @@ namespace NovaBlade
             }
             var hintV = L(touchUi ? Loc.S("ลากเพื่อหมุน · ถ่างนิ้วเพื่อซูม", "Drag to rotate · Pinch to zoom") : Loc.S("ลากเพื่อหมุน · ล้อเมาส์เพื่อซูม", "Drag to rotate · Mouse wheel to zoom"), 17, new Color(1, 1, 1, .8f)); Shadow(hintV); hintV.style.unityTextAlign = TextAnchor.MiddleCenter; vc.Add(hintV);
             // right panel: dark glass with a thin gold rim
-            var panel = Box(new Color(.03f, .045f, .06f, .84f), 18); Border(panel, new Color(1, .82f, .5f, .45f), 2); Abs(panel, null, 70, 30, 30); panel.style.width = Length.Percent(44); Pad(panel, 18); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
-            var tabs = Box(new Color(0, 0, 0, .45f), 12); Border(tabs, new Color(1, .84f, .55f, .25f)); tabs.style.flexDirection = FlexDirection.Row; Pad(tabs, 4); panel.Add(tabs);
+            var panel = Box(new Color(.03f, .045f, .06f, .62f), 18); Border(panel, new Color(1, .82f, .5f, .45f), 2); Abs(panel, null, 70, 30, 30); panel.style.width = Length.Percent(44); Pad(panel, 18); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
+            var tabs = Box(new Color(0, 0, 0, .3f), 12); Border(tabs, new Color(1, .84f, .55f, .25f)); tabs.style.flexDirection = FlexDirection.Row; Pad(tabs, 4); panel.Add(tabs);
             int ti = 0;
             foreach (var (id, label) in new[] { ("hero", Loc.S("ฮีโร่", "Heroes")), ("skin", Loc.S("สกิน", "Skins")), ("sword", Loc.S("อาวุธ", "Weapons")), ("wskin", Loc.S("สกินอาวุธ", "Weapon Skins")), ("wings", Loc.S("ปีก", "Wings")), ("pet", Loc.S("สัตว์เลี้ยง", "Pets")), ("stage", Loc.S("ด่าน", "Stages")) })
             {
@@ -414,7 +414,7 @@ namespace NovaBlade
         }
         void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null, Color? glowBg = null)
         {
-            var c = Box(on ? new Color(.22f, .16f, .06f, .9f) : new Color(.07f, .09f, .12f, .92f), 14); Border(c, on ? new Color(1, .84f, .42f) : new Color(1, 1, 1, .14f), on ? 3 : 1.5f); Pad(c, 5);
+            var c = Box(on ? new Color(.22f, .16f, .06f, .78f) : new Color(.07f, .09f, .12f, .66f), 14); Border(c, on ? new Color(1, .84f, .42f) : new Color(1, 1, 1, .12f), on ? 2.5f : 1); Pad(c, 5);
             c.style.width = Length.Percent(wide ? 48 : 31.3f); c.style.marginRight = Length.Percent(1.6f); c.style.marginBottom = 12; c.pickingMode = PickingMode.Position;
             var pic = Box(new Color(.12f, .14f, .17f), 10); pic.style.width = Length.Percent(100); pic.style.height = wide ? 150 : glowBg.HasValue ? (touchUi ? 340 : 300) : 176;   // hero cards are tall (full body)
             if (glowBg.HasValue)

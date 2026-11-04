@@ -6,6 +6,8 @@ namespace NovaBlade
     // warm lantern glows with flickering light, and low mist. Built once at runtime, switched on only in the lobby.
     public static class LobbyNight
     {
+        // background blur in the lobby only: the scene's "LobbyDOF" volume (built by NovaBuild) is switched on here
+        static void Dof(float w) { var v = GameObject.Find("LobbyDOF"); if (v && v.GetComponent<UnityEngine.Rendering.Volume>() is var vol && vol) vol.weight = w; }
         static GameObject root, set; static Light sun; static Color sunCol; static float sunInt; static bool on;
 
         public static void Set(bool want)
@@ -13,12 +15,13 @@ namespace NovaBlade
             if (want == on) return; on = want;
             if (!want)
             {   // the stage's own StageLook.Apply() restores fog, ambient and sky; the sun is restored here
-                if (root) root.SetActive(false); if (set) set.SetActive(false);
+                if (root) root.SetActive(false); if (set) set.SetActive(false); Dof(0);
                 if (sun) { sun.color = sunCol; sun.intensity = sunInt; }
                 return;
             }
             if (!root) Build();
             root.SetActive(true); if (set) set.SetActive(true);
+            Dof(1);
             sun = RenderSettings.sun; if (sun) { sunCol = sun.color; sunInt = sun.intensity; sun.color = new Color(.6f, .7f, 1); sun.intensity = .6f; }
             Color sky = new(.24f, .29f, .5f), eq = new(.13f, .15f, .24f), ground = new(.05f, .06f, .07f), fog = new(.04f, .065f, .1f);
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = fog; RenderSettings.fogDensity = .032f;
@@ -40,12 +43,66 @@ namespace NovaBlade
             var m = new Material(Catalog.I.glowMat) { mainTexture = tex }; m.SetFloat("_SrcBlend", 1); m.SetFloat("_DstBlend", additive ? 1 : 10); return m;
         }
 
+        static void Spot(Vector3 p, Color c, float intensity, float range, Vector3? at = null)
+        {
+            var l = new GameObject("Rim").AddComponent<Light>(); l.transform.SetParent(root.transform, false); l.type = LightType.Spot; l.color = c; l.intensity = intensity; l.range = range;
+            l.spotAngle = 55; l.innerSpotAngle = 25; l.shadows = LightShadows.None; l.transform.position = p; l.transform.LookAt(at ?? new Vector3(0, 1.1f, 0));
+        }
+        // glowing cherry petals drifting down through the light, turning as they fall
+        static void Petals()
+        {
+            var go = new GameObject("Petals"); go.transform.SetParent(root.transform, false); go.transform.position = new Vector3(0, 3.6f, .2f);
+            var ps = go.AddComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var m = ps.main; m.loop = true; m.prewarm = true; m.maxParticles = 140; m.simulationSpace = ParticleSystemSimulationSpace.World;
+            m.startLifetime = new ParticleSystem.MinMaxCurve(6, 10); m.startSpeed = 0; m.startSize3D = true;
+            m.startSizeX = new ParticleSystem.MinMaxCurve(.13f, .2f); m.startSizeY = new ParticleSystem.MinMaxCurve(.09f, .14f); m.startSizeZ = 1;
+            m.startRotation3D = true; m.startRotationX = m.startRotationY = m.startRotationZ = new ParticleSystem.MinMaxCurve(0, Mathf.PI * 2);
+            m.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, .42f, .62f, .95f), new Color(1f, .6f, .76f, .95f)); m.gravityModifier = .025f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(9, .5f, 6);
+            var em = ps.emission; em.rateOverTime = 24;
+            var vel = ps.velocityOverLifetime; vel.enabled = true; vel.x = new ParticleSystem.MinMaxCurve(.15f, .45f); vel.y = new ParticleSystem.MinMaxCurve(-.25f, -.1f); vel.z = new ParticleSystem.MinMaxCurve(-.1f, .1f);
+            var noise = ps.noise; noise.enabled = true; noise.strength = .35f; noise.frequency = .6f; noise.scrollSpeed = .3f;
+            var rot = ps.rotationOverLifetime; rot.enabled = true; rot.separateAxes = true; rot.x = rot.y = new ParticleSystem.MinMaxCurve(-2, 2); rot.z = new ParticleSystem.MinMaxCurve(-1, 1);
+            var col = ps.colorOverLifetime; col.enabled = true; var g = new Gradient();
+            g.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(1, .1f), new GradientAlphaKey(1, .85f), new GradientAlphaKey(0, 1) }); col.color = g;
+            const int N = 32; var t = new Texture2D(N, N, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+            {   // a petal: an ellipse with a small notch at the tip
+                float u = (x + .5f) / N * 2 - 1, v = (y + .5f) / N * 2 - 1, e = u * u + v * v * 1.6f, notch = v > .55f && Mathf.Abs(u) < .12f ? 0 : 1;
+                t.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01((1 - e) * 4) * notch));
+            }
+            t.Apply(true);
+            var mat = new Material(Catalog.I.glowMat) { mainTexture = t }; mat.SetFloat("_SrcBlend", 5); mat.SetFloat("_DstBlend", 10); mat.SetColor("_Color", new Color(1.35f, 1.2f, 1.25f));   // alpha-blended so they stay pink, a touch over 1 so they glow faintly
+            var r = go.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = mat; r.renderMode = ParticleSystemRenderMode.Mesh; r.mesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx"); r.alignment = ParticleSystemRenderSpace.World;
+            ps.Play();
+        }
+        // low mist drifting behind the hero: big, faint, slow puffs
+        static void GroundMist()
+        {
+            var go = new GameObject("Mist"); go.transform.SetParent(root.transform, false); go.transform.position = new Vector3(0, .5f, -4.5f);
+            var ps = go.AddComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var m = ps.main; m.loop = true; m.prewarm = true; m.maxParticles = 40; m.simulationSpace = ParticleSystemSimulationSpace.World;
+            m.startLifetime = new ParticleSystem.MinMaxCurve(10, 16); m.startSpeed = 0; m.startSize = new ParticleSystem.MinMaxCurve(3.5f, 6f);
+            m.startRotation = new ParticleSystem.MinMaxCurve(0, Mathf.PI * 2); m.startColor = new Color(.55f, .65f, .9f, .07f);
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(14, .6f, 5);
+            var em = ps.emission; em.rateOverTime = 3;
+            var vel = ps.velocityOverLifetime; vel.enabled = true; vel.x = new ParticleSystem.MinMaxCurve(.08f, .2f); vel.y = new ParticleSystem.MinMaxCurve(0, .03f); vel.z = new ParticleSystem.MinMaxCurve(-.02f, .02f);
+            var col = ps.colorOverLifetime; col.enabled = true; var g = new Gradient();
+            g.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(1, .3f), new GradientAlphaKey(1, .7f), new GradientAlphaKey(0, 1) }); col.color = g;
+            var mat = new Material(Catalog.I.glowMat) { mainTexture = Dot() }; mat.SetFloat("_SrcBlend", 5); mat.SetFloat("_DstBlend", 10);   // alpha blended
+            go.GetComponent<ParticleSystemRenderer>().sharedMaterial = mat; ps.Play();
+        }
         static void Build()
         {
             root = new GameObject("LobbyNight"); var dot = Dot();
             // key light from the camera side so the hero still reads in the dark, cool moon rim from behind
             Point(new Vector3(-1.6f, 2.2f, 3f), new Color(1, .93f, .85f), 12f, 10);
             Point(new Vector3(.5f, 2.3f, -1.6f), new Color(.5f, .65f, 1), 6f, 6);
+            // rim lights from behind both shoulders, cool moonlight and warm firelight, so the hero's edges glow off the dark
+            Spot(new Vector3(-1.5f, 2.5f, -1.9f), new Color(.55f, .72f, 1), 16, 7);
+            Spot(new Vector3(1.7f, 2.1f, -1.7f), new Color(1, .6f, .32f), 11, 7);
+            Spot(new Vector3(-1.9f, 1.6f, -.6f), new Color(.6f, .75f, 1), 9, 5, new Vector3(-.8f, .45f, .8f));   // and one on the pet, beside the hero's feet
+            Petals(); GroundMist();
             // soft contact shadows so the hero and pet stand on the ground (the night lights cast none)
             var blobT = new Texture2D(32, 32, TextureFormat.RGBA32, false);
             for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++) { float d = Vector2.Distance(new Vector2(x, y), new Vector2(15.5f, 15.5f)) / 16f; float a = Mathf.Clamp01(1 - d); blobT.SetPixel(x, y, new Color(0, 0, 0, a * a * .8f)); }
