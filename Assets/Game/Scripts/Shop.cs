@@ -13,8 +13,8 @@ namespace NovaBlade
     public static class Shop
     {
         public const int TestGems = 500;   // test grant, not real money
-        static readonly int[] HeroSkinGems = { 0, 120, 180, 250 };
-        public const int WeaponSkinGems = 150;
+        public static int[] HeroSkinGems = { 0, 120, 180, 250 };   // prices can be overridden by balance.json
+        public static int WeaponSkinGems = 150;
         static Main.Save S => Main.G.save;
 
         // ids: Weapon "w_lava" · HeroSkin "warrior:2" · WeaponSkin = the model id ("w_gold2"), usable on weapons of the same type

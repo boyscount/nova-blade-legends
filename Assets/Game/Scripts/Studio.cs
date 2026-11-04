@@ -98,8 +98,12 @@ namespace NovaBlade
         {
             var G = Main.G; G.SetTheme(i);
             cam.cullingMask = ~(1 << Layer); cam.clearFlags = CameraClearFlags.Skybox; cam.fieldOfView = 42;
-            cam.transform.position = new Vector3(0, 9, 15); cam.transform.LookAt(new Vector3(0, 0, 1)); cam.farClipPlane = 120;
-            return Grab();
+            // a low, wide establishing shot: the arena in front, the stage's skyline and sky behind (the 360° stages show their photo)
+            cam.fieldOfView = 50; cam.transform.position = new Vector3(0, 4.2f, 18); cam.transform.LookAt(new Vector3(0, 2f, -6)); cam.farClipPlane = 220;
+            const int W = 768, H = 384;
+            var big = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 }; cam.targetTexture = big; cam.Render();
+            var pa = RenderTexture.active; RenderTexture.active = big; var t = new Texture2D(W, H, TextureFormat.RGBA32, true); t.ReadPixels(new Rect(0, 0, W, H), 0, 0); t.Apply(true);
+            RenderTexture.active = pa; cam.targetTexture = rt; big.Release(); cam.fieldOfView = 30; return t;
         }
         static Texture2D Grab()
         {

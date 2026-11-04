@@ -158,6 +158,12 @@ MonoBehaviour:
     prefab: {fileID: 158789456559184324, guid: 87167b19fb4a32a4e8e4f2c5f40a40b3, type: 3}
   - id: sx_mesh
     prefab: {fileID: 539289997039638868, guid: 844eb5aef40a0214f81a15775e5293e1, type: 3}
+  - id: aoe_orange
+    prefab: {fileID: 689667626583958020, guid: 1336648bc1d8baf46a4515860950c9d4, type: 3}
+  - id: aoe_blue
+    prefab: {fileID: 7647375919561907788, guid: 035ce8c9cfc34104991ce416daf8aebe, type: 3}
+  - id: aoe_green
+    prefab: {fileID: 8915312667134092580, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
   clips:
   - id: idle
     length: 7.55

@@ -38,6 +38,7 @@ namespace NovaBlade
             def = Data.Heroes.FirstOrDefault(h => h.id == s.hero) ?? Data.Heroes[0];
             sword = Data.Swords.FirstOrDefault(w => w.id == s.sword) ?? Data.Swords[0];
             if (!Shop.Owns(ItemKind.Weapon, sword.id)) sword = Data.Swords[0];
+            if (G.mode == Main.Mode.Lobby) offActive = false; else if (offActive && OffHand != null) sword = OffHand;
             bool lobby = G.mode == Main.Mode.Lobby;
             if (lobby && G.pvSword != null) sword = Data.Swords.First(w => w.id == G.pvSword);
             if (model) Destroy(model);
@@ -65,6 +66,13 @@ namespace NovaBlade
             int skinIdx = Mathf.Clamp(G.Skin(def.id), 0, def.skins.Length - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{def.id}:{skinIdx}")) skinIdx = 0;
             if (lobby && G.pvSkin >= 0) skinIdx = Mathf.Clamp(G.pvSkin, 0, def.skins.Length - 1);
             look = new Look(model); var sk = def.skins[skinIdx]; look.Set(sk.tint, sk.glow);
+            EquipSword(lobby);
+            WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, def.id == "harpy" ? null : G.WingsShown, !anim);   // Aeris has wings of her own
+            state = St.Idle; Play(G.mode == Main.Mode.Lobby ? "show" : "idle", .1f);
+        }
+        void EquipSword(bool lobby)
+        {
+            if (swordGo) Destroy(swordGo);
             // the weapon's stats stay "sword"; a weapon skin only swaps the model that is shown
             ModelId = lobby && G.pvWeaponSkin != null ? G.pvWeaponSkin : Shop.ModelFor(sword);
             var mdef = Data.Swords.First(w => w.id == ModelId);
@@ -79,9 +87,7 @@ namespace NovaBlade
             tipT = new GameObject("tip").transform; tipT.SetParent(swordGo.transform, false); tipT.localPosition = new Vector3(sign * mdef.m * .9f, 0, 0);
             baseT = new GameObject("base").transform; baseT.SetParent(swordGo.transform, false); baseT.localPosition = new Vector3(sign * mdef.m * .25f, 0, 0);
             if (!trail) trail = gameObject.AddComponent<SwordTrail>();
-            trail.tipT = tipT; trail.baseT = baseT; trail.color = sword.color;
-            WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, def.id == "harpy" ? null : G.WingsShown, !anim);   // Aeris has wings of her own
-            state = St.Idle; Play(G.mode == Main.Mode.Lobby ? "show" : "idle", .1f);
+            trail.tipT = tipT; trail.baseT = baseT; trail.color = MasteryTier >= 4 ? Color.Lerp(sword.color, new Color(1, .85f, .4f), .5f) : sword.color;   // Master: a golden edge to the trail
         }
         static float BladeSign(GameObject sw)
         {
@@ -93,7 +99,7 @@ namespace NovaBlade
         public void PlaceLobby() { transform.position = new Vector3(0, def.rig ? 0 : .35f, 0); face = 0; transform.rotation = Quaternion.identity; }
         public void ResetForGame()
         {
-            mp = mpMax;
+            mp = mpMax; offActive = false; swapCD = 0;
             transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = def.hp; dead = false; state = St.Idle; inv = 1;
             buffT = shieldT = dodgeCD = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
             if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
@@ -142,6 +148,7 @@ namespace NovaBlade
         void ReadKeys()
         {
             var kb = Keyboard.current; var ui = G.ui;
+            swapCD -= Time.deltaTime; if (ui.swapP) { ui.swapP = false; SwapWeapon(); }
             if (ui.WebPc)
             {
                 if (kb != null)
@@ -152,6 +159,8 @@ namespace NovaBlade
                     if (kb.rKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame) ui.dodgeP = true;
                     if (kb.aKey.wasPressedThisFrame || kb.jKey.wasPressedThisFrame) ui.atkP = true;
                     if (kb.sKey.wasPressedThisFrame) { clickGoal = null; clickFoe = null; }   // S = stop
+                    if (kb.xKey.wasPressedThisFrame) ui.swapP = true;
+                    if (kb.cKey.wasPressedThisFrame) G.CycleView();
                 }
                 var m = Mouse.current;
                 if (m != null && m.rightButton.isPressed && !ui.PointerOverUi && Camera.main)
@@ -175,6 +184,7 @@ namespace NovaBlade
                 if (kb.iKey.wasPressedThisFrame || kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
                 if (kb.oKey.wasPressedThisFrame || kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
                 if (kb.spaceKey.wasPressedThisFrame || kb.kKey.wasPressedThisFrame || kb.leftShiftKey.wasPressedThisFrame) ui.dodgeP = true;
+                if (kb.xKey.wasPressedThisFrame || kb.lKey.wasPressedThisFrame) ui.swapP = true;
             }
             var ms = Mouse.current;
             if (ms != null && ms.leftButton.wasPressedThisFrame && !ui.PointerOverUi) ui.atkP = true;
@@ -182,7 +192,20 @@ namespace NovaBlade
         bool AtkHeld => G.ui.atkHold || ClickAttacking || (Keyboard.current?.jKey.isPressed ?? false) || (Mouse.current != null && Mouse.current.leftButton.isPressed && !G.ui.PointerOverUi);
 
         // ---------- helpers ----------
-        public float AtkPow => 100 * def.atk * sword.dmg * (buffT > 0 ? 1.5f : 1);
+        public float AtkPow => 100 * def.atk * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier]) * (buffT > 0 ? 1.5f : 1);
+        public int MasteryTier => Data.Tier(G.save.Mastery(sword.id));
+        public float CritBonus => Data.MasteryCrit[MasteryTier];
+        // off-hand: a second owned weapon swapped in mid-fight (X on PC, the swap button on phones); a short cooldown
+        public bool offActive; float swapCD;
+        public SwordDef OffHand { get { var s = G.save; return Data.Swords.FirstOrDefault(w => w.id == s.sword2 && w.id != s.sword && Shop.Owns(ItemKind.Weapon, w.id)); } }
+        public void SwapWeapon()
+        {
+            if (swapCD > 0 || dead || OffHand == null || G.mode != Main.Mode.Game) return;
+            offActive = !offActive; swapCD = .6f;
+            var main = Data.Swords.FirstOrDefault(w => w.id == G.save.sword) ?? Data.Swords[0];
+            sword = offActive ? OffHand : main; EquipSword(false);
+            Fx.Burst(Pos + Vector3.up * 1.2f, 18, sword.color, 3, .5f, 0); G.Number(Pos + Vector3.up * 2.4f, sword.name, "crit");
+        }
         void FaceTo(Foe f) { if (f) face = Main.Ang(f.Pos - Pos); }
         void AimAuto(float r = 6)
         {
@@ -269,8 +292,7 @@ namespace NovaBlade
                 return;
             }
             float reach = (1.9f + (i == 2 ? .6f : 0)) * sword.len + (def.rig ? 0 : .3f);
-            int n = G.HitArea(Pos + Main.Dir(face) * .2f, reach, AtkPow * new[] { 1f, 1.15f, 1.8f }[i], new Main.Hit { face = face, half = i == 2 ? 1.6f : 1.25f, kb = i == 2 ? 5 : 2, melee = true });
-            Fx.Slash(Pos + Vector3.up, face + (i == 1 ? .3f : -.3f), sword.color, reach + .2f, i == 2 ? 3.4f : 2.6f);
+            int n = G.HitArea(Pos + Main.Dir(face) * .2f, reach, AtkPow * new[] { 1f, 1.15f, 1.8f }[i] * (i == 2 && MasteryTier >= 4 ? Data.MasterFinisher : 1), new Main.Hit { face = face, half = i == 2 ? 1.6f : 1.25f, kb = i == 2 ? 5 : 2, melee = true });
             var at = Pos + Vector3.up * 1.05f + Main.Dir(face) * reach * .45f;
             if (def.blade || def.ownWeapon) Fx.SlashFx(i == 0 ? "sx_basic" : i == 1 ? "sx_double" : "sx_explode", at, face, (i == 2 ? 1.25f : 1) * Mathf.Max(.8f, sword.len), i == 1 ? 180 : 0);
             else Fx.SlashFx("sx_shiny", at, face, i == 2 ? 1.1f : .8f);
@@ -397,12 +419,12 @@ namespace NovaBlade
 
         IEnumerator Whirl()
         {
-            Play("spin", .06f, 1.04f); Fx.Spawn(sword.burn == "fire" ? "trail_fire" : sword.slow ? "trail_ice" : "trail_plain", Pos + Vector3.up, 1.6f, 2).transform.SetParent(transform);
+            Play("spin", .06f, 1.04f); var spinFx = Fx.Spawn(sword.burn == "fire" ? "aoe_orange" : sword.slow ? "aoe_blue" : "aoe_green", Pos + Vector3.up * .2f, 1.4f * sword.len, 2.2f); if (spinFx) spinFx.transform.SetParent(transform);
             float t = 0, tick = 0;
             while (t < 1.8f)
             {
                 float dt = Time.deltaTime; t += dt; var mv = Move(); MoveBy(mv.x * def.spd * .7f * dt, mv.y * def.spd * .7f * dt); spin += dt * 10;
-                tick -= dt; if (tick <= 0) { tick = .22f; G.HitArea(Pos, 2.9f * sword.len, AtkPow * .55f, new Main.Hit { kb = 2.5f, melee = true }); Fx.Ring(Pos, 3 * sword.len, sword.color, .25f, .1f); Fx.SlashFx("sx_multi", Pos + Vector3.up, face + spin, 1.2f * sword.len); }
+                tick -= dt; if (tick <= 0) { tick = .22f; G.HitArea(Pos, 2.9f * sword.len, AtkPow * .55f, new Main.Hit { kb = 2.5f, melee = true }); Fx.SlashFx("sx_multi", Pos + Vector3.up, face + spin, 1.2f * sword.len); }
                 yield return null;
             }
         }
@@ -444,7 +466,7 @@ namespace NovaBlade
                 var n = s + f * k * 7.5f; MoveBy(n.x - Pos.x, n.z - Pos.z);
                 Fx.Burst(Pos + Vector3.up, 3, new Color(1, .37f, .7f), 1.5f, .5f, 0);
                 G.HitArea(Pos, 1.6f, AtkPow * 2.4f, new Main.Hit { skip = hit, kb = 3, melee = true });
-                if (t > .3f && !fx) { fx = true; Fx.Slash((s + Pos) / 2 + Vector3.up, face + Mathf.PI / 2, new Color(1, .37f, .7f), 4.2f, .5f, .35f); Fx.SlashFx("sx_mesh", (s + Pos) / 2 + Vector3.up, face + Mathf.PI / 2, 2.2f); Fx.SlashFx("sx_shiny", Pos + Vector3.up, face, 1.3f); if (hit.Count > 0) { G.hitStop = .1f; G.shake = .25f; } }
+                if (t > .3f && !fx) { fx = true; Fx.SlashFx("sx_mesh", (s + Pos) / 2 + Vector3.up, face + Mathf.PI / 2, 2.2f); Fx.SlashFx("sx_shiny", Pos + Vector3.up, face, 1.3f); if (hit.Count > 0) { G.hitStop = .1f; G.shake = .25f; } }
                 yield return null;
             }
         }
@@ -473,7 +495,7 @@ namespace NovaBlade
                 }
                 var c = Catalog.I.Clip(animSet, "atk" + (i % 3)); Play("atk" + (i % 3), .03f, 2.6f, Mathf.Max(0, c.hit - .25f));
                 G.HitArea(Pos, 2.4f, AtkPow * 1.7f, new Main.Hit { face = face, half = 1.2f, kb = 2, melee = true });
-                Fx.Slash(Pos + Vector3.up, face, new Color(1, .37f, .54f), 2.4f, 2.8f); G.hitStop = .04f; Fx.SlashFx(i % 2 == 0 ? "sx_double" : "sx_shiny", Pos + Vector3.up + Main.Dir(face) * .8f, face, 1.1f, i * 50);
+                G.hitStop = .04f; Fx.SlashFx(i % 2 == 0 ? "sx_double" : "sx_shiny", Pos + Vector3.up + Main.Dir(face) * .8f, face, 1.1f, i * 50);
                 yield return Wait(.2f);
             }
         }

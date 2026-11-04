@@ -11,6 +11,7 @@ Shader "NovaBlade/PanoProject"
         _Rotate ("Rotate (turns)", Float) = 0.5
         _Exposure ("Exposure", Float) = 1
         _ShadowDark ("Shadow Strength", Range(0, 1)) = 0.55
+        _Ripple ("Water Ripple (0 = solid ground)", Range(0, 2)) = 0
     }
     SubShader
     {
@@ -19,7 +20,7 @@ Shader "NovaBlade/PanoProject"
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         CBUFFER_START(UnityPerMaterial)
-            float4 _MainTex_ST; float4 _Center; float _Rotate, _Exposure, _ShadowDark;
+            float4 _MainTex_ST; float4 _Center; float _Rotate, _Exposure, _ShadowDark, _Ripple;
         CBUFFER_END
         ENDHLSL
         Pass
@@ -39,6 +40,16 @@ Shader "NovaBlade/PanoProject"
             half4 frag(V i) : SV_Target
             {
                 float3 d = normalize(i.wp - _Center.xyz);
+                // water: wobble the reflected direction with a few moving waves, strongest near the fight, calm far off
+                float sparkle = 0;
+                if (_Ripple > 0 && d.y < 0)
+                {
+                    float t = _Time.y, near = saturate(1 - length(i.wp.xz) / 60);
+                    float2 w = float2(sin(i.wp.x * 1.3 + t * 1.4) + 0.6 * sin(i.wp.z * 2.1 - t * 1.1 + i.wp.x * 0.7),
+                                      cos(i.wp.z * 1.5 + t * 1.2) + 0.6 * sin((i.wp.x - i.wp.z) * 1.9 + t * 0.9));
+                    d.xz += w * 0.006 * _Ripple * near; d = normalize(d);
+                    sparkle = pow(saturate(0.5 + 0.25 * (w.x * w.y)), 12) * 0.35 * _Ripple * near;
+                }
                 float u = atan2(d.x, d.z) * (0.5 / PI) + 0.5 + _Rotate, v = asin(clamp(d.y, -1, 1)) / PI + 0.5;
                 // the longitude wraps once around: take derivatives from whichever of two offset copies is continuous here,
                 // so the mip level does not jump to the smallest at the seam (a thin line otherwise)
@@ -48,6 +59,7 @@ Shader "NovaBlade/PanoProject"
                 half3 c = SAMPLE_TEXTURE2D_GRAD(_MainTex, sampler_MainTex, uvA, useB ? dxB : dxA, useB ? dyB : dyA).rgb * _Exposure;
                 float sh = MainLightRealtimeShadow(TransformWorldToShadowCoord(i.wp));
                 c *= lerp(1 - _ShadowDark, 1, sh);
+                c += sparkle;
                 return half4(c, 1);
             }
             ENDHLSL

@@ -96,7 +96,7 @@ namespace NovaBlade
         public void Damage(float dmg, Vector3 from, Main.Hit o = null)
         {
             if (!alive) return; o ??= new Main.Hit(); var hero = G.hero; var sw = o.byFoe ? new SwordDef { color = o.col ?? Color.white } : hero.sword;
-            bool crit = Random.value < (o.byFoe ? .05f : o.melee && sw.crit > 0 ? sw.crit : .12f);
+            bool crit = Random.value < (o.byFoe ? .05f : (o.melee && sw.crit > 0 ? sw.crit : .12f) + hero.CritBonus);
             dmg = Mathf.Round(CombatRules.Current.ModifyDamage(dmg) * (crit ? 1.8f : 1) * (brokenT > 0 ? 1.3f : 1) * Random.Range(.9f, 1.1f)); hp -= dmg; flash = .12f;
             if (o.poise > 0 && brokenT <= 0) { poise += CombatRules.Current.ModifyStun(o.poise); if (poise >= poiseMax) Break(); }
             G.Number(Pos + Vector3.up * (y + h), dmg.ToString(), crit ? "crit" : "");
@@ -119,7 +119,7 @@ namespace NovaBlade
 
         void Kill()
         {
-            alive = false; s = S.Dead; st = 0; if (team == 1) G.kills++;
+            alive = false; s = S.Dead; st = 0; if (team == 1) { G.kills++; if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
             Fx.Burst(Pos + Vector3.up * h * .5f, isBoss ? 140 : 26, isBoss ? bd.color : new Color(1, .48f, .29f), isBoss ? 10 : 6);
             Fx.Dust(Pos, isBoss ? 1.8f : .8f, isBoss ? 26 : 10); Fx.Burst(Pos + Vector3.up * h * .45f, isBoss ? 40 : 14, new Color(1, .55f, .25f), isBoss ? 6 : 4, .45f, 1.6f, .08f);
             if (team == 1) G.DropLoot(Pos, isBoss, d.gold);
@@ -218,7 +218,7 @@ namespace NovaBlade
             if (tgt == null || tgt.Down) { skillWind = false; return; }
             var col = G.lane ? Lane.TeamColor(team) / 2.2f : new Color(1, .3f, .37f);
             if (skillWind) { skillWind = false; G.HitTeamArea(team, Pos, 3.4f, d.dmg * 2.4f); Fx.Ring(Pos, 3.6f, col, .45f, .25f); Fx.Spawn("ground_hit", Pos, 1.3f, 2); return; }
-            if (d.kind == "melee" || d.kind == "champ") { if (dd < d.range + .5f && Mathf.Abs(Main.AngDiff(face, want)) < .9f) tgt.Take(d.dmg, Pos); Fx.Slash(Pos + Vector3.up * .5f, face, col, d.range + .3f, 1.6f); }
+            if (d.kind == "melee" || d.kind == "champ") { if (dd < d.range + .5f && Mathf.Abs(Main.AngDiff(face, want)) < .9f) tgt.Take(d.dmg, Pos); if (d.kind == "champ" || isBoss || d.scale > 1.5f) Fx.SlashFx("sx_basic", Pos + Vector3.up + Main.Dir(face) * d.range * .5f, face, .8f); }
             else if (d.kind == "slam") { G.HitTeamArea(team, slamAt, 2.4f, d.dmg); Fx.Ring(slamAt, 2.4f, new Color(.6f, 1, .35f), .4f); Fx.Spawn("ground_hit", slamAt, 1, 2); G.shake = Mathf.Max(G.shake, .12f); }
             else if (d.kind == "ranged" || d.kind == "tower")
             {
@@ -260,7 +260,7 @@ namespace NovaBlade
                 if (st <= 0 && bossStage == 0)
                 {
                     bossStage = 1; st2 = .35f; if (dd < 5.4f && Mathf.Abs(Main.AngDiff(face, Main.Ang(to))) < 1.15f) hero.Hurt(d.dmg, Pos);
-                    Fx.Slash(Pos + Vector3.up * 1.2f, face, C, 5, 2.4f, .3f); Fx.SlashFx("sx_explode", Pos + Vector3.up * 1.2f + Main.Dir(face) * 2, face, 2.6f); Fx.Spawn("ground_hit", Pos + Main.Dir(face) * 2.5f, 1.5f, 2); G.shake = Mathf.Max(G.shake, .25f);
+                    Fx.SlashFx("sx_explode", Pos + Vector3.up * 1.2f + Main.Dir(face) * 2, face, 2.6f); Fx.Spawn("ground_hit", Pos + Main.Dir(face) * 2.5f, 1.5f, 2); G.shake = Mathf.Max(G.shake, .25f);
                 }
                 if (bossStage == 1) { st2 -= dt; if (!anim) body.Rotate(0, dt * 900, 0); if (st2 <= 0) { body.localRotation = Quaternion.identity; bossMode = "chase"; bossMt = Random.Range(1.2f, 2.2f) * wind; } }
             }

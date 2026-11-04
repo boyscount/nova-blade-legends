@@ -11,7 +11,8 @@ namespace NovaBlade
     public class Ui : MonoBehaviour
     {
         // input read by Hero
-        public Vector2 Joy; public bool atkP, atkHold, dodgeP; public readonly bool[] skP = new bool[3];
+        public Vector2 Joy; public bool atkP, atkHold, dodgeP, swapP; bool pickOff; VisualElement swapBtn; Button viewBtn;
+        string ViewLabel() => Loc.S("มุม ", "View ") + (G.ViewStyle + 1); public readonly bool[] skP = new bool[3];
         public bool heavyP, lockP, blockHold;   // Soulslike buttons
         Vector2 lookAcc; public Vector2 TakeLook() { var d = lookAcc; lookAcc = Vector2.zero; return d; }
         VisualElement stamFill, stamBar, poiseFill, reticle, lookZone; Label hint;
@@ -26,7 +27,7 @@ namespace NovaBlade
         VisualElement[] stats; readonly VisualElement[] sk = new VisualElement[5]; VisualElement porImg, petImg; Button again;
         FontDefinition font, fontBold; string tab = "hero";
         Main G => Main.G;
-        bool touchUi; float J = 1;
+        public bool touchUi; float J = 1;
         // control schemes: phones = joystick + big buttons; web on a PC = right-click to move, Q W E skills, R / Space dodge (MOBA style);
         // the Windows build keeps WASD + J / U I O
         public bool WebPc { get; private set; }   // J: joystick scale (phones get a much bigger stick)
@@ -344,8 +345,21 @@ namespace NovaBlade
             }
             else if (tab == "sword")
             {
-                foreach (var w in Data.Swords) { var ww = w; Card(w.name, Studio.Weapon(w.id), null, G.hero.sword.id == w.id, () => { if (Shop.Owns(ItemKind.Weapon, ww.id)) { G.ClearPreview(); s.sword = ww.id; } else G.pvSword = ww.id; Pick(); }, false, Badge(ItemKind.Weapon, w.id, s.sword == w.id)); }
+                // off-hand: tap this, then an owned weapon; tapping the main weapon clears it
+                var off = Data.Swords.FirstOrDefault(w => w.id == s.sword2 && w.id != s.sword);
+                Card(pickOff ? Loc.S("เลือกอาวุธรอง: แตะอาวุธที่มีแล้ว", "Choose the off-hand: tap an owned weapon") : off != null ? Loc.S($"อาวุธรอง: {off.name} · กดสลับ X / ⇄", $"Off-hand: {off.name} · swap with X / ⇄") : Loc.S("ตั้งอาวุธรอง (สลับระหว่างสู้)", "Set an off-hand weapon (swap mid-fight)"),
+                    off != null ? Studio.Weapon(off.id) : null, null, pickOff, () => { pickOff = !pickOff; RenderCards(); }, true);
+                foreach (var w in Data.Swords)
+                {
+                    var ww = w; string badge = s.sword2 == w.id && w.id != s.sword ? Loc.S("อาวุธรอง", "Off-hand") : Badge(ItemKind.Weapon, w.id, s.sword == w.id);
+                    Card(w.name, Studio.Weapon(w.id), null, G.hero.sword.id == w.id, () =>
+                    {
+                        if (pickOff && Shop.Owns(ItemKind.Weapon, ww.id)) { s.sword2 = ww.id == s.sword ? "" : ww.id; pickOff = false; Pick(); return; }
+                        if (Shop.Owns(ItemKind.Weapon, ww.id)) { G.ClearPreview(); s.sword = ww.id; if (s.sword2 == ww.id) s.sword2 = ""; } else G.pvSword = ww.id; Pick();
+                    }, false, badge, MasteryLine(w, true));
+                }
                 var sw = G.hero.sword; Offer(ItemKind.Weapon, sw.id, sw.name, Loc.S($"{sw.name} · {sw.desc}\nดาเมจ ×{sw.dmg} · ความเร็ว ×{sw.spd} · ระยะ ×{sw.len} · อาวุธได้จาก Gold ที่หาในเกมเท่านั้น", $"{sw.name} · {sw.desc}\nDamage ×{sw.dmg} · Speed ×{sw.spd} · Range ×{sw.len} · Weapons are bought only with Gold earned in play"));
+                detail.text += "\n" + MasteryLine(sw, false);
             }
             else if (tab == "wskin")
             {   // weapon skins: the model changes, the equipped weapon's stats do not
@@ -375,6 +389,18 @@ namespace NovaBlade
                 for (int n = 1; n <= Data.Themes.Length; n++) { int k = n; var T = Data.Themes[Data.ThemeOf(n)]; Card(Loc.S($"ด่าน {n} · {T.name}", $"Stage {n} · {T.name}") + (n > mx ? Loc.S(" (ล็อก)", " (locked)") : ""), Studio.Stage(Data.ThemeOf(n)), null, s.stage == n, n > mx ? null : () => { s.stage = k; Pick(); }, true); }
                 var th = Data.Themes[Data.ThemeOf(s.stage)]; detail.text = Loc.S($"ด่าน {s.stage} · {th.name} · {th.desc} · บอส: {th.boss.name}", $"Stage {s.stage} · {th.name} · {th.desc} · Boss: {th.boss.name}");
             }
+        }
+        // "Expert 140/300 · +6% dmg · +2% crit · affinity +6%" (short: tier and progress only)
+        string MasteryLine(SwordDef w, bool brief)
+        {
+            int xp = G.save.Mastery(w.id), t = Data.Tier(xp); var names = Data.MasteryName;
+            string prog = t + 1 < Data.MasteryXp.Length ? $"{xp}/{Data.MasteryXp[t + 1]}" : Loc.S("สูงสุด", "max");
+            if (brief) return $"{names[t]} · {prog}";
+            float aff = Data.AffinityBonus(G.hero.def.cls, w.type);
+            string bonus = Loc.S($"ความชำนาญ {names[t]} ({prog}) · ดาเมจ +{Data.MasteryDmg[t] * 100:0}% · คริ +{Data.MasteryCrit[t] * 100:0}%", $"Mastery {names[t]} ({prog}) · damage +{Data.MasteryDmg[t] * 100:0}% · crit +{Data.MasteryCrit[t] * 100:0}%");
+            if (t >= 4) bonus += Loc.S(" · ท่าปิดคอมโบแรงขึ้น", " · stronger combo finisher");
+            bonus += aff > 0 ? Loc.S($" · เข้ากับ{G.hero.def.name} +{aff * 100:0.#}%", $" · suits {G.hero.def.name} +{aff * 100:0.#}%") : "";
+            return bonus;
         }
         string Badge(ItemKind k, string id, bool worn) => Shop.Owns(k, id) ? (worn ? Loc.S("ใส่อยู่", "Equipped") : Loc.S("มีแล้ว", "Owned")) : Shop.PriceText(k, id);
         // detail text, plus the buy button when the item being tried on is not owned yet
@@ -496,6 +522,10 @@ namespace NovaBlade
             mini.RegisterCallback<PointerUpEvent>(e => mup(e)); mini.RegisterCallback<PointerCancelEvent>(e => mup(e));
             var pb = Btn("II", () => TogglePause(), false); pb.style.marginLeft = 12; pb.style.paddingLeft = pb.style.paddingRight = 18; if (touchUi) { pb.style.width = pb.style.height = 92; pb.style.fontSize = 34; pb.style.paddingLeft = pb.style.paddingRight = 0; }
             else if (PcArt("btn_pause_round") is Texture2D pt) { pb.text = ""; pb.style.width = pb.style.height = 84; pb.style.backgroundColor = Color.clear; Border(pb, Color.clear, 0); pb.style.backgroundImage = new StyleBackground(pt); pb.style.paddingLeft = pb.style.paddingRight = 0; }
+            // camera: View cycles high / mid / low, then zoom out and in (also: C, mouse wheel)
+            Button Small(string t, System.Action a) { var b = Btn(t, a, false); b.style.marginLeft = 10; b.style.fontSize = touchUi ? 30 : 20; if (touchUi) { b.style.height = 92; b.style.minWidth = 92; } b.style.paddingLeft = b.style.paddingRight = touchUi ? 18 : 14; return b; }
+            viewBtn = Small("", () => { G.CycleView(); viewBtn.text = ViewLabel(); }); viewBtn.text = ViewLabel(); tr.Add(viewBtn);
+            tr.Add(Small("−", () => G.ZoomBy(.15f))); tr.Add(Small("+", () => G.ZoomBy(-.15f)));
             tr.Add(pb);
             // joystick (left 45% of the screen)
             // Soulslike: drag on the right side of the screen turns the camera (buttons sit on top and still win)
@@ -541,6 +571,13 @@ namespace NovaBlade
                 System.Action<IPointerEvent> release = e => { if (b.HasPointerCapture(e.pointerId)) b.ReleasePointer(e.pointerId); b.style.scale = new Scale(Vector3.one); ((SkBtn)b.userData).down = false; b.MarkDirtyRepaint(); Press(k, false); };
                 b.RegisterCallback<PointerUpEvent>(e => release(e)); b.RegisterCallback<PointerCancelEvent>(e => release(e));
                 btns.Add(b); sk[k] = b;
+            }
+            {   // weapon swap (shown when an off-hand weapon is set): small, above the dodge button
+                float ss = touchUi ? 110 : 76; var c = at[4].c + new Vector2(0, at[4].s / 2 + ss / 2 + 18);
+                swapBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(swapBtn, null, null, c.x - ss / 2, c.y - ss / 2); swapBtn.style.width = swapBtn.style.height = ss; Round(swapBtn, ss / 2);
+                Border(swapBtn, new Color(1, .84f, .55f, .8f), 3); swapBtn.pickingMode = PickingMode.Position; swapBtn.style.justifyContent = Justify.Center; swapBtn.style.alignItems = Align.Center;
+                var sl = L("⇄", touchUi ? 46 : 32, Gold, true); sl.pickingMode = PickingMode.Ignore; swapBtn.Add(sl);
+                swapBtn.RegisterCallback<PointerDownEvent>(e => { swapP = true; e.StopPropagation(); }); btns.Add(swapBtn);
             }
             sk[0].Q<Label>("lb").style.display = DisplayStyle.None;   // the sword icon is enough for the big button
             bool pcBarOn = !touchUi && PcArt("hud_bar_frame"); if (pcBarOn) { BuildPcBar(); btns.style.display = DisplayStyle.None; }
@@ -621,6 +658,8 @@ namespace NovaBlade
         }
         void UpdPcBar(Hero h)
         {
+            if (viewBtn != null) { var vt = ViewLabel(); if (viewBtn.text != vt) viewBtn.text = vt; }   // the phone default is only known once the HUD runs
+            if (swapBtn != null) swapBtn.style.display = h.OffHand != null && !G.soul ? DisplayStyle.Flex : DisplayStyle.None;
             if (pcBar == null) return;
             pcHp.style.height = Length.Percent(Mathf.Clamp01(h.hp / h.max) * 100); pcMp.style.height = Length.Percent(Mathf.Clamp01(h.mp / h.mpMax) * 100);
             int nw = G.Theme.waves.Length; float prog = G.lane ? 1 - G.TowersLeft(1) / 7f : Mathf.Clamp01((G.wave + (G.wave < nw ? 0 : 1)) / (float)(nw + 1));

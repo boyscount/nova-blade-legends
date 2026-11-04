@@ -79,6 +79,19 @@ namespace NovaBlade
         };
 
         // wings: looks only, worn by the hero (and the pet, if chosen); glow = emission, mote and bloom colour
+        // weapon affinity: a class fights best with its own weapon type (first) and fairly well with a second
+        public static float AffinityMain = .06f, AffinitySecond = .025f;
+        public static string[] Affinity(string cls) => cls switch { "warrior" => new[] { "sword", "dagger" }, "assassin" => new[] { "dagger", "sword" }, _ => System.Array.Empty<string>() };
+        public static float AffinityBonus(string cls, string type) { var a = Affinity(cls); return a.Length > 0 && a[0] == type ? AffinityMain : a.Length > 1 && a[1] == type ? AffinitySecond : 0; }
+        // weapon mastery, per weapon: kills with it earn points; each tier adds damage and critical chance, Master also
+        // strengthens the combo finisher
+        public static int[] MasteryXp = { 0, 40, 120, 300, 600 };
+        public static float[] MasteryDmg = { 0, .03f, .06f, .09f, .12f }, MasteryCrit = { 0, 0, .02f, .04f, .06f };
+        public static float MasterFinisher = 1.25f;
+        public static int BossMasteryXp = 25;
+        public static string[] MasteryName => new[] { Loc.S("ฝึกหัด", "Novice"), Loc.S("ชำนาญ", "Adept"), Loc.S("เชี่ยวชาญ", "Expert"), Loc.S("ช่ำชอง", "Veteran"), Loc.S("ปรมาจารย์", "Master") };
+        public static int Tier(int xp) { int t = 0; for (int i = 0; i < MasteryXp.Length; i++) if (xp >= MasteryXp[i]) t = i; return t; }
+
         public static readonly WingDef[] Wings =
         {
             new WingDef { id = "angel", name = Loc.S("ปีกเทวา", "Angel Wings"), desc = Loc.S("ขนนกขาวเรืองแสงทอง", "White feathers with a golden glow"), glow = new Color(1, .9f, .65f), gems = 120 },
@@ -190,9 +203,6 @@ namespace NovaBlade
             new ThemeDef { id = "castle", name = Loc.S("ปราสาทร้าง", "Ruined Castle"), desc = Loc.S("ห้องโถงหินมืด แสงคบเพลิงริบหรี่", "Dark stone halls in flickering torchlight"),
                 waves = new[] { new[] { ("skeleton", 4), ("spider", 3) }, new[] { ("skeleton", 3), ("candle", 3), ("bat", 3), ("demon", 1) }, new[] { ("demon", 2), ("giant", 1), ("skeleton", 4), ("bat", 3) } },
                 boss = new BossDef { model = "rig_b_lich", name = Loc.S("ราชาลิช", "Lich King"), scale = 2.0f, hp = 8500, tint = C(0xf0e8e0), glow = G(0x5a0a08, .3f), rage = G(0xa01010, .5f), color = C(0xff5a3a), summon = "skeleton" } },
-            new ThemeDef { id = "plaza", name = Loc.S("จัตุรัสเมืองยามค่ำ", "City Plaza at Night"), desc = Loc.S("ลานหินกลางเมืองเก่า มหาวิหารเรืองแสงไฟ", "Old-town cobbles under a lit cathedral"),
-                waves = new[] { new[] { ("skeleton", 4), ("goblin", 3) }, new[] { ("demon", 2), ("orc", 3), ("skeleton", 3) }, new[] { ("giant", 1), ("demon", 3), ("orc", 3), ("bat", 3) } },
-                boss = new BossDef { model = "captain", name = Loc.S("กัปตันกะโหลก", "Skull Captain"), scale = 1, hp = 9000, tint = C(0xf0e8e0), glow = G(0x5a0a08, .3f), rage = G(0xa01010, .5f), color = C(0xff5a3a), summon = "skeleton" } },
         };
         public static int ThemeOf(int stage) => (stage - 1) % Themes.Length;
         public const float ArenaR = 22.5f;

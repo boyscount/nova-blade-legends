@@ -24,6 +24,10 @@ namespace NovaBlade
         public Camera cam; Vector3 camPos, camLook; float gameZoom = 1;   // battle camera distance, mouse wheel
         public Ui ui;
         public Transform[] stageRoots; StageLook stageLook;
+        public static int CamStyle = -1;   // battle camera: -1 = the player's choice (saved), 0 high, 1 mid, 2 low (test flag -camstyle n)
+        public int ViewStyle => CamStyle >= 0 ? CamStyle : PlayerPrefs.GetInt("novaCam", ui && ui.touchUi ? 2 : 0);   // phones start low
+        public void CycleView() { PlayerPrefs.SetInt("novaCam", (ViewStyle + 1) % 3); PlayerPrefs.Save(); CamStyle = -1; }
+        public void ZoomBy(float d) => gameZoom = Mathf.Clamp(gameZoom + d, .6f, 1.8f);
         public ThemeDef Theme => Data.Themes[Data.ThemeOf(stage)];
 
         [System.Serializable]
@@ -33,6 +37,10 @@ namespace NovaBlade
             public int gems = Shop.TestGems;                       // test-only premium currency (no real payments yet)
             public List<string> owned = new(), ledger = new();     // ownership and purchase history, kept apart from what is equipped
             public List<string> wsKeys = new(), wsVals = new();    // equipped weapon skin per weapon
+            public string sword2 = "";                             // off-hand weapon ("" = none), swapped in during a fight
+            public List<string> mastKeys = new(); public List<int> mastVals = new();   // weapon mastery points per weapon
+            public int Mastery(string weapon) { int i = mastKeys.IndexOf(weapon); return i < 0 ? 0 : mastVals[i]; }
+            public void AddMastery(string weapon, int n) { int i = mastKeys.IndexOf(weapon); if (i < 0) { mastKeys.Add(weapon); mastVals.Add(n); } else mastVals[i] += n; }
             public string wings = ""; public bool petWings = true; // equipped wings ("" = none) and whether the pet wears a pair too
             public string WeaponSkin(string weapon) { int i = wsKeys.IndexOf(weapon); return i < 0 ? null : wsVals[i]; }
             public void SetWeaponSkin(string weapon, string model) { int i = wsKeys.IndexOf(weapon); if (i < 0) { wsKeys.Add(weapon); wsVals.Add(model); } else wsVals[i] = model; }
@@ -50,6 +58,7 @@ namespace NovaBlade
 
         void Awake()
         {
+            Balance.Load();   // Resources/Data/balance.json over the defaults in Data.cs
             G = this;
             Application.targetFrameRate = 60;
             if (Application.isMobilePlatform) QualitySettings.SetQualityLevel(0, true);   // phones (also mobile browsers): the Mobile URP asset
@@ -69,6 +78,8 @@ namespace NovaBlade
             var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
             if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
             int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
+            int p2 = System.Array.IndexOf(args, "-phase2test"); if (p2 >= 0 && p2 + 1 < args.Length) StartCoroutine(Phase2Test(args[p2 + 1]));
+            int cs = System.Array.IndexOf(args, "-camstyle"); if (cs >= 0 && cs + 1 < args.Length) CamStyle = int.Parse(args[cs + 1]);
             int si = System.Array.IndexOf(args, "-stageshot"); if (si >= 0 && si + 2 < args.Length) StartCoroutine(StageShot(int.Parse(args[si + 1]), args[si + 2]));
             int xi = System.Array.IndexOf(args, "-slashtest"); if (xi >= 0 && xi + 1 < args.Length) StartCoroutine(SlashTest(args[xi + 1]));
             int wa = System.Array.IndexOf(args, "-wingall"); if (wa >= 0 && wa + 1 < args.Length) StartCoroutine(WingAll(args[wa + 1]));
@@ -76,6 +87,29 @@ namespace NovaBlade
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
         }
 
+        // Test mode (-phase2test <dir>): weapon mastery, affinity and the off-hand swap, checked and logged (phase2.txt), then quit.
+        System.Collections.IEnumerator Phase2Test(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            var log = new System.Text.StringBuilder(); void Shot(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            save.hero = "warrior"; save.sword = "w_lava"; foreach (var w in new[] { "w_fantasy", "w_daggers" }) save.owned.Add(Shop.Key(ItemKind.Weapon, w));
+            save.sword2 = "w_daggers"; save.mastKeys.Clear(); save.mastVals.Clear(); save.AddMastery("w_lava", 130);
+            hero.Equip(); ui.SetTab("sword"); yield return new WaitForSecondsRealtime(1.5f); Shot("weapons_tab");
+            log.AppendLine($"lava xp {save.Mastery("w_lava")} tier {Data.Tier(save.Mastery("w_lava"))} ({Data.MasteryName[Data.Tier(save.Mastery("w_lava"))]})");
+            log.AppendLine($"warrior + sword affinity {Data.AffinityBonus("warrior", "sword")}, + dagger {Data.AffinityBonus("warrior", "dagger")}, mage + sword {Data.AffinityBonus("mage", "sword")}");
+            log.AppendLine($"AtkPow lava (Expert + sword affinity) = {hero.AtkPow:0.0}  crit bonus {hero.CritBonus}");
+            save.best = 5; StartGame(1); yield return new WaitForSecondsRealtime(2);
+            int xp0 = save.Mastery("w_lava");
+            for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { if (Random.value < .1f) ui.atkP = true; hero.hp = Mathf.Max(hero.hp, hero.max * .5f); yield return null; }
+            log.AppendLine($"kills {kills}, lava xp {xp0} -> {save.Mastery("w_lava")}");
+            Shot("before_swap"); log.AppendLine($"in hand: {hero.sword.id}, off-hand: {hero.OffHand?.id}");
+            ui.swapP = true; yield return new WaitForSecondsRealtime(.3f); Shot("after_swap");
+            log.AppendLine($"after swap: {hero.sword.id} AtkPow {hero.AtkPow:0.0} (dagger, warrior second affinity)");
+            yield return new WaitForSecondsRealtime(.8f); ui.swapP = true; yield return new WaitForSecondsRealtime(.3f); log.AppendLine($"swapped back: {hero.sword.id}");
+            log.AppendLine($"balance loaded: dmg tiers {string.Join(",", Data.MasteryDmg)}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "phase2.txt"), log.ToString());
+            Application.Quit();
+        }
         // Test mode (-stageshot <stage> <dir>): fight one stage on autopilot (shots at 3 s and 7 s), then its boss, then quit.
         System.Collections.IEnumerator StageShot(int st, string dir)
         {
@@ -241,6 +275,7 @@ namespace NovaBlade
             ui.SetTab("pet"); ui.lobbyZoom = .5f; ui.petYaw = -40; yield return new WaitForSecondsRealtime(1.5f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_pet.png")); yield return new WaitForSecondsRealtime(.5f);
             ui.SetTab("hero"); ui.lobbyZoom = 0; ui.heroYaw = ui.petYaw = 0;
             ui.TestFilter("mage"); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_filter.png")); yield return new WaitForSecondsRealtime(.5f); ui.TestFilter("all");
+            ui.SetTab("stage"); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_stages.png")); yield return new WaitForSecondsRealtime(.5f); ui.SetTab("hero");
             {   // design rule: cosmetics never change combat stats
                 save.sword = Data.Swords[0].id; hero.Equip(); float pow = hero.AtkPow, len = hero.sword.len, spd = hero.sword.spd;
                 pvWeaponSkin = "w_gold2"; pvSkin = 3; hero.Equip(); bool ok = Mathf.Approximately(pow, hero.AtkPow) && hero.sword.len == len && hero.sword.spd == spd && hero.ModelId == "w_gold2";
@@ -508,10 +543,12 @@ namespace NovaBlade
                 if (ms != null && mode == Mode.Game && !ui.PointerOverUi) { float sc = ms.scroll.ReadValue().y; if (Mathf.Abs(sc) > .01f) gameZoom = Mathf.Clamp(gameZoom - Mathf.Sign(sc) * .1f, .6f, 1.8f); }
                 float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom * (lane ? 1.35f : 1);   // lanes: higher and further back so whole towers fit
                 if (hero.dead) far *= .42f;   // death: close in on the fallen hero
-                bool low = stageLook && stageLook.lowCam && !lane;   // three-quarter view: the top of the screen shows the skyline
-                var focus = ui.Pan ?? hero.Pos; var want = focus + (low ? new Vector3(0, 4.1f * far, 9.6f * far) : new Vector3(0, 8.6f * far, 7.4f * far));
+                // camera height: high (top-down), mid, or low (three-quarter: the top of the screen shows the skyline)
+                int style = lane ? 0 : stageLook && stageLook.lowCam ? 2 : ViewStyle;
+                var off = style == 2 ? new Vector3(0, 4.1f, 9.6f) : style == 1 ? new Vector3(0, 6.2f, 8.8f) : new Vector3(0, 8.6f, 7.4f);
+                var focus = ui.Pan ?? hero.Pos; var want = focus + off * far;
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * (hero.dead ? 2.2f : 6)));
-                camLook = new Vector3(camPos.x, hero.dead ? .5f : lane ? 1.6f : low ? 1.3f : .9f, camPos.z - (low ? 9.6f : 7.4f) * far);
+                camLook = new Vector3(camPos.x, hero.dead ? .5f : lane ? 1.6f : style == 2 ? 1.3f : style == 1 ? 1.1f : .9f, camPos.z - off.z * far);
             }
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, soul && mode != Mode.Lobby ? 55 : 40, 1 - Mathf.Exp(-dt * 6));
             shake = Mathf.Max(0, shake - dt);
