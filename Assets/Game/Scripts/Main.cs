@@ -745,7 +745,8 @@ namespace NovaBlade
             float dt = Time.unscaledDeltaTime;
             if (mode == Mode.Lobby)
             {   // the lobby panel covers screen-right, which is world -X
-                float side = cam.aspect > 1.25f ? -.95f : 0; bool bot = hero.def != null && !hero.def.rig; float z = ui.lobbyZoom; Vector3 look, want;
+                // bag open: the hero steps right, between the worn-slot arc and the panel, seen whole
+                float side = cam.aspect > 1.25f ? (ui.BagOpen ? -.6f : -.95f) : 0; bool bot = hero.def != null && !hero.def.rig; float z = ui.BagOpen ? 0 : ui.lobbyZoom; Vector3 look, want;
                 if (ui.FocusPet && pet && pet.def != null)
                 {   // pet tab: frame the pet, zoom toward it
                     float d = Mathf.Lerp(2.6f, 1.05f, z); var pc = pet.transform.position + Vector3.up * pet.def.h * .5f;

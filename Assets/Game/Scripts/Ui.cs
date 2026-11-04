@@ -186,7 +186,7 @@ namespace NovaBlade
             lang.style.paddingTop = lang.style.paddingBottom = touchUi ? 10 : 6; lang.style.paddingLeft = lang.style.paddingRight = 16; Round(lang, 18); lang.pickingMode = PickingMode.Position; logo.Add(lang); logo.pickingMode = PickingMode.Position;
             // hero info on a dark fade so it reads over any stage
             var info = Box(); Abs(info, 0, null, null, 0); info.style.width = Length.Percent(42); info.style.paddingLeft = 44; info.style.paddingRight = 60; info.style.paddingTop = 140; info.style.paddingBottom = 34;
-            info.style.backgroundImage = new StyleBackground(Corner()); lobby.Add(info);
+            info.style.backgroundImage = new StyleBackground(Corner()); lobby.Add(info); lobbyInfo = info;
             heroT = L("", touchUi ? 29 : 24, Gold, true); Shadow(heroT); info.Add(heroT);
             heroN = L("", 72, Color.white, true); heroN.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 10, color = new Color(0, 0, 0, .9f) }; heroN.style.marginTop = -4; info.Add(heroN);
             heroD = L("", touchUi ? 27 : 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
@@ -490,17 +490,19 @@ namespace NovaBlade
         }
         public void TestSkills() => ShowSkills();
         bool shieldFocus;
-        VisualElement potBtn, lobbyPanel; Label potN;
+        VisualElement potBtn, lobbyPanel, lobbyInfo; Label potN;
 
         // ---------- the bag (inventory) ----------
         // left: the five worn slots beside the hero; right: filters, the grid, the chosen item's details and actions
         VisualElement bagOv, bagGrid, bagDetail, bagEquip; Label bagCap, bagMsg; string bagFilter = "all", bagSel;
         class BagEntry { public string kind, id, key; public int count, index; public bool worn; }
+        public bool BagOpen => bagOv != null && bagOv.style.display == DisplayStyle.Flex;
         public void ShowBag(bool on)
         {
             if (bagOv == null) BuildBag();
             bagOv.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             if (lobbyPanel != null) lobbyPanel.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
+            if (lobbyInfo != null && touchUi) lobbyInfo.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;   // phones: the arc needs the height the hero card takes
             if (on) { bagMsg.text = ""; RenderBag(); } else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderCards(); }
         }
         void BuildBag()
@@ -509,7 +511,7 @@ namespace NovaBlade
             bagOv = Box(); Abs(bagOv, 0, 0, 0, 0); bagOv.pickingMode = PickingMode.Ignore; lobby.Add(bagOv);
             // worn slots
             // the worn slots sit on an arc that curves round the hero, with a thin gold line through them
-            bagEquip = Box(); Abs(bagEquip, touchUi ? 220 : 300, touchUi ? 120 : 130); bagEquip.style.width = ArcW; bagEquip.style.height = ArcH; bagEquip.pickingMode = PickingMode.Ignore; bagOv.Add(bagEquip);
+            bagEquip = Box(); Abs(bagEquip, touchUi ? 220 : 300, touchUi ? 200 : 130); bagEquip.style.width = ArcW; bagEquip.style.height = ArcH; bagEquip.pickingMode = PickingMode.Ignore; bagOv.Add(bagEquip);
             bagEquip.generateVisualContent += ctx =>
             {
                 var p = ctx.painter2D; var c = ArcC;
@@ -567,7 +569,7 @@ namespace NovaBlade
             v.generateVisualContent += ctx => Items.Icon(ctx, d.slot, v.resolvedStyle.width, c); return v;
         }
         // the arc: a circle centred to the right of the slots (on the hero), the five slots spread over its left side
-        float ArcW => touchUi ? 330 : 280; float ArcH => touchUi ? 720 : 600; float ArcR => touchUi ? 380 : 320;
+        float ArcW => touchUi ? 330 : 280; float ArcH => touchUi ? 640 : 600; float ArcR => touchUi ? 340 : 320;
         Vector2 ArcC => new Vector2(ArcW + (touchUi ? 140 : 120), ArcH / 2);
         Vector2 ArcPos(int i) { float a = (242 - i * 31) * Mathf.Deg2Rad; return ArcC + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * ArcR; }
         int Rarity(BagEntry e) => e.kind == "w" ? Mathf.Clamp(Mathf.RoundToInt((Data.Swords.First(w => w.id == e.id).price) / 300f), 0, 4) : Items.Get(e.id)?.rarity ?? 0;
@@ -579,7 +581,7 @@ namespace NovaBlade
             { bool on = b.name == "bf_" + bagFilter; b.style.backgroundColor = on ? new Color(1, .7f, .25f, .25f) : new Color(1, 1, 1, .05f); Border(b, on ? Gold : new Color(1, 1, 1, .15f), 1.5f); }
             // worn slots
             bagEquip.Clear(); var eqT = L(Loc.S("สวมใส่", "EQUIPPED"), 24 * big, Gold, true); eqT.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 6, color = Color.black };
-            { var a0 = ArcPos(0); Abs(eqT, a0.x - 60 * big, a0.y - 88 * big); } bagEquip.Add(eqT);
+            { var a0 = ArcPos(0); Abs(eqT, a0.x - 30 * big, a0.y - 84 * big); } bagEquip.Add(eqT);
             int slotN = 0;
             var wornList = new List<(string label, string kind, string id, string key)> { (Loc.S("อาวุธ", "WEAPON"), "w", s.sword, "w:" + s.sword) };
             foreach (var sl in new[] { Slot.Helm, Slot.Armor, Slot.Boots, Slot.Accessory }) { var id = Items.Worn(s, sl); wornList.Add((Items.SlotName(sl).ToUpper(), "g", id, "worn:" + sl)); }
