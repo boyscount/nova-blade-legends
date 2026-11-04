@@ -216,7 +216,7 @@ public static class NovaBuild
         var inst = (GameObject)Object.Instantiate(pf); var an = inst.GetComponentInChildren<Animator>(); var hand = an.GetBoneTransform(HumanBodyBones.RightHand);
         foreach (var k in NovaSetup.Clips.Keys)
         {
-            var clip = NovaSetup.Clip(k); float best = 0, hit = clip.length * .5f; Vector3 prev = default;
+            var clip = NovaSetup.Clip(k); if (!clip) continue; float best = 0, hit = clip.length * .5f; Vector3 prev = default;
             var g = PlayableGraph.Create(); var o = AnimationPlayableOutput.Create(g, "o", an); var cp = AnimationClipPlayable.Create(g, clip); o.SetSourcePlayable(cp);
             for (float t = 0; t <= clip.length; t += 1 / 30f)
             {

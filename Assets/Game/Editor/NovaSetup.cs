@@ -37,6 +37,8 @@ public static class NovaSetup
         ["backstep"] = ("Dodge Backward With Bow", false),
         // ranged / caster classes (Phase 2): bow draw + release, one-hand spell, two-hand cast
         ["bowdraw"] = ("Standing Draw Arrow", false), ["bowshot"] = ("Standing Aim Recoil", false),
+        // character-select stances (lobby only): women and men each have their own (added once the files are in Animations/)
+        ["show_f"] = ("Catwalk Idle To Twist R", true), ["show_m"] = ("Thoughtful Head Shake", true),
         ["cast1"] = ("Standing 1H Magic Attack 01", false), ["cast2"] = ("Standing 2H Cast Spell 01", false), ["sblock"] = ("Sword And Shield Block Idle", true), ["sblockhit"] = ("Sword And Shield Blocked Impact", false),
     };
     // per-class clips from Animations/new (Mixamo "Ch02_nonPBR@<name>.fbx"): set -> state -> (clip name, loops)
@@ -109,14 +111,14 @@ public static class NovaSetup
     }
     public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
     // class heroes (auto-rigged by arena_autorig.py): build their avatars and prefabs against the existing controller
-    public static readonly string[] ClassHeroes = { "warrior", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
+    public static readonly string[] ClassHeroes = { "warrior", "samurai", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
     public static void NewHeroes()
     {
         AssetDatabase.ImportAsset(Heroes, ImportAssetOptions.ImportRecursive);
         var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
         // clips added to the table after the controller was built: import them and add their states in place (prefabs keep the controller)
         var sm = ctrl.layers[0].stateMachine; var have = sm.states.Select(s => s.state.name).ToHashSet();
-        var missing = Clips.Where(kv => !have.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+        var missing = Clips.Where(kv => !have.Contains(kv.Key) && File.Exists($"{Anim}/{kv.Value.file}.fbx")).ToDictionary(kv => kv.Key, kv => kv.Value);
         if (missing.Count > 0)
         {
             var all = new Dictionary<string, (string, bool)>(Clips); Clips.Clear(); foreach (var kv in missing) Clips[kv.Key] = kv.Value;
@@ -199,7 +201,7 @@ public static class NovaSetup
     public static AnimationClip Clip(string state)
     {
         var f = Clips[state].file;
-        return AssetDatabase.LoadAllAssetsAtPath($"{Anim}/{f}.fbx").OfType<AnimationClip>().First(c => !c.name.StartsWith("__preview__"));
+        return AssetDatabase.LoadAllAssetsAtPath($"{Anim}/{f}.fbx").OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview__"));   // null: not downloaded yet
     }
 
     static AnimatorController BuildController()
@@ -209,6 +211,7 @@ public static class NovaSetup
         var sm = ac.layers[0].stateMachine;
         foreach (var k in Clips.Keys)
         {
+            if (!File.Exists($"{Anim}/{Clips[k].file}.fbx")) continue;
             var st = sm.AddState(k);
             st.motion = Clip(k);
             st.speedParameterActive = true; st.speedParameter = "Speed";

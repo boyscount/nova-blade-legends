@@ -100,3 +100,16 @@
 - [ ] monk_punch1
 - [ ] monk_punch2
 - [ ] monk_kick
+
+---
+
+## ท่ายืนหน้าเลือกตัวละคร (แยกผู้หญิง/ผู้ชาย)
+วางไฟล์ที่ `nova-blade-unity/Assets/Game/Animations/` (โฟลเดอร์หลัก ไม่ใช่โฟลเดอร์ย่อย) **ชื่อไฟล์ตามนี้เป๊ะๆ** แล้วบอก Claude
+
+| ชื่อไฟล์ | ค้นใน Mixamo | ใช้กับ |
+|---|---|---|
+| `Catwalk Idle To Twist R.fbx` | Catwalk Idle To Twist R | ฮีโร่ผู้หญิงทุกตัว |
+| `Thoughtful Head Shake.fbx` | Thoughtful Head Shake | ฮีโร่ผู้ชายทุกตัว |
+
+- ตั้งค่าเหมือนข้างบน: FBX for Unity, Without Skin, 30 fps
+- โค้ดเตรียมไว้แล้ว: พอมีไฟล์ เกมจะใช้ท่านี้เฉพาะหน้าเลือกตัวละคร (ตอนสู้ใช้ท่าเดิม)

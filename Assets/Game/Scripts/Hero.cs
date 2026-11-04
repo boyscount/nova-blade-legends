@@ -49,7 +49,7 @@ namespace NovaBlade
                 animSet = Data.AnimSet(def.id); if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
                 // lobby: a bowed head warps the faces of the auto-rigged heroes, so the head keeps its sculpted angle
                 // on the neck (the neck and body still move; see LateUpdate)
-                lockBones = lobby && anim ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
+                lockBones = lobby && anim && !GenderShow ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
                 lockRot = lockBones?.Select(t => t.localRotation).ToArray();
                 socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 BuildMounts();
@@ -69,7 +69,7 @@ namespace NovaBlade
             look = new Look(model); var sk = def.skins[skinIdx]; look.Set(sk.tint, sk.glow);
             EquipSword(lobby); EquipShield(lobby);
             WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, def.id == "harpy" ? null : G.WingsShown, !anim);   // Aeris has wings of her own
-            state = St.Idle; Play(G.mode == Main.Mode.Lobby ? "show" : "idle", .1f);
+            state = St.Idle; Play(G.mode == Main.Mode.Lobby ? Show : "idle", .1f);
         }
         // Mounts for the round-2 weapons, made while the model is still in its rest pose (arms out): frames on the bones
         // with X along the arm or the grip and Y toward the chest's front, so each weapon sits the same on every rig.
@@ -406,7 +406,7 @@ namespace NovaBlade
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);
                     var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 2.4f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
                 }
-                else Loop(G.mode == Main.Mode.Lobby ? "show" : "idle");
+                else Loop(G.mode == Main.Mode.Lobby ? Show : "idle");
             }
             if (!def.rig) ToyBot(dt, mv);
             else { var gp = transform.position; gp.y = Mathf.Lerp(gp.y, River.Ground(gp.x, gp.z), Mathf.Min(1, dt * 12)); transform.position = gp; }
@@ -414,7 +414,9 @@ namespace NovaBlade
             bool blink = inv > 0 && state != St.Dodge && state != St.Skill && Mathf.FloorToInt(inv * 24) % 2 == 1;
             if (model.activeSelf == blink) model.SetActive(!blink);
         }
-        bool OldRig => def.id == "warrior" || def.id == "samurai" || def.id == "harpy";   // hand-rigged heroes keep their idle animation in the lobby
+        // character select: women and men each have a stance of their own once its clip is in the controller (else the shared "show")
+        bool GenderShow => anim && anim.HasState(0, Animator.StringToHash(def.female ? "show_f" : "show_m"));
+        string Show => GenderShow ? (def.female ? "show_f" : "show_m") : "show";
         public string animSet; Transform[] lockBones; Quaternion[] lockRot;
         void LateUpdate()
         {

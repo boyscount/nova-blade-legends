@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Playables;
 
 namespace NovaBlade
 {
@@ -89,6 +90,7 @@ namespace NovaBlade
             int wa = System.Array.IndexOf(args, "-wingall"); if (wa >= 0 && wa + 1 < args.Length) StartCoroutine(WingAll(args[wa + 1]));
             int wi = System.Array.IndexOf(args, "-wingtest"); if (wi >= 0 && wi + 1 < args.Length) StartCoroutine(WingTest(args[wi + 1]));
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
+            int pk = System.Array.IndexOf(args, "-posecheck"); if (pk >= 0 && pk + 2 < args.Length) StartCoroutine(PoseCheck(args[pk + 1], args[pk + 2]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
         }
@@ -202,6 +204,27 @@ namespace NovaBlade
                 if (Random.value < .08f) ui.atkP = true; hero.hp = Mathf.Max(hero.hp, hero.max * .5f);
                 if (n < 2 && t > 3 + n * 3) { Shot($"game_{n}"); n++; }
                 yield return null;
+            }
+            Application.Quit();
+        }
+        // Test mode (-posecheck <hero> <dir>): the hero on the lobby stage close up, posed mid-clip in its run and attacks,
+        // seen from four sides, then quit. For checking skinning (stretching cloth) and how the weapon sits.
+        System.Collections.IEnumerator PoseCheck(string id, string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); save.wings = ""; save.shield = ""; save.sword = "w_lava"; yield return new WaitForSecondsRealtime(3);
+            save.hero = id; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.lobbyZoom = .3f; yield return new WaitForSecondsRealtime(1);
+            var an = hero.GetComponentInChildren<Animator>();
+            var clips = an.runtimeAnimatorController.animationClips.GroupBy(c => c.name).Select(g => g.First()).ToList();
+            foreach (var key in new[] { "show", "run", "slash", "spin" })
+            {
+                var c = key == "show" ? null : clips.FirstOrDefault(x => x.name.ToLower().Contains(key)); UnityEngine.Playables.PlayableGraph g = default;
+                if (c) { var pc = UnityEngine.Animations.AnimationClipPlayable.Create(g = UnityEngine.Playables.PlayableGraph.Create(), c); UnityEngine.Animations.AnimationPlayableOutput.Create(g, "o", an).SetSourcePlayable(pc); pc.SetTime(c.length * .3f); pc.SetSpeed(0); g.Play(); }
+                foreach (var yaw in new[] { 0, 90, 180, 270 })
+                {
+                    ui.heroYaw = yaw; yield return new WaitForSecondsRealtime(.6f);
+                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{id}_{key}_{yaw}.png")); yield return null;
+                }
+                if (c) g.Destroy();
             }
             Application.Quit();
         }
