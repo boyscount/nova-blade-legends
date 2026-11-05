@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using NovaBlade;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -57,10 +58,6 @@ public static class NovaBuild
     public static void BuildWebGL()
     {
         BuildWeb(false); BuildWeb(true);
-        // the two builds share the same code files (same hashed names) and the second build takes them over: give the PC
-        // build its copies back
-        foreach (var f in Directory.GetFiles("Builds/WebGL/Build").Where(f => !f.Contains(".data.")))
-        { var to = Path.Combine("Builds/WebGL_PC/Build", Path.GetFileName(f)); if (!File.Exists(to)) File.Copy(f, to); }
     }
     public static void BuildWebPhone() => BuildWeb(true);
     static void BuildWeb(bool phone)
@@ -72,10 +69,33 @@ public static class NovaBuild
         PlayerSettings.WebGL.nameFilesAsHashes = true;
         EditorUserBuildSettings.webGLBuildSubtarget = phone ? WebGLTextureSubtarget.ASTC : WebGLTextureSubtarget.DXT;
         var dir = phone ? "Builds/WebGL" : "Builds/WebGL_PC";
+        // the phone build removes the code files of the PC build made before it (their hashed names can differ): keep the PC ones and put them back
+        var pcCode = phone && Directory.Exists("Builds/WebGL_PC/Build") ? Directory.GetFiles("Builds/WebGL_PC/Build").Where(f => !f.Contains(".data.")).ToDictionary(f => f, File.ReadAllBytes) : null;
         var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, dir, BuildTarget.WebGL, BuildOptions.None);
         Debug.Log($"[NovaBuild] webgl {(phone ? "phone" : "PC")} build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
         SplitData(dir);
+        if (pcCode != null)
+        {
+            foreach (var f in Directory.GetFiles("Builds/WebGL_PC/Build").Where(f => !f.Contains(".data.") && !pcCode.ContainsKey(f))) File.Delete(f);
+            foreach (var kv in pcCode) File.WriteAllBytes(kv.Key, kv.Value);
+            CheckPage("Builds/WebGL_PC");
+        }
+        CheckPage(dir);
+    }
+
+    // every file the page asks for must be in the build folder, otherwise it hangs on the loading screen once deployed
+    static void CheckPage(string dir)
+    {
+        var html = File.ReadAllText(dir + "/index.html"); int parts = int.Parse(Regex.Match(html, "var dataParts = ([0-9]+)").Groups[1].Value);
+        var missing = new List<string>();
+        foreach (Match m in Regex.Matches(html, @"""Build/([^""]+)"""))
+        {
+            var name = m.Groups[1].Value; bool cut = parts > 0 && name.Contains(".data");
+            for (int i = 0; i < (cut ? parts : 1); i++) { var f = cut ? $"{name}.part{i}" : name; if (!File.Exists($"{dir}/Build/{f}")) missing.Add(f); }
+        }
+        if (missing.Count == 0) { Debug.Log($"[NovaBuild] page check {dir}: OK"); return; }
+        Debug.LogError($"[NovaBuild] page check {dir}: missing {string.Join(", ", missing)}"); EditorApplication.Exit(1);
     }
 
     // GitHub Pages refuses files over 100 MB: cut the data file into 90 MB parts (<name>.part0, .part1, ...);

@@ -7,8 +7,10 @@ const types = { ".html": "text/html; charset=utf-8", ".js": "application/javascr
 
 http.createServer((req, res) => {
   let rel = decodeURIComponent(req.url.split("?")[0]); if (rel.endsWith("/")) rel += "index.html";
-  const file = path.normalize(path.join(root, rel));
-  if (!file.startsWith(root)) { res.writeHead(403); return res.end(); }
+  // same layout as the live site: the phone build at the root, the PC build under /pc/ (a PC browser gets sent there by the page)
+  const pc = rel.startsWith("/pc/"), base = pc ? path.join(__dirname, "Builds", "WebGL_PC") : root;
+  const file = path.normalize(path.join(base, pc ? rel.slice(3) : rel));
+  if (!file.startsWith(base)) { res.writeHead(403); return res.end(); }
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); return res.end("not found"); }
     let name = file, headers = { "Content-Length": st.size, "Cache-Control": "no-cache" };

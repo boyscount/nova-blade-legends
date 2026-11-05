@@ -35,7 +35,8 @@
     canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     canvas.addEventListener("pointerdown", function () { canvas.focus(); });
     window.addEventListener("load", function () { canvas.focus(); });
-    var mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    // (iPads report themselves as a Mac, so they are told apart by touch)
+    var mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     // two builds: this page at the site root is the phone build; PC browsers go to the sharper PC build in pc/
     if (!mobile && !/\/pc\/?/.test(location.pathname) && !/[?&]phone/.test(location.search)) location.replace("pc/" + location.search);
     var config = {
@@ -77,6 +78,7 @@
         .then(function () { document.getElementById("load").style.display = "none"; })
         .catch(function (m) { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: " + m; });
     };
+    script.onerror = function () { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: ไม่พบไฟล์เกม " + script.src; };
     document.body.appendChild(script);
   </script>
 </body>
