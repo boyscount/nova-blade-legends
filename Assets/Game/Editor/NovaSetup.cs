@@ -111,7 +111,7 @@ public static class NovaSetup
     }
     public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
     // class heroes (auto-rigged by arena_autorig.py): build their avatars and prefabs against the existing controller
-    public static readonly string[] ClassHeroes = { "warrior", "samurai", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
+    public static readonly string[] ClassHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress" };
     public static void NewHeroes()
     {
         AssetDatabase.ImportAsset(Heroes, ImportAssetOptions.ImportRecursive);

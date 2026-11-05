@@ -44,14 +44,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: sorceress
       objectReference: {fileID: 0}
-    - target: {fileID: 1957694446290601253, guid: b81b44e793a95534f86196d1cf279ecd, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.060230754
-      objectReference: {fileID: 0}
-    - target: {fileID: 1957694446290601253, guid: b81b44e793a95534f86196d1cf279ecd, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0.011854283
-      objectReference: {fileID: 0}
     - target: {fileID: 7512201547712726738, guid: b81b44e793a95534f86196d1cf279ecd, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

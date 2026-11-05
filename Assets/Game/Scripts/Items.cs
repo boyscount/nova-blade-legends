@@ -111,7 +111,7 @@ namespace NovaBlade
             if (s.gold < gold) return EnhanceResult.NoGold;
             s.mats[d.rarity] -= shards; s.gold -= gold;
             if (Random.value >= Chance(n)) return EnhanceResult.Failed;
-            id = WithLevel(id, n + 1); return EnhanceResult.Success;
+            id = WithLevel(id, n + 1); Quests.Bump(s, "enhance"); return EnhanceResult.Success;
         }
         // an enhanced piece gives some of what went into it back: half the shards, and a higher price
         public static int DismantleShards(string id) { var d = Get(id); int n = Level(id), spent = 0; for (int i = 0; i < n; i++) spent += ShardCost(i); return 1 + d.rarity / 2 + spent / 2; }

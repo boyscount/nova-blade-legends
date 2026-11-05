@@ -194,7 +194,9 @@ namespace NovaBlade
             sk.style.paddingTop = sk.style.paddingBottom = touchUi ? 10 : 6; sk.style.paddingLeft = sk.style.paddingRight = 16; Round(sk, 18); sk.pickingMode = PickingMode.Position;
             var bagB = Btn(Loc.S("กระเป๋า", "Bag"), () => ShowBag(true)); bagB.style.fontSize = touchUi ? 24 : 18; bagB.style.marginTop = 10; bagB.style.marginLeft = 10;
             bagB.style.paddingTop = bagB.style.paddingBottom = touchUi ? 10 : 6; bagB.style.paddingLeft = bagB.style.paddingRight = 20; Round(bagB, 18); bagB.pickingMode = PickingMode.Position; BagIcon(bagB, touchUi ? 34 : 28);
-            var brow = Box(); brow.style.flexDirection = FlexDirection.Row; brow.style.alignItems = Align.Center; brow.Add(sk); brow.Add(bagB); info.Add(brow);
+            questB = Btn(Loc.S("เควสต์", "Quests"), () => ShowQuests(true)); questB.style.fontSize = touchUi ? 24 : 18; questB.style.marginTop = 10; questB.style.marginLeft = 10;
+            questB.style.paddingTop = questB.style.paddingBottom = touchUi ? 10 : 6; questB.style.paddingLeft = questB.style.paddingRight = 20; Round(questB, 18); questB.pickingMode = PickingMode.Position;
+            var brow = Box(); brow.style.flexDirection = FlexDirection.Row; brow.style.alignItems = Align.Center; brow.Add(sk); brow.Add(bagB); brow.Add(questB); info.Add(brow);
             var st = Box(); st.style.marginTop = 12; info.Add(st); stats = new VisualElement[4];
             string[] names = { Loc.S("พลังชีวิต", "Health"), Loc.S("โจมตี", "Attack"), Loc.S("ความเร็ว", "Speed"), Loc.S("ระยะ", "Range") };
             for (int i = 0; i < 4; i++)
@@ -336,6 +338,7 @@ namespace NovaBlade
         }
         void RenderInfo()
         {
+            if (questB != null) { int qn = Quests.ReadyCount(G.save); questB.text = qn > 0 ? Loc.S($"เควสต์ ({qn})", $"Quests ({qn})") : Loc.S("เควสต์", "Quests"); }
             var h = G.hero.def; heroT.text = $"Lv.{Data.Level(G.save.HeroXp(h.id))}  ·  {h.title}"; heroN.text = h.name; heroD.text = Loc.S("สกิล: ", "Skills: ") + string.Join(" · ", h.skills.Select(s => Data.SkillLook(h.id, s).n));
             for (int i = 0; i < 4; i++) stats[i].style.width = Length.Percent(h.stats[i] * 100);
             goldL.text = G.save.gold.ToString("N0"); gemsL.text = G.save.gems.ToString("N0") + Loc.S(" (ทดสอบ)", " (test)");
@@ -547,6 +550,51 @@ namespace NovaBlade
             if (lobbyInfo != null && touchUi) lobbyInfo.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;   // phones: the arc needs the height the hero card takes
             if (on) { bagMsg.text = ""; bagConfirm = null; RenderBag(); } else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderInfo(); RenderCards(); }
         }
+        // ---------- Quests ----------
+        Button questB; VisualElement questOv, questList; Label questCount;
+        public void ShowQuests(bool on)
+        {
+            if (questOv == null) BuildQuests();
+            questOv.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            if (lobbyPanel != null) lobbyPanel.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
+            if (on) RenderQuests(); else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderInfo(); RenderCards(); }
+        }
+        void BuildQuests()
+        {
+            float big = touchUi ? 1.2f : 1;
+            questOv = Box(); Abs(questOv, 0, 0, 0, 0); questOv.pickingMode = PickingMode.Ignore; lobby.Add(questOv);
+            var pn = Box(new Color(.045f, .085f, .125f, .9f), 12); Border(pn, Gold, 2.5f); Abs(pn, null, 70, 44, 44); pn.style.width = Length.Percent(54); Pad(pn, 32); pn.pickingMode = PickingMode.Position; questOv.Add(pn);
+            var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
+            var tl = L(Loc.S("เควสต์", "QUESTS"), 40 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; tl.style.marginLeft = 10; top.Add(tl);
+            questCount = L("", 22 * big, Muted, true); top.Add(questCount);
+            var x = new Button(() => ShowQuests(false)) { text = "" }; DrawX(x); x.style.width = x.style.height = 48 * big; x.style.marginLeft = 14;
+            x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); top.Add(x);
+            var sv = new ScrollView(ScrollViewMode.Vertical); sv.style.flexGrow = 1; sv.style.marginTop = 14; pn.Add(sv); questList = sv.contentContainer;
+            FrameOrnaments(pn);
+            questOv.style.display = DisplayStyle.None;
+        }
+        void RenderQuests()
+        {
+            var s = G.save; float big = touchUi ? 1.2f : 1; questList.Clear();
+            questCount.text = $"{Quests.All.Count(q => Quests.Claimed(s, q))} / {Quests.All.Length}";
+            foreach (var q in Quests.Sorted(s))
+            {
+                bool ready = Quests.Ready(s, q), got = Quests.Claimed(s, q); int prog = Quests.Progress(s, q); var qq = q;
+                var row = Box(new Color(0, 0, 0, got ? .15f : .35f), 12); Border(row, ready ? Gold : new Color(1, .84f, .55f, .25f), ready ? 2 : 1); Pad(row, 12); row.style.flexDirection = FlexDirection.Row; row.style.alignItems = Align.Center; row.style.marginBottom = 8; row.style.flexShrink = 0; questList.Add(row);
+                var col = Box(); col.style.flexGrow = 1; col.style.flexShrink = 1; col.style.marginRight = 12; row.Add(col);
+                col.Add(L(q.name, 24 * big, got ? Muted : Ink, true)); var desc = L(q.desc, 18 * big, Muted); desc.style.whiteSpace = WhiteSpace.Normal; col.Add(desc);
+                var bar = Box(new Color(1, 1, 1, .1f), 4); bar.style.height = 8 * big; bar.style.marginTop = 6; col.Add(bar);
+                var fill = Box(got ? Muted : Gold, 4); fill.style.height = Length.Percent(100); fill.style.width = Length.Percent(100f * prog / q.goal); bar.Add(fill);
+                var side = Box(); side.style.alignItems = Align.FlexEnd; side.style.flexShrink = 0; row.Add(side);
+                if (got) side.Add(L(Loc.S("รับแล้ว", "Claimed"), 20 * big, Muted, true));
+                else
+                {
+                    side.Add(L(Quests.Reward(q), 18 * big, Gold, true));
+                    if (ready) { var c = Btn(Loc.S("รับรางวัล", "CLAIM"), () => { if (Quests.Claim(G.save, qq)) { G.Persist(); RenderQuests(); } }); StyleGold(c, true); c.style.fontSize = 20 * big; c.style.marginTop = 6; c.style.paddingTop = c.style.paddingBottom = 6 * big; c.style.paddingLeft = c.style.paddingRight = 18; side.Add(c); }
+                    else side.Add(L($"{prog} / {q.goal}", 20 * big, Muted, true));
+                }
+            }
+        }
         void BuildBag()
         {
             float big = touchUi ? 1.2f : 1;
@@ -711,7 +759,7 @@ namespace NovaBlade
             }
             else if (sel.kind == "g")
             {
-                Act(Loc.S("สวมใส่", "EQUIP"), true, () => { var old = Items.Worn(s, def.slot); s.bag.RemoveAt(sel.index); if (!string.IsNullOrEmpty(old)) s.bag.Add(old); Items.SetWorn(s, def.slot, sel.id); bagSel = "worn:" + def.slot; bagMsg.text = Loc.S($"สวม {def.name} แล้ว", $"{def.name} equipped"); });
+                Act(Loc.S("สวมใส่", "EQUIP"), true, () => { Quests.Bump(s, "wear"); var old = Items.Worn(s, def.slot); s.bag.RemoveAt(sel.index); if (!string.IsNullOrEmpty(old)) s.bag.Add(old); Items.SetWorn(s, def.slot, sel.id); bagSel = "worn:" + def.slot; bagMsg.text = Loc.S($"สวม {def.name} แล้ว", $"{def.name} equipped"); });
                 EnhanceBox();
                 int dShards = Items.DismantleShards(sel.id), price = Items.SellPrice(sel.id);
                 Act(Loc.S($"ย่อย (ได้ผลึก{Items.RarityTh[def.rarity]} x{dShards})", $"DISMANTLE (+{dShards} {Items.RarityEn[def.rarity]} Shard)"), false, () => Guarded("d", () => { s.bag.RemoveAt(sel.index); s.mats[def.rarity] += dShards; bagSel = null; bagMsg.text = Loc.S("ย่อยแล้ว", "Dismantled"); }));
@@ -881,7 +929,7 @@ namespace NovaBlade
         void FieldWear(string id, int index)
         {
             var s = G.save; var def = Items.Get(id); var old = Items.Worn(s, def.slot);
-            s.bag.RemoveAt(index); if (!string.IsNullOrEmpty(old)) s.bag.Add(old); Items.SetWorn(s, def.slot, id); G.runLoot.Remove(id); G.hero.RefreshGear(); fbSel = "worn:" + def.slot;
+            Quests.Bump(s, "wear"); s.bag.RemoveAt(index); if (!string.IsNullOrEmpty(old)) s.bag.Add(old); Items.SetWorn(s, def.slot, id); G.runLoot.Remove(id); G.hero.RefreshGear(); fbSel = "worn:" + def.slot;
             fbMsg.text = Loc.S($"สวม {Items.Name(id)} แล้ว", $"{Items.Name(id)} equipped"); G.Persist();
         }
         public string FieldWearFirst() { var e = FieldEntries(); if (e.Count == 0) return "nothing"; FieldWear(e[0].id, e[0].index); RenderFieldBag(); return Items.Name(e[0].id); }   // test mode
@@ -1009,6 +1057,8 @@ namespace NovaBlade
                 Border(c, Color.Lerp(new Color(1, .72f, .25f), new Color(1, .97f, .78f), b), 3);
             }).Every(33);
         }
+        public void TestPick() => Pick();   // autopilot
+        public void TestRenderInfo() => RenderInfo(); public void TestRenderCards() => RenderCards();   // autopilot: timed one at a time
         void Pick()
         {
             G.Persist(); G.stage = G.save.stage;

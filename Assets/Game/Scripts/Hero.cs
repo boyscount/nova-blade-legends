@@ -425,11 +425,11 @@ namespace NovaBlade
             else { var gp = transform.position; gp.y = Mathf.Lerp(gp.y, River.Ground(gp.x, gp.z), Mathf.Min(1, dt * 12)); transform.position = gp; }
             transform.rotation = Quaternion.Euler(0, (face + spin) * Mathf.Rad2Deg, 0);
             bool blink = inv > 0 && state != St.Dodge && state != St.Skill && Mathf.FloorToInt(inv * 24) % 2 == 1;
-            if (model.activeSelf == blink) model.SetActive(!blink);
+            if (model.activeSelf == blink) { model.SetActive(!blink); var wp = transform.Find("Wings"); if (wp) wp.gameObject.SetActive(!blink); }   // the wings hang off the root, so they blink with the body
         }
         // character select: women and men each have a stance of their own once its clip is in the controller (else the shared "show")
         bool GenderShow => anim && anim.HasState(0, Animator.StringToHash(def.female ? "show_f" : "show_m"));
-        string Show => GenderShow ? (def.female ? "show_f" : "show_m") : "show";
+        string Show => !GenderShow ? "show" : def.female ? "show_f" : "idle";   // men stand: the show_m clip is a kneel that drops them out of the picture
         public string animSet; Transform[] lockBones; Quaternion[] lockRot;
         void LateUpdate()
         {

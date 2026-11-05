@@ -15,13 +15,13 @@ namespace NovaBlade
             if (want == on) return; on = want;
             if (!want)
             {   // the stage's own StageLook.Apply() restores fog, ambient and sky; the sun is restored here
-                if (root) root.SetActive(false); if (set) set.SetActive(false); Dof(0);
+                if (root) root.SetActive(false); if (set) set.SetActive(false); Dof(0); Cull(false);
                 if (sun) { sun.color = sunCol; sun.intensity = sunInt; }
                 return;
             }
             if (!root) Build();
             root.SetActive(true); if (set) set.SetActive(true);
-            Dof(1);
+            Dof(1); Cull(true);
             sun = RenderSettings.sun; if (sun) { sunCol = sun.color; sunInt = sun.intensity; sun.color = new Color(.6f, .7f, 1); sun.intensity = .6f; }
             Color sky = new(.24f, .29f, .5f), eq = new(.13f, .15f, .24f), ground = new(.05f, .06f, .07f), fog = new(.04f, .065f, .1f);
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = fog; RenderSettings.fogDensity = .032f;
@@ -32,6 +32,15 @@ namespace NovaBlade
             if (Camera.main) { Camera.main.clearFlags = CameraClearFlags.SolidColor; Camera.main.backgroundColor = new Color(.02f, .03f, .06f); }
         }
 
+        // the lobby shows the hero and the dark treeline: the stage's far scenery is lost in fog but cost 40% of the frame.
+        // The night sky and set sit on their own layer, so only stage scenery is cut.
+        const int NightLayer = 1; const float FarScenery = 24;
+        static void Cull(bool lobby)
+        {
+            var c = Camera.main; if (!c) return; var d = new float[32]; if (lobby) d[0] = FarScenery; c.layerCullSpherical = true; c.layerCullDistances = d;
+            if (!lobby) return;
+            foreach (var g in new[] { root, set }) if (g) foreach (var t in g.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = NightLayer;
+        }
         static Texture2D Dot()
         {
             var t = new Texture2D(32, 32, TextureFormat.RGBA32, false);

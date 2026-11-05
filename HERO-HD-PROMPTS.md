@@ -36,8 +36,8 @@ stylized realistic fantasy game character, clean high detail textures, game-read
 
 - [x] `warrior.glb` เข้าเกมแล้ว
 - [x] `samurai.glb` เข้าเกมแล้ว
-- [ ] `harpy.glb`
-- [ ] `hood.glb`
-- [ ] `mage.glb`
-- [ ] `darkmage.glb`
-- [ ] `sorceress.glb`
+- [x] `harpy.glb` เข้าเกมแล้ว
+- [x] `hood.glb` เข้าเกมแล้ว
+- [x] `mage.glb` เข้าเกมแล้ว
+- [x] `darkmage.glb` เข้าเกมแล้ว
+- [x] `sorceress.glb` เข้าเกมแล้ว

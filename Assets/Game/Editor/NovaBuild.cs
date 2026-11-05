@@ -29,7 +29,7 @@ public static class NovaBuild
     {
         const string mp = "Assets/Game/Generated/Sharpen.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("NovaBlade/Sharpen")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetFloat("_Amount", .6f); EditorUtility.SetDirty(mat);
+        mat.SetFloat("_Amount", .35f); EditorUtility.SetDirty(mat);
         var rd = AssetDatabase.LoadAssetAtPath<UniversalRendererData>("Assets/Settings/PC_Renderer.asset");
         if (!rd.rendererFeatures.OfType<FullScreenPassRendererFeature>().Any())
         {
@@ -47,7 +47,7 @@ public static class NovaBuild
     // experiment: one hero's skins imported at full size for the Windows player (-executeMethod NovaBuild.Skin2048AndWin)
     public static void Skin2048AndWin() { HdSkins(); BuildWin(); }
     // heroes regenerated with 2048 skins keep them on PC (web PC build and Windows); the phone build caps them through WebSlim
-    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest" };
+    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy" };
     static void HdSkins()
     {
         foreach (var id in HdHeroes) foreach (var guid in AssetDatabase.FindAssets(id + "_tex t:Texture2D", new[] { "Assets/Game/Models/Heroes" }))
@@ -95,6 +95,7 @@ public static class NovaBuild
         BuildWeb(false); BuildWeb(true);
     }
     public static void BuildWebPhone() => BuildWeb(true);
+    public static void BuildWebPc() => BuildWeb(false);
     static void BuildWeb(bool phone)
     {
         WebSlim(phone); Towers(Cat(), false);
@@ -373,9 +374,9 @@ public static class NovaBuild
         }
         var volGo = new GameObject("Post"); var vol = volGo.AddComponent<Volume>(); vol.isGlobal = true;
         var prof = ScriptableObject.CreateInstance<VolumeProfile>();
-        var bloom = prof.Add<Bloom>(true); bloom.intensity.Override(.6f); bloom.threshold.Override(1.05f); bloom.scatter.Override(.65f);
+        var bloom = prof.Add<Bloom>(true); bloom.intensity.Override(.4f); bloom.threshold.Override(1.05f); bloom.scatter.Override(.65f);
         var tm = prof.Add<Tonemapping>(true); tm.mode.Override(TonemappingMode.ACES);
-        var ca = prof.Add<ColorAdjustments>(true); ca.postExposure.Override(.15f); ca.contrast.Override(14); ca.saturation.Override(9);   // richer, demo-like colour
+        var ca = prof.Add<ColorAdjustments>(true); ca.postExposure.Override(0); ca.contrast.Override(6); ca.saturation.Override(3);   // gentle on the eyes over long sessions
         var wb = prof.Add<WhiteBalance>(true); wb.temperature.Override(6); wb.tint.Override(2);
         var smh = prof.Add<ShadowsMidtonesHighlights>(true); smh.shadows.Override(new Vector4(.92f, .96f, 1.08f, 0)); smh.highlights.Override(new Vector4(1.05f, 1.02f, .95f, 0));
         var vg = prof.Add<Vignette>(true); vg.intensity.Override(.22f); vg.smoothness.Override(.5f);

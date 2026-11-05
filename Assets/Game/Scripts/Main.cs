@@ -45,6 +45,7 @@ namespace NovaBlade
             public List<string> xpKeys = new(); public List<int> xpVals = new();   // EXP per hero
             public int HeroXp(string id) { if (xpKeys == null) return 0; int i = xpKeys.IndexOf(id); return i < 0 ? 0 : xpVals[i]; }
             public void AddHeroXp(string id, int n) { xpKeys ??= new(); xpVals ??= new(); int i = xpKeys.IndexOf(id); if (i < 0) { xpKeys.Add(id); xpVals.Add(n); } else xpVals[i] += n; }
+            public List<string> questKeys = new(), questClaimed = new(); public List<int> questVals = new();   // quest counters by kind, and rewards already taken
             public string shield = "";                             // shield on the left arm ("" = none; warriors and clerics)
             public string wings = ""; public bool petWings = true;
             // the bag: gear pieces (one entry each), potions and crafting shards as stacks, worn gear in its four slots
@@ -81,8 +82,11 @@ namespace NovaBlade
             if (!cam) cam = Camera.main;
         }
 
+        // GameObject.CreatePrimitive adds colliders from native code: naming them here keeps web build stripping from removing them
+        static readonly System.Type[] keepColliders = { typeof(SphereCollider), typeof(CapsuleCollider), typeof(BoxCollider), typeof(MeshCollider) };
         void Start()
         {
+            gameObject.AddComponent<AutoQuality>();
             hero = new GameObject("Hero").AddComponent<Hero>();
             pet = new GameObject("Pet").AddComponent<Pet>();
             ui = gameObject.AddComponent<Ui>();
@@ -90,6 +94,7 @@ namespace NovaBlade
             var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
             if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
             int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
+            int sc = System.Array.IndexOf(args, "-storyclip"); if (sc >= 0 && sc + 1 < args.Length) StartCoroutine(StoryClip(args[sc + 1]));
             int kt = System.Array.IndexOf(args, "-skilltest"); if (kt >= 0 && kt + 1 < args.Length) StartCoroutine(SkillTest(args[kt + 1]));
             int p2 = System.Array.IndexOf(args, "-phase2test"); if (p2 >= 0 && p2 + 1 < args.Length) StartCoroutine(Phase2Test(args[p2 + 1]));
             int cs = System.Array.IndexOf(args, "-camstyle"); if (cs >= 0 && cs + 1 < args.Length) CamStyle = int.Parse(args[cs + 1]);
@@ -102,6 +107,10 @@ namespace NovaBlade
             int nt = System.Array.IndexOf(args, "-newtest"); if (nt >= 0 && nt + 1 < args.Length) StartCoroutine(NewTest(args[nt + 1]));
             int pf = System.Array.IndexOf(args, "-perftest"); if (pf >= 0 && pf + 1 < args.Length) StartCoroutine(PerfTest(args[pf + 1]));
             int ls = System.Array.IndexOf(args, "-skincompare"); if (ls >= 0 && ls + 2 < args.Length) StartCoroutine(SkinCompare(args[ls + 1], args[ls + 2]));
+            int nh = System.Array.IndexOf(args, "-newherotest"); if (nh >= 0 && nh + 1 < args.Length) StartCoroutine(NewHeroTest(args[nh + 1]));
+            if (System.Array.IndexOf(args, "-hitchtest") >= 0 || Application.absoluteURL.Contains("hitch")) StartCoroutine(HitchTest(System.Array.IndexOf(args, "-hitchtest") >= 0));
+            int shots = System.Array.IndexOf(args, "-stageshots"); if (shots >= 0 && shots + 1 < args.Length) StartCoroutine(StageShots(args[shots + 1]));
+            int qt = System.Array.IndexOf(args, "-questtest"); if (qt >= 0 && qt + 1 < args.Length) StartCoroutine(QuestTest(args[qt + 1]));
             int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
@@ -355,6 +364,101 @@ namespace NovaBlade
         }
         // Test mode (-bagtest <dir>): a bag with some of everything, the bag screen (a piece chosen, then worn), a boss's loot
         // dropping and being picked up in a fight, a potion drunk; shots and bag.txt, then quit.
+        // Test mode (-newherotest <dir>): each regenerated hero standing in the lobby, then fighting with skills in a stage.
+        System.Collections.IEnumerator NewHeroTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); save.wings = "";
+            foreach (var h in new[] { "sorceress", "darkmage", "mage", "hood", "harpy", "monk" })
+            {
+                save.hero = h; hero.Equip(); pet.Equip(); hero.PlaceLobby(); pet.PlaceLobby(); ui.ShowLobby(); ui.lobbyZoom = 0; ui.heroYaw = 0; ui.TestFilter(hero.def.cls); yield return new WaitForSecondsRealtime(2);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"lobby_{h}.png")); yield return new WaitForSecondsRealtime(.5f); ui.TestFilter("all");
+                save.best = 5; StartGame(1); int shot = 0;
+                for (float t = 0; t < 7; t += Time.deltaTime)
+                {
+                    hero.inv = 0; var near = foes.Where(f => f && f.alive && f.team != 0).OrderBy(f => (f.Pos - hero.Pos).sqrMagnitude).FirstOrDefault();
+                    if (near) { var d = Flat(near.Pos - hero.Pos); ui.Joy = d.magnitude > 2.6f ? new Vector2(-d.x, d.z).normalized : Vector2.zero; }
+                    if (Random.value < .12f) ui.atkP = true; if (Random.value < .03f) ui.skP[Random.Range(0, 3)] = true; hero.hp = hero.max; hero.mp = hero.mpMax;
+                    if (shot == 0 && t > 5) { ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"fight_{h}.png")); shot = 1; }
+                    yield return null;
+                }
+                ui.Joy = Vector2.zero; ShowLobby(); yield return new WaitForSecondsRealtime(.5f);
+            }
+            Application.Quit();
+        }
+        // -stageshots <dir>: writes the stage cards as files for Resources/UI/Stages, then quits. Run it again when a stage's look changes.
+        System.Collections.IEnumerator StageShots(string dir)
+        {
+            yield return new WaitForSecondsRealtime(3); System.IO.Directory.CreateDirectory(dir);
+            for (int i = 0; i < Data.Themes.Length; i++) System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, $"stage_{i}.jpg"), Studio.Stage(i).EncodeToJPG(90));
+            Application.Quit();
+        }
+        // Test mode (-hitchtest, or ?hitch in the web address): how long each step of picking a hero blocks the game, written to the log
+        System.Collections.IEnumerator HitchTest(bool quit)
+        {
+            hitchLog = false; Debug.Log($"[Hitch] first frames at {Time.realtimeSinceStartup:0.0}s"); yield return new WaitForSecondsRealtime(8); Debug.Log("[Hitch] " + Studio.Timing);
+            if (Application.absoluteURL.Contains("hitchsettle"))
+            {   // ?hitchsettle: what the lobby and a fight run at once the automatic quality has settled
+                var ms = new List<float>(); yield return new WaitForSecondsRealtime(25); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; }
+                ms.Sort(); Debug.Log($"[Hitch] settled lobby level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms");
+                save.hero = "warrior"; StartGame(1); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(20); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); hero.hp = hero.max; yield return null; }
+                ms.Sort(); Debug.Log($"[Hitch] settled fight level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); Debug.Log("[Hitch] done"); yield break;
+            }
+            AutoQuality.Paused = true;
+            {   // the lobby piece by piece: what the frame time drops to with each part off
+                var rp = UnityEngine.Rendering.Universal.UniversalRenderPipeline.asset; var cd = cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(); var doc = ui.GetComponent<UnityEngine.UIElements.UIDocument>();
+                Debug.Log($"[Hitch] gpu {SystemInfo.graphicsDeviceName} | {SystemInfo.graphicsDeviceVendor} | {Screen.width}x{Screen.height} dpi {Screen.dpi:0} scale {rp.renderScale} msaa {rp.msaaSampleCount} target {Application.targetFrameRate}");
+                System.Collections.IEnumerator M(string label)
+                {
+                    yield return new WaitForSecondsRealtime(1.5f); var ms = new List<float>(); for (float t = 0; t < 4; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; }
+                    ms.Sort(); Debug.Log($"[Hitch] lobby {label,-16} median {ms[ms.Count / 2],6:0.0} ms  worst5% {ms[(int)(ms.Count * .95f)],6:0.0} ms  frames {ms.Count}");
+                }
+                yield return M("as is");
+                doc.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.None; yield return M("no UI"); doc.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.Flex;
+                var parts = FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None); foreach (var p in parts) p.gameObject.SetActive(false); yield return M("no particles"); foreach (var p in parts) if (p) p.gameObject.SetActive(true);
+                hero.gameObject.SetActive(false); pet.gameObject.SetActive(false); yield return M("no hero or pet"); hero.gameObject.SetActive(true); pet.gameObject.SetActive(true);
+                var grass = FindObjectsByType<GrassField>(FindObjectsSortMode.None); foreach (var g in grass) g.enabled = false; yield return M("no grass"); foreach (var g in grass) g.enabled = true;
+                var sr = System.Array.Find(stageRoots, r => r && r.gameObject.activeSelf); if (sr) { sr.gameObject.SetActive(false); yield return M("no stage"); sr.gameObject.SetActive(true); }
+                float sd = rp.shadowDistance; rp.shadowDistance = 0; yield return M("no shadows"); rp.shadowDistance = sd;
+                cd.renderPostProcessing = false; yield return M("no post effects"); cd.renderPostProcessing = true;
+                int ma = rp.msaaSampleCount; rp.msaaSampleCount = 1; yield return M("no MSAA"); rp.msaaSampleCount = ma;
+                float rs = rp.renderScale; rp.renderScale = .5f; yield return M("half resolution"); rp.renderScale = rs;
+                cam.enabled = false; yield return M("no 3D at all"); cam.enabled = true;
+            }
+            var sw = new System.Diagnostics.Stopwatch();
+            float Lap(System.Action a) { sw.Restart(); a(); sw.Stop(); return (float)sw.Elapsed.TotalMilliseconds; }
+            for (int round = 1; round <= 2; round++)
+                foreach (var h in new[] { "warrior", "samurai", "harpy", "sunpriest", "sorceress", "monk", "spartan" })
+                {
+                    save.hero = h; float eq = Lap(hero.Equip), pe = Lap(pet.Equip), sv = Lap(Persist), info = Lap(ui.TestRenderInfo), cards = Lap(ui.TestRenderCards); Debug.Log($"[Hitch] picked {h}"); yield return new WaitForSecondsRealtime(1.5f);
+                    Debug.Log($"[Hitch] round {round} {h,-10} equip {eq,6:0.0} pet {pe,5:0.0} save {sv,5:0.0} info {info,5:0.0} cards {cards,6:0.0} ms");
+                }
+            if (quit) Application.Quit();
+        }
+        // Test mode (-questtest <dir>): counters, claiming once only, a finished quest in a real fight, and the quest panel on screen.
+        System.Collections.IEnumerator QuestTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            save.questKeys = new(); save.questVals = new(); save.questClaimed = new(); save.gold = 1000; save.gems = 100; save.hero = "warrior"; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby();
+            var first = Quests.All[0]; log.AppendLine($"start {first.id}: {Quests.Progress(save, first)}/{first.goal} ready {Quests.Ready(save, first)}");
+            log.AppendLine($"claim too early: {Quests.Claim(save, first)} gold {save.gold}");
+            Quests.Bump(save, "kill", 12); Quests.Bump(save, "orb", 7); Quests.Bump(save, "wear"); Quests.Bump(save, "clear");
+            log.AppendLine($"after counts: {first.id} {Quests.Progress(save, first)}/{first.goal} ready {Quests.Ready(save, first)}, ready total {Quests.ReadyCount(save)}");
+            ui.ShowLobby(); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby.png")); yield return new WaitForSecondsRealtime(.5f);
+            ui.ShowQuests(true); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "quests.png")); yield return new WaitForSecondsRealtime(.5f);
+            int g0 = save.gold; log.AppendLine($"claim: {Quests.Claim(save, first)} gold {g0} -> {save.gold}"); log.AppendLine($"claim twice: {Quests.Claim(save, first)} gold {save.gold}");
+            var trip = JsonUtility.FromJson<Save>(JsonUtility.ToJson(save)); log.AppendLine($"save round trip: kill {Quests.Count(trip, "kill")} claimed {Quests.Claimed(trip, first)}");
+            var oldSave = JsonUtility.FromJson<Save>("{\"gold\":5}"); log.AppendLine($"old save: kill {Quests.Count(oldSave, "kill")} level {Quests.Count(oldSave, "level")} ready {Quests.ReadyCount(oldSave)}");
+            ui.ShowQuests(true); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "quests_claimed.png")); yield return new WaitForSecondsRealtime(.5f); ui.ShowQuests(false);
+            save.hero = "warrior"; StartGame(1); hero.inv = 0; int k0 = Quests.Count(save, "kill"), o0 = Quests.Count(save, "orb"); AddDrop(hero.Pos + Vector3.right, "gold", 5);
+            for (float t = 0; t < 14 && Quests.Count(save, "kill") < k0 + 3; t += Time.deltaTime) { foreach (var f in foes) if (f && f.alive && f.team != 0) f.hp = 1; var near = foes.Where(f => f && f.alive && f.team != 0).OrderBy(f => (f.Pos - hero.Pos).sqrMagnitude).FirstOrDefault(); if (near) { var d = Flat(near.Pos - hero.Pos); ui.Joy = d.magnitude > 2.6f ? new Vector2(-d.x, d.z).normalized : Vector2.zero; } ui.atkP = true; hero.hp = hero.max; yield return null; }
+            ui.Joy = Vector2.zero; log.AppendLine($"in fight: kills {k0} -> {Quests.Count(save, "kill")}, orbs {o0} -> {Quests.Count(save, "orb")}");
+            save.questKeys = new(); save.questVals = new(); Quests.Bump(save, "kill", first.goal - 1); var nf = foes.FirstOrDefault(f => f && f.alive && f.team != 0);
+            while (!nf) { nf = foes.FirstOrDefault(f => f && f.alive && f.team != 0); yield return null; }
+            nf.Damage(99999, nf.Pos); yield return null; ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "toast.png")); yield return new WaitForSecondsRealtime(.5f);
+            log.AppendLine($"last kill: {Quests.Progress(save, first)}/{first.goal}");
+            hero.inv = 1; yield return null; var wings = hero.transform.Find("Wings"); log.AppendLine($"blink test: wings present {(bool)wings}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "quests.txt"), log.ToString()); Application.Quit();
+        }
         System.Collections.IEnumerator BagTest(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
@@ -505,13 +609,13 @@ namespace NovaBlade
         // Test mode (-novashot <dir>): screenshots of the lobby and each stage while the hero fights on autopilot, then quit.
         // -inputtest: drives the real Input System (arrow keys, right-click) in a stage and logs whether the hero responds
         // -clip <dir>: a ~30 s showcase recorded frame by frame at a fixed 30 fps (frames as JPG, joined into a video by ffmpeg)
-        int clipFrame; string clipDir; bool clipOn;
+        int clipFrame, clipSuper = 1; string clipDir; bool clipOn;
         System.Collections.IEnumerator ClipRec()
         {
             while (clipOn)
             {
                 yield return new WaitForEndOfFrame();
-                var t = ScreenCapture.CaptureScreenshotAsTexture(); System.IO.File.WriteAllBytes(System.IO.Path.Combine(clipDir, $"f{clipFrame++:00000}.jpg"), t.EncodeToJPG(92)); Destroy(t);
+                var t = ScreenCapture.CaptureScreenshotAsTexture(clipSuper); System.IO.File.WriteAllBytes(System.IO.Path.Combine(clipDir, $"f{clipFrame++:00000}.jpg"), t.EncodeToJPG(92)); Destroy(t);
             }
         }
         System.Collections.IEnumerator ClipFight(float secs)
@@ -538,6 +642,43 @@ namespace NovaBlade
 
             save.hero = "warrior"; StartSoul(); yield return ClipFight(7);
             clipOn = false; yield return null; Time.captureFramerate = 0; Application.Quit();
+        }
+        // -storyclip <dir>: the 30 s story clip at twice the window size, so a tall crop stays sharp: pick Ming, pick Fire Wings,
+        // wear loot from the Moon Arc mid-fight, then fight with orbs and end on stage 3. Creeps are weakened and orbs drop more often than in play.
+        System.Collections.IEnumerator StoryClip(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); clipDir = dir; clipSuper = 2;
+            yield return new WaitForSecondsRealtime(4); Time.captureFramerate = 30;
+            System.Collections.IEnumerator Hold(float secs) { for (int i = 0, n = Mathf.RoundToInt(secs * 30); i < n; i++) yield return null; }
+            void Wear(string tab) { ui.SetTab(tab); ui.TestPick(); }
+            save.owned.Add(Shop.Key(ItemKind.Wings, "fire")); save.owned.Add(Shop.Key(ItemKind.Weapon, "w_fantasy")); save.sword = "w_fantasy"; save.pet = "candle"; save.wings = ""; save.petWings = false; save.bag.Clear(); save.helm = save.armor = save.boots = save.acc = ""; save.potions = 5;
+            save.hero = "warrior"; ui.ShowLobby(); Wear("hero"); ui.lobbyZoom = 0; ui.heroYaw = 0; yield return Hold(.5f);
+            clipOn = true; StartCoroutine(ClipRec());
+            yield return Hold(1.2f); save.hero = "samurai"; Wear("hero"); yield return Hold(1.2f); ui.TestFilter("monk"); save.hero = "monk"; Wear("hero");
+            for (int i = 0; i < 90; i++) { ui.lobbyZoom = i / 90f * .3f; yield return null; }
+            ui.SetTab("wings"); yield return Hold(1); save.wings = "fire"; Wear("wings");
+            for (int i = 0; i < 150; i++) { ui.heroYaw = Mathf.SmoothStep(0, 1, Mathf.PingPong(i / 75f, 1)) * 190; yield return null; }
+            ui.heroYaw = 0; ui.lobbyZoom = 0; save.best = 5; StartGame(1); hero.inv = 0; yield return ClipFight(1.2f);
+            foreach (var id in new[] { "helm_dragon", "armor_knight", "ring_shadow" }) { save.bag.Add(id); runLoot.Add(id); }
+            ui.OpenFieldBag(); yield return Hold(1.6f);
+            for (int i = 0; i < 3; i++) { ui.FieldWearFirst(); yield return Hold(1.2f); }
+            ui.CloseFieldBag(); ui.ResumeFromPause();
+            var kinds = new[] { "fury", "gold", "quick", "gold" }; int nextOrb = 0;
+            System.Collections.IEnumerator Fight(int frames)
+            {
+                for (int i = 0; i < frames; i++)
+                {
+                    hero.inv = 0; foreach (var f in foes) if (f && f.alive && f.team != 0) f.hp = Mathf.Min(f.hp, f.maxHp * .35f);
+                    if (i % 60 == 30) AddDrop(hero.Pos + Quaternion.Euler(0, i * 3.1f, 0) * Vector3.forward * 4.5f, kinds[nextOrb++ % kinds.Length], 5);
+                    var near = foes.Where(f => f && f.alive && f.team != 0).OrderBy(f => (f.Pos - hero.Pos).sqrMagnitude).FirstOrDefault();
+                    if (near) { var d = Flat(near.Pos - hero.Pos); ui.Joy = d.magnitude > 2.6f ? new Vector2(-d.x, d.z).normalized : Vector2.zero; }
+                    if (Random.value < .12f) ui.atkP = true; if (Random.value < .04f) ui.skP[Random.Range(0, 3)] = true;
+                    hero.hp = Mathf.Max(hero.hp, hero.max * .6f); hero.mp = Mathf.Max(hero.mp, 40);
+                    yield return null;
+                }
+            }
+            yield return Fight(135); StartGame(3); hero.inv = 0; yield return Fight(300);
+            ui.Joy = Vector2.zero; clipOn = false; yield return null; Time.captureFramerate = 0; Application.Quit();
         }
         System.Collections.IEnumerator InputTest()
         {
@@ -713,7 +854,7 @@ namespace NovaBlade
         {
             if (mode != Mode.Game) return;
             mode = Mode.Result; save.gold += gold - banked; banked = gold; if (hero.soul) hero.soul.End();
-            if (win) save.best = Mathf.Max(save.best, stage);
+            if (win) { save.best = Mathf.Max(save.best, stage); QuestBump("clear"); }
             Persist();
             ui.ShowResult(win);
         }
@@ -766,9 +907,16 @@ namespace NovaBlade
         // a phone or tablet: the mobile platforms, plus any browser on the phone build at the site root (an iPad reports itself as a Mac; PC browsers are on /pc/, ?phone is the desktop test)
         public static bool IsPhone => Application.isMobilePlatform || (Application.platform == RuntimePlatform.WebGLPlayer && !Application.absoluteURL.Contains("/pc/") && !Application.absoluteURL.Contains("phone"));
         public int runXp;   // EXP earned since this fight began (the result screen shows it)
+        // counts towards quests and says so when one is finished
+        public void QuestBump(string kind, int n = 1)
+        {
+            var open = Quests.All.Where(q => q.kind == kind && !Quests.Done(save, q)).ToList(); Quests.Bump(save, kind, n);
+            if (hero) foreach (var q in open) if (Quests.Done(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
+        }
         public void AddXp(int n)
         {
             if (n <= 0 || !hero) return; int before = hero.Level; save.AddHeroXp(hero.def.id, n); runXp += n; if (hero.Level <= before) return;
+            foreach (var q in Quests.All) if (q.kind == "level" && q.goal == hero.Level && !Quests.Claimed(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
             hero.RefreshGear(); hero.hp = hero.max; Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5);
             ui.Banner(Loc.S($"เลเวล {hero.Level}!", $"LEVEL {hero.Level}!"), Loc.S("พลังชีวิตและพลังโจมตีเพิ่มขึ้น", "More health and attack")); Persist();
         }
@@ -840,7 +988,7 @@ namespace NovaBlade
                     }
                     else
                     {
-                        Fx.Burst(hero.Pos + Vector3.up, 14, OrbGlow(d.orb), 3);
+                        Fx.Burst(hero.Pos + Vector3.up, 14, OrbGlow(d.orb), 3); QuestBump("orb");
                         switch (d.orb)
                         {
                             case "heal": hero.Heal(hero.max * .1f); break;
@@ -859,8 +1007,10 @@ namespace NovaBlade
         }
 
         // ---------- loop ----------
+        bool hitchLog;
         void Update()
         {
+            if (hitchLog && Time.unscaledDeltaTime > .05f) Debug.Log($"[Hitch] slow frame at {Time.realtimeSinceStartup:0.0}s: {Time.unscaledDeltaTime * 1000:0} ms");
             float dt = Mathf.Min(Time.unscaledDeltaTime, 1 / 25f);
             Shader.SetGlobalVector("_CozyWind", new Vector4(Time.time, 1, 0, 0));
             Shader.SetGlobalFloat("_CozyDim", 1); Shader.SetGlobalFloat("_CozyNight", 0);   // CozyFishing/Water globals
@@ -912,7 +1062,7 @@ namespace NovaBlade
             }
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, soul && mode != Mode.Lobby ? 55 : 40, 1 - Mathf.Exp(-dt * 6));
             shake = Mathf.Max(0, shake - dt);
-            cam.transform.position = camPos + Random.insideUnitSphere * shake * .35f;
+            cam.transform.position = camPos + Random.insideUnitSphere * shake * .175f;
             cam.transform.LookAt(camLook);
         }
 

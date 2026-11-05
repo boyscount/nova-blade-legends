@@ -20,8 +20,10 @@ namespace NovaBlade
         public static Texture2D Weapon(string id) => tex.TryGetValue("w_" + id, out var t) ? t : null;
         public static Texture2D Stage(int i) => tex.TryGetValue("stage_" + i, out var t) ? t : null;
 
+        public static string Timing = "";   // how long the start-up pictures took, by kind
         public static void Build()
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew(); float Lap() { float ms = (float)sw.Elapsed.TotalMilliseconds; sw.Restart(); return ms; }
             var go = new GameObject("StudioCam"); cam = go.AddComponent<Camera>(); cam.enabled = false; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0, 0, 0, 0);
             cam.cullingMask = 1 << Layer; cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.farClipPlane = 50;
             rt = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32); cam.targetTexture = rt;
@@ -38,14 +40,19 @@ namespace NovaBlade
                 tex["hero_" + h.id] = h.rig ? Portrait(pf) : Shoot(pf, .5f, 1.1f, .35f, true);
                 tex["herofull_" + h.id] = FullBody(pf, h.rig);
             }
+            float tHeroes = Lap();
             foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
             foreach (var w in Data.Wings) tex["wing_" + w.id] = Shoot(Catalog.I.Model("wing_" + w.id), .45f, 1.1f, Mathf.PI);   // seen from behind
             foreach (var w in Data.Swords) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
             foreach (var w in Data.Shields) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
             Object.Destroy(key.gameObject); Object.Destroy(rim.gameObject); Object.Destroy(fill.gameObject);
             (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe) = amb;
-            for (int i = 0; i < Data.Themes.Length; i++) tex["stage_" + i] = StageShot(i);
+            float tItems = Lap();
+            // stage cards are saved pictures (Resources/UI/Stages, made with -stageshots): rendering them takes 14 s in a browser. A stage with no file yet is rendered.
+            bool fresh = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-stageshots") >= 0;
+            for (int i = 0; i < Data.Themes.Length; i++) { var saved = fresh ? null : Resources.Load<Texture2D>("UI/Stages/stage_" + i); tex["stage_" + i] = saved ? saved : StageShot(i); }
             Object.Destroy(go); rt.Release();
+            Timing = $"studio heroes {tHeroes:0} ms, pets wings weapons {tItems:0} ms, stages {Lap():0} ms"; Debug.Log("[Hitch] " + Timing);
         }
 
         // focusY: fraction of the model height to aim at; frame: fraction of the height that fills the picture
@@ -87,8 +94,8 @@ namespace NovaBlade
             foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
             var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false;
             var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
-            // a model built in T-pose (as wide as it is tall, wings aside) takes its lobby stance for the card; the framing still comes from its height
-            bool tPose = an && b.size.x > b.size.y * .9f;
+            // a model built in T-pose (much wider than a standing figure) takes its lobby stance for the card; the framing still comes from its height
+            bool tPose = an && b.size.x > b.size.y * .7f;
             if (tPose) { an.enabled = true; an.Rebind(); foreach (var st in new[] { "show_f", "show_m", "show" }) if (an.HasState(0, Animator.StringToHash(st))) { an.Play(st, 0, .15f); break; } an.Update(0); an.enabled = false; }
             float hgt = tPose ? b.size.y : Mathf.Max(b.size.y, b.size.x * H / W * .8f), fov = cam.fieldOfView;
             float dist = hgt * 1.1f * .5f / Mathf.Tan(fov * .5f * Mathf.Deg2Rad);
