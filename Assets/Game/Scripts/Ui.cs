@@ -1455,9 +1455,17 @@ namespace NovaBlade
         }
 
         // ---------- per frame ----------
+        // frame counter on screen when the page address has ?fps (or the game runs with -fps): for trying real phones
+        Label fpsL; float fpsT; int fpsN;
+        void CountFps()
+        {
+            if (fpsL == null) { if (!System.Environment.GetCommandLineArgs().Contains("-fps") && !Application.absoluteURL.Contains("fps")) { fpsT = -1; return; } fpsL = L("", 26, Green, true); Abs(fpsL, null, 4, 8); fpsL.style.textShadow = new TextShadow { offset = new Vector2(0, 1), blurRadius = 3, color = Color.black }; root.Add(fpsL); }
+            fpsT += Time.unscaledDeltaTime; fpsN++; if (fpsT < .5f) return; float f = fpsN / fpsT; fpsL.text = $"{f:0} FPS  {1000 / f:0} ms"; fpsL.style.color = f >= 50 ? Green : f >= 28 ? Gold : Red; fpsT = 0; fpsN = 0;
+        }
         float dragX; bool dragging;
         void Update()
         {
+            if (fpsT >= 0) CountFps();
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
             if (bagOv != null && G && G.mode != Main.Mode.Lobby && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
             if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }

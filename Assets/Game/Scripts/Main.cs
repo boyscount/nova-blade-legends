@@ -100,6 +100,8 @@ namespace NovaBlade
             int hi = System.Array.IndexOf(args, "-heroaudit"); if (hi >= 0 && hi + 1 < args.Length) StartCoroutine(HeroAudit(args[hi + 1]));
             int pk = System.Array.IndexOf(args, "-posecheck"); if (pk >= 0 && pk + 2 < args.Length) StartCoroutine(PoseCheck(args[pk + 1], args[pk + 2]));
             int nt = System.Array.IndexOf(args, "-newtest"); if (nt >= 0 && nt + 1 < args.Length) StartCoroutine(NewTest(args[nt + 1]));
+            int pf = System.Array.IndexOf(args, "-perftest"); if (pf >= 0 && pf + 1 < args.Length) StartCoroutine(PerfTest(args[pf + 1]));
+            int ls = System.Array.IndexOf(args, "-skincompare"); if (ls >= 0 && ls + 2 < args.Length) StartCoroutine(SkinCompare(args[ls + 1], args[ls + 2]));
             int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
@@ -295,6 +297,61 @@ namespace NovaBlade
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "new.txt"), log.ToString());
             Application.Quit();
+        }
+        // Test mode (-skincompare <hero> <dir>): the hero close up in the lobby at full textures and at half size (one mip level down), then quit.
+        System.Collections.IEnumerator SkinCompare(string id, string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); save.hero = id; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.lobbyZoom = 1; ui.heroYaw = 0; yield return new WaitForSecondsRealtime(4);
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "full.png")); yield return new WaitForSecondsRealtime(1);
+            {   // the same face with no animation at all, to tell the model from the pose
+                var anim = hero.GetComponentInChildren<Animator>(); anim.enabled = false; anim.Rebind(); anim.Update(0); yield return new WaitForEndOfFrame(); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "rest.png")); yield return new WaitForSecondsRealtime(1); anim.enabled = true;
+                var head = anim.GetBoneTransform(HumanBodyBones.Head); var neck = anim.GetBoneTransform(HumanBodyBones.Neck); var sb = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(.5f);
+                sb.AppendLine($"head {(head ? head.name : "none")} euler {(head ? head.localEulerAngles : Vector3.zero)} neck {(neck ? neck.name : "none")} euler {(neck ? neck.localEulerAngles : Vector3.zero)}");
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "bones.txt"), sb.ToString());
+            }
+            QualitySettings.globalTextureMipmapLimit = 1; yield return new WaitForSecondsRealtime(2);
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "half.png")); yield return new WaitForSecondsRealtime(1); QualitySettings.globalTextureMipmapLimit = 0;
+            // what the materials are, then the same hero with its shine turned down
+            var log = new System.Text.StringBuilder();
+            foreach (var r in hero.GetComponentsInChildren<Renderer>()) foreach (var m in r.materials)
+            {
+                string props = ""; foreach (var p in new[] { "_Smoothness", "_Metallic", "_BumpScale", "_OcclusionStrength", "_MetallicGlossMap", "_BumpMap", "_OcclusionMap", "metallicFactor", "roughnessFactor", "metallicRoughnessTexture", "normalTexture", "normalTexture_scale" }) if (m.HasProperty(p)) props += " " + p + (p.Contains("Map") || p.EndsWith("Texture") ? "=" + (m.GetTexture(p) ? m.GetTexture(p).width.ToString() : "none") : "=" + m.GetFloat(p).ToString("0.00"));
+                log.AppendLine($"{r.name}: {m.shader.name}{props}");
+                if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", m.GetFloat("_Smoothness") * .45f);
+                if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", m.GetFloat("_Metallic") * .6f);
+                if (m.HasProperty("roughnessFactor")) m.SetFloat("roughnessFactor", Mathf.Clamp01(m.GetFloat("roughnessFactor") * 1.6f + .25f));
+                if (m.HasProperty("metallicFactor")) m.SetFloat("metallicFactor", m.GetFloat("metallicFactor") * .6f);
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "materials.txt"), log.ToString()); yield return new WaitForSecondsRealtime(1.5f);
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "matte.png")); yield return new WaitForSecondsRealtime(1); Application.Quit();
+        }
+        // Test mode (-perftest <dir>): the same fight under one setting change at a time, frame times in perf.txt, then quit.
+        System.Collections.IEnumerator PerfTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); QualitySettings.vSyncCount = 0; Application.targetFrameRate = -1; yield return new WaitForSecondsRealtime(3);
+            var rp = UnityEngine.Rendering.Universal.UniversalRenderPipeline.asset; float dist = rp.shadowDistance; int cas = rp.shadowCascadeCount, msaa = rp.msaaSampleCount;
+            log.AppendLine($"{SystemInfo.graphicsDeviceName} · {Screen.width}x{Screen.height} · msaa {msaa} · shadows {dist}m x{cas} · grass clumps {GrassField.Stats}");
+            StartGame(1); hero.max = hero.hp = 999999; pet.gameObject.SetActive(false); yield return new WaitForSecondsRealtime(6);   // (the pet would kill foes and change the load)
+            System.Collections.IEnumerator Measure(string label)
+            {
+                yield return new WaitForSecondsRealtime(1); var ms = new List<float>();
+                for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); hero.hp = hero.max; yield return null; }
+                ms.Sort(); float avg = 0; foreach (var m in ms) avg += m; avg /= ms.Count;
+                log.AppendLine($"{label,-26} {1000 / avg,6:0.0} fps  avg {avg,6:0.0} ms  worst 5% {ms[(int)(ms.Count * .95f)],6:0.0} ms  foes {foes.Count}  grass {GrassField.Stats}");
+            }
+            var grass = new List<GrassField>(FindObjectsByType<GrassField>(FindObjectsSortMode.None)); var cd = cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            var stageRoot = System.Array.Find(stageRoots, r => r && r.gameObject.activeSelf); var hudRoot = ui.GetComponent<UnityEngine.UIElements.UIDocument>();
+            yield return Measure("as is");
+            cam.enabled = false; yield return Measure("nothing drawn (CPU only)"); cam.enabled = true;
+            hudRoot.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.None; yield return Measure("no UI"); hudRoot.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.Flex;
+            stageRoot.gameObject.SetActive(false); yield return Measure("no stage"); stageRoot.gameObject.SetActive(true);
+            foreach (var g in grass) g.enabled = false; yield return Measure("no grass"); foreach (var g in grass) g.enabled = true;
+            var fa = new List<Foe>(foes); foreach (var f in fa) if (f) f.gameObject.SetActive(false); yield return Measure("no foes"); foreach (var f in fa) if (f) f.gameObject.SetActive(true);
+            rp.shadowDistance = 0; yield return Measure("no shadows"); rp.shadowDistance = dist;
+            rp.msaaSampleCount = 1; yield return Measure("no MSAA"); rp.msaaSampleCount = msaa;
+            cd.renderPostProcessing = false; yield return Measure("no post"); cd.renderPostProcessing = true;
+            yield return Measure("as is again");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "perf.txt"), log.ToString()); Application.Quit();
         }
         // Test mode (-bagtest <dir>): a bag with some of everything, the bag screen (a piece chosen, then worn), a boss's loot
         // dropping and being picked up in a fight, a potion drunk; shots and bag.txt, then quit.

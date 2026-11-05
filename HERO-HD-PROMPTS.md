@@ -2,6 +2,10 @@
 
 ภาพผิวต้นฉบับของ 7 ตัวนี้ละเอียดแค่ 1024 ชุดนี้ gen ใหม่เป็น 2048 เพื่อใช้กับเว็บบนคอมและตัว Windows
 
+**เริ่มแค่วัลก้าตัวเดียวก่อน** แล้วส่งให้ลองในเกม ผลทดสอบพบว่าเพิ่มเป็น 2048 อย่างเดียวคมขึ้นเล็กน้อย ปัญหาหลักคือผิวมันและรอยเหลี่ยม ดูเหตุผลใน [CHARACTER-PERF-RULES.md](CHARACTER-PERF-RULES.md)
+
+**เติมลงในท้าย prompt ด้วย:** `matte skin, soft natural skin, smooth clean armor surfaces, no cracked or faceted texture`
+
 **ตั้งค่าใน Tripo:** T-Pose · ภาพผิว 2048 (HD) · ถ้ามีรูปหรือ prompt ต้นฉบับของตัวนั้น ให้ใช้ของเดิมก่อน หน้าตาจะเหมือนเดิมกว่า
 
 **วางไฟล์:** `nova-blade-unity/heroes/tpose/` ใช้ชื่อไฟล์ตามตาราง
@@ -30,8 +34,8 @@ stylized realistic fantasy game character, clean high detail textures, game-read
 
 ## เช็กลิสต์
 
-- [ ] `warrior.glb`
-- [ ] `samurai.glb`
+- [x] `warrior.glb` เข้าเกมแล้ว
+- [x] `samurai.glb` เข้าเกมแล้ว
 - [ ] `harpy.glb`
 - [ ] `hood.glb`
 - [ ] `mage.glb`

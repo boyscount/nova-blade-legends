@@ -49,7 +49,7 @@ namespace NovaBlade
                 animSet = Data.AnimSet(def.id); if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
                 // lobby: a bowed head warps the faces of the auto-rigged heroes, so the head keeps its sculpted angle
                 // on the neck (the neck and body still move; see LateUpdate)
-                lockBones = lobby && anim && !GenderShow ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
+                lockBones = lobby && anim ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
                 lockRot = lockBones?.Select(t => t.localRotation).ToArray();
                 socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 BuildMounts();

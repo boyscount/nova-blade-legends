@@ -44,6 +44,20 @@ public static class NovaBuild
         AssetDatabase.SaveAssets(); Debug.Log("[NovaBuild] PC sharpening on");
     }
     public static void PcSharpenAndWin() { PcSharpen(); BuildWin(); }
+    // experiment: one hero's skins imported at full size for the Windows player (-executeMethod NovaBuild.Skin2048AndWin)
+    public static void Skin2048AndWin() { HdSkins(); BuildWin(); }
+    // heroes regenerated with 2048 skins keep them on PC (web PC build and Windows); the phone build caps them through WebSlim
+    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest" };
+    static void HdSkins()
+    {
+        foreach (var id in HdHeroes) foreach (var guid in AssetDatabase.FindAssets(id + "_tex t:Texture2D", new[] { "Assets/Game/Models/Heroes" }))
+        {
+            var ti = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)); var ps = ti.GetPlatformTextureSettings("Standalone");
+            if (ti.maxTextureSize == 2048 && ps.overridden && ps.maxTextureSize == 2048 && ti.GetDefaultPlatformTextureSettings().maxTextureSize == 2048) continue;
+            var def = ti.GetDefaultPlatformTextureSettings(); def.maxTextureSize = 2048; ti.SetPlatformTextureSettings(def); ti.maxTextureSize = 2048; ps.overridden = true; ps.maxTextureSize = 2048; ti.SetPlatformTextureSettings(ps); ti.SaveAndReimport();
+        }
+    }
+    public static void HdHeroesAndWin() { NovaSetup.NewHeroes(); HdSkins(); BuildWin(); }
     [MenuItem("Nova Blade/Rebuild Scene Only")] static void SceneMenu() { Scene(); Debug.Log("[NovaBuild] scene rebuilt"); }
     // scene + both players in one batch run: -executeMethod NovaBuild.SceneAndPlayers
     public static void SceneAndPlayers() { Scene(); BuildWin(); BuildWebGL(); }
