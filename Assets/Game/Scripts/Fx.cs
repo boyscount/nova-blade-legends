@@ -42,6 +42,7 @@ namespace NovaBlade
             dgo.GetComponent<ParticleSystemRenderer>().sharedMaterial = new Material(I.alpha) { mainTexture = Soft() };
         }
 
+        static Texture2D softTex; public static Texture2D SoftTex => softTex ? softTex : softTex = Soft();
         static Texture2D Soft()
         {
             var t = new Texture2D(32, 32, TextureFormat.RGBA32, false);

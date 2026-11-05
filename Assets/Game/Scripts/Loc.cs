@@ -7,7 +7,7 @@ namespace NovaBlade
     public static class Loc
     {
         const string Key = "novaLang";
-        public static readonly bool En = PlayerPrefs.GetString(Key, "en") != "th";
+        public static readonly bool En = PlayerPrefs.GetString(Key, "en") != "th" && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-thai") < 0;   // (-thai: test runs)
         public static string S(string th, string en) => En ? en : th;
         public static void Switch()
         {

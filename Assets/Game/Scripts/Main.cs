@@ -42,6 +42,9 @@ namespace NovaBlade
             public List<string> mastKeys = new(); public List<int> mastVals = new();   // weapon mastery points per weapon
             public int Mastery(string weapon) { int i = mastKeys.IndexOf(weapon); return i < 0 ? 0 : mastVals[i]; }
             public void AddMastery(string weapon, int n) { int i = mastKeys.IndexOf(weapon); if (i < 0) { mastKeys.Add(weapon); mastVals.Add(n); } else mastVals[i] += n; }
+            public List<string> xpKeys = new(); public List<int> xpVals = new();   // EXP per hero
+            public int HeroXp(string id) { if (xpKeys == null) return 0; int i = xpKeys.IndexOf(id); return i < 0 ? 0 : xpVals[i]; }
+            public void AddHeroXp(string id, int n) { xpKeys ??= new(); xpVals ??= new(); int i = xpKeys.IndexOf(id); if (i < 0) { xpKeys.Add(id); xpVals.Add(n); } else xpVals[i] += n; }
             public string shield = "";                             // shield on the left arm ("" = none; warriors and clerics)
             public string wings = ""; public bool petWings = true;
             // the bag: gear pieces (one entry each), potions and crafting shards as stacks, worn gear in its four slots
@@ -68,7 +71,7 @@ namespace NovaBlade
             if (Camera.main && !Camera.main.GetComponent<OcclusionFader>()) Camera.main.gameObject.AddComponent<OcclusionFader>();   // trees in the way turn see-through
             G = this;
             Application.targetFrameRate = 60;
-            if (Application.isMobilePlatform) QualitySettings.SetQualityLevel(0, true);   // phones (also mobile browsers): the Mobile URP asset
+            if (IsPhone) QualitySettings.SetQualityLevel(0, true);   // phones (also mobile browsers): the Mobile URP asset
             else if (Camera.main && Camera.main.TryGetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(out var cd))
                 cd.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;   // PC: the pipeline's 4x MSAA keeps edges sharp; FXAA would soften the whole frame
             save = JsonUtility.FromJson<Save>(PlayerPrefs.GetString("novaBlade", "{}")) ?? new Save();
@@ -300,18 +303,55 @@ namespace NovaBlade
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
             save.hero = "samurai"; save.bag.Clear(); save.helm = save.armor = save.boots = save.acc = "";
             foreach (var id in new[] { "helm_iron", "armor_knight", "boots_leather", "ring_shadow", "helm_dragon", "armor_leather", "boots_knight", "ring_leather" }) save.bag.Add(id);
-            save.potions = 5; save.mats = new List<int> { 3, 1, 0, 2, 0 }; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            save.potions = 5; save.mats = new List<int> { 3, 1, 0, 2, 0 }; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby.png")); yield return new WaitForSecondsRealtime(.4f);
             ui.TestBag("g:4"); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "bag_select.png")); yield return new WaitForSecondsRealtime(.4f);
             // wear four pieces the way the buttons do
             save.helm = "helm_dragon"; save.armor = "armor_knight"; save.boots = "boots_knight"; save.acc = "ring_shadow"; save.bag.RemoveAll(i => i is "helm_dragon" or "armor_knight" or "boots_knight" or "ring_shadow");
             ui.TestBag("worn:Armor"); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "bag_worn.png")); yield return new WaitForSecondsRealtime(.4f);
             var gb = Items.Bonus(save); log.AppendLine($"gear bonus hp {gb.hp} def {gb.def:0.000} spd {gb.spd:0.00} crit {gb.crit:0.000} atk {gb.atk:0.000}");
+            // enhancing: rules checked directly, then the enhance box on screen
+            {
+                save.gold = 1000000; save.mats = new List<int> { 500, 500, 500, 500, 500 }; string t = "helm_iron"; float hp0 = Items.Get(t).hp; int tries = 0, fails = 0; bool dropped = false;
+                while (Items.Level(t) < Items.MaxLevel && tries < 5000) { int b4 = Items.Level(t); var r = Items.Enhance(save, ref t); tries++; if (r == EnhanceResult.Failed) fails++; if (Items.Level(t) < b4) dropped = true; }
+                log.AppendLine($"enhance to max: {t} after {tries} tries, {fails} failed, level ever dropped: {dropped}");
+                log.AppendLine($"past max: {Items.Enhance(save, ref t)} id {t}");
+                var rich = new Save { gold = int.MaxValue }; rich.mats = new List<int> { int.MaxValue, 0, 0, 0, 0 };   // measured success rate at each level against the table
+                for (int lv = 0; lv < Items.MaxLevel; lv++) { int wins = 0; for (int i = 0; i < 20000; i++) { string x = Items.WithLevel("helm_leather", lv); if (Items.Enhance(rich, ref x) == EnhanceResult.Success) wins++; rich.gold = int.MaxValue; } log.AppendLine($"+{lv}: table {Items.Chance(lv) * 100:0}% measured {wins / 200f:0.0}%"); }
+                string w = save.helm; save.helm = t; var g10 = Items.Bonus(save); save.helm = "helm_iron"; var g0 = Items.Bonus(save); save.helm = w;
+                log.AppendLine($"+10 adds hp {g10.hp - g0.hp:0.0} (base {hp0}, expected {hp0 * .8f:0.0})");
+                var poor = new Save { gold = 0 }; poor.mats = new List<int> { 0, 0, 0, 0, 0 }; string p1 = "ring_iron"; var noShard = Items.Enhance(poor, ref p1); poor.mats[1] = 5; var noGold = Items.Enhance(poor, ref p1);
+                log.AppendLine($"no shards: {noShard}, no gold: {noGold}, untouched: {p1} shards {poor.mats[1]}");
+                log.AppendLine($"old id: level {Items.Level("helm_iron")} get {Items.Get("helm_iron")?.id} · name {Items.Name("helm_iron+3")} · bad id level {Items.Level("helm_iron+x")}");
+                var trip = JsonUtility.FromJson<Save>(JsonUtility.ToJson(new Save { helm = "helm_iron+7" })); log.AppendLine($"save round trip: {trip.helm}");
+                save.bag.Add("ring_leather+3"); save.bag.Add("ring_leather"); log.AppendLine($"bulk sell takes: {string.Join(",", Items.Junk(save))}");
+                log.AppendLine($"+3 dismantle {Items.DismantleShards("ring_leather+3")} shards vs {Items.DismantleShards("ring_leather")}, sell {Items.SellPrice("ring_leather+3")} vs {Items.SellPrice("ring_leather")}");
+                save.gold = 300; save.mats = new List<int> { 3, 1, 0, 2, 0 }; save.armor = "armor_knight+4"; ui.TestBag("worn:Armor"); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "bag_enhance.png")); yield return new WaitForSecondsRealtime(.4f);
+                ui.TestBag("g:" + (save.bag.Count - 2)); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "bag_enhance_bagpiece.png")); yield return new WaitForSecondsRealtime(.4f);
+            }
             ui.ShowBag(false); StartGame(1); yield return new WaitForSecondsRealtime(2);
+            // one of each orb out of magnet range, to see them at rest
+            { int oi = 0; foreach (var k in new[] { "gold", "heal", "mana", "fury", "quick" }) AddDrop(hero.Pos + new Vector3(-6 + 3 * oi++, 0, -6.5f), k, 5); yield return new WaitForSecondsRealtime(1.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "orbs.png")); yield return new WaitForSecondsRealtime(.4f); }
             log.AppendLine($"in fight: max hp {hero.max} (base {hero.def.hp}) atk {hero.AtkPow:0}");
-            int bagBefore = save.bag.Count, potBefore = save.potions;
+            int bagBefore = save.bag.Count, potBefore = save.potions; hero.mp = 10; for (int c = 0; c < 3; c++) hero.cds[c] = 20; float atk0 = hero.AtkPow; int gold0 = gold;
             DropLoot(hero.Pos + new Vector3(2.5f, 0, 0), true, 10); yield return new WaitForSecondsRealtime(.9f);
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "loot_drop.png")); yield return new WaitForSecondsRealtime(4);
             log.AppendLine($"after boss loot: bag {bagBefore} -> {save.bag.Count}, potions {potBefore} -> {save.potions}");
+            log.AppendLine($"orbs: gold {gold0} -> {gold}, mp 10 -> {hero.mp:0}, cooldown 20 -> {hero.cds[0]:0.0}, fury left {hero.orbAtkT:0.0}, atk {atk0:0} -> {hero.AtkPow:0}");
+            // the pause bag: new gear first, worn straight from a fight at the same share of health, nothing moves while it is open
+            hero.hp = hero.max * .5f; save.acc = ""; save.boots = ""; hero.RefreshGear(); log.AppendLine($"run loot: {string.Join(",", runLoot)}");
+            ui.OpenFieldBag(); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "field_new.png")); yield return new WaitForSecondsRealtime(.4f);
+            log.AppendLine($"opened: paused {paused} timeScale {Time.timeScale}");
+            float max0 = hero.max, hp0f = hero.hp; string atkLine = ui.FieldWearFirst(); log.AppendLine($"wore {atkLine}: max {max0:0} -> {hero.max:0}, hp {hp0f:0} -> {hero.hp:0}, run loot left {runLoot.Count}");
+            yield return new WaitForSecondsRealtime(.5f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "field_worn.png")); yield return new WaitForSecondsRealtime(.4f);
+            ui.CloseFieldBag(); yield return new WaitForSecondsRealtime(.3f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "field_pause.png")); yield return new WaitForSecondsRealtime(.3f);
+            ui.ResumeFromPause(); yield return new WaitForSecondsRealtime(.3f); log.AppendLine($"resumed: paused {paused} timeScale {Time.timeScale}");
+            { int g0 = save.gold, run = gold, b0 = banked; BankGold(); int once = save.gold; BankGold(); log.AppendLine($"bank on leaving: run gold {run}, already banked {b0}, saved {g0} -> {once}, second time {save.gold}"); }
+            {   // levels: one level up restores health and raises both stats; EXP table and the cap
+                int lv0 = hero.Level; float a0 = hero.AtkPow, m0 = hero.max; hero.hp = hero.max * .3f; AddXp(Data.XpFor(lv0 + 1) - save.HeroXp(hero.def.id));
+                log.AppendLine($"level {lv0} -> {hero.Level}: max hp {m0:0} -> {hero.max:0}, hp full {hero.hp >= hero.max - .5f}, atk {a0:0} -> {hero.AtkPow:0}, run exp {runXp}");
+                log.AppendLine($"exp table: L2 {Data.XpFor(2)} L3 {Data.XpFor(3)} L5 {Data.XpFor(5)} L10 {Data.XpFor(10)} L50 {Data.XpFor(50)} · level at 279 = {Data.Level(279)}, at 280 = {Data.Level(280)}, at a huge total = {Data.Level(100000000)} · old save {new Save().HeroXp("x")}");
+                yield return new WaitForSecondsRealtime(.7f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "level_up.png")); yield return new WaitForSecondsRealtime(.4f);
+            }
             hero.hp = hero.max * .4f; float h0 = hero.hp; hero.UsePotion(); yield return new WaitForSecondsRealtime(.4f);
             log.AppendLine($"potion: hp {h0:0} -> {hero.hp:0}, potions left {save.potions}");
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "potion.png")); yield return new WaitForSecondsRealtime(.5f);
@@ -569,6 +609,7 @@ namespace NovaBlade
             wave = k; queue.Clear();
             var list = new List<string>();
             foreach (var (f, n) in Theme.waves[k]) for (int i = 0; i < n + (stage - 1) / 2; i++) list.Add(f);
+            waveTotal = list.Count;
             foreach (var f in list.OrderBy(_ => Random.value)) queue.Enqueue(f);
             queueT = .6f;
             ui.Banner(Loc.S($"คลื่นที่ {k + 1}", $"Wave {k + 1}"), Loc.S($"ด่าน {stage} · {Theme.name}", $"Stage {stage} · {Theme.name}"));
@@ -607,7 +648,7 @@ namespace NovaBlade
         {
             foreach (var f in foes) if (f) Destroy(f.gameObject); foes.Clear(); boss = null;
             foreach (var s in shots) if (s) Destroy(s.gameObject); shots.Clear();
-            foreach (var d in drops) if (d.go) Destroy(d.go); drops.Clear();
+            foreach (var d in drops) { if (d.halo) Destroy(d.halo); if (d.go) Destroy(d.go); } drops.Clear();
             queue.Clear(); Fx.Clear(); ui?.ClearNums();
         }
 
@@ -650,7 +691,7 @@ namespace NovaBlade
         public void Number(Vector3 p, string txt, string cls) => ui?.Number(p, txt, cls);
 
         // ---------- drops ----------
-        class Drop { public GameObject go; public bool orb; public int v; public Vector3 p, vel; public float t; public string item; }
+        class Drop { public GameObject go; public string orb; public Material halo; public int v; public Vector3 p, vel; public float t; public string item; }
         // an item on the ground: a glowing gem in its rarity colour with a beam of light, picked up by walking over it
         void AddItemDrop(Vector3 p, string id)
         {
@@ -664,43 +705,67 @@ namespace NovaBlade
             drops.Add(new Drop { go = go, item = id, p = p + Vector3.up * .6f, vel = new Vector3(Random.Range(-2f, 2f), Random.Range(4f, 6f), Random.Range(-2f, 2f)) });
         }
         // into the bag (potions and shards stack); a full bag turns the piece into gold
+        public int waveTotal;   // how many foes the current wave sent (the stage plate shows left / total)
+        // a phone or tablet: the mobile platforms, plus any browser on the phone build at the site root (an iPad reports itself as a Mac; PC browsers are on /pc/, ?phone is the desktop test)
+        public static bool IsPhone => Application.isMobilePlatform || (Application.platform == RuntimePlatform.WebGLPlayer && !Application.absoluteURL.Contains("/pc/") && !Application.absoluteURL.Contains("phone"));
+        public int runXp;   // EXP earned since this fight began (the result screen shows it)
+        public void AddXp(int n)
+        {
+            if (n <= 0 || !hero) return; int before = hero.Level; save.AddHeroXp(hero.def.id, n); runXp += n; if (hero.Level <= before) return;
+            hero.RefreshGear(); hero.hp = hero.max; Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5);
+            ui.Banner(Loc.S($"เลเวล {hero.Level}!", $"LEVEL {hero.Level}!"), Loc.S("พลังชีวิตและพลังโจมตีเพิ่มขึ้น", "More health and attack")); Persist();
+        }
+        // leaving a stage early keeps the gold picked up so far
+        public void BankGold() { save.gold += gold - banked; banked = gold; Persist(); }
+        // pickup words stack upward instead of landing on each other; gold adds up into one number
+        float pickT, goldShowT; int pickN, goldPend;
+        void PickupText(string t, string cls) { if (Time.time - pickT > .7f) pickN = 0; pickT = Time.time; Number(hero.Pos + Vector3.up * (2.4f + pickN++ * .55f), t, cls); }
+        public readonly List<string> runLoot = new();   // gear picked up since this fight began (the pause bag shows it first)
         public bool AddItem(string id)
         {
             var d = Items.Get(id); if (d == null) return false;
             if (d.slot == Slot.Potion) save.potions++;
             else if (d.slot == Slot.Material) save.mats[d.rarity]++;
             else if (save.BagUsed >= save.bagCap) { gold += d.Sell; Number(hero.Pos + Vector3.up * 2.2f, Loc.S("กระเป๋าเต็ม +" + d.Sell, "Bag full +" + d.Sell), "gold"); return false; }
-            else save.bag.Add(id);
+            else { save.bag.Add(id); runLoot.Add(id); }
             return true;
         }
-        static Mesh coinMesh; static Material coinMat, orbMat;
+        // glass orbs instead of coins: gold, heal (green), mana (purple), fury (red: harder hits for a while), quick (white: skills come back sooner)
+        static Mesh orbQuad; static readonly Dictionary<string, Material> orbMats = new();
+        static Material OrbMat(string kind)
+        {
+            if (orbMats.TryGetValue(kind, out var m) && m) return m;
+            m = new Material(Catalog.I.glowMat) { mainTexture = Resources.Load<Texture2D>("UI/Orbs/orb_" + OrbFile(kind)) }; m.SetFloat("_SrcBlend", 5); m.SetFloat("_DstBlend", 10); m.SetFloat("_UseVC", 0); m.SetColor("_Color", Color.white); m.renderQueue = 3000;
+            return orbMats[kind] = m;
+        }
+        static string OrbFile(string kind) => kind switch { "heal" => "green", "mana" => "purple", "fury" => "red", "quick" => "white", _ => "gold" };
+        static Color OrbGlow(string kind) => kind switch { "heal" => new Color(.3f, 1, .4f), "mana" => new Color(.75f, .35f, 1), "fury" => new Color(1, .3f, .2f), "quick" => new Color(.8f, .88f, 1), _ => new Color(1, .75f, .25f) };
         public void DropLoot(Vector3 p, bool isBoss, int g)
         {
-            int n = isBoss ? 24 : Random.Range(1, 4);
-            for (int i = 0; i < n; i++) AddDrop(p, false, isBoss ? 8 : Mathf.CeilToInt(g / 2f));
-            if (Random.value < (isBoss ? 1 : .12f)) AddDrop(p, true, 0);
+            if (isBoss) { for (int i = 0; i < 24; i++) AddDrop(p, "gold", 8); foreach (var k in new[] { "heal", "mana", "fury", "quick" }) AddDrop(p, k, 0); }
+            else
+            {   // one gold orb worth what the coins came to; the others by chance
+                AddDrop(p, "gold", g);
+                if (Random.value < .12f) AddDrop(p, "heal", 0); if (Random.value < .1f) AddDrop(p, "mana", 0); if (Random.value < .05f) AddDrop(p, "fury", 0); if (Random.value < .05f) AddDrop(p, "quick", 0);
+            }
             // items: one monster in eight drops something, a boss always drops two pieces and a potion
             if (isBoss) { AddItemDrop(p, Items.Roll(true, save.stage)); AddItemDrop(p, Items.Roll(true, save.stage)); AddItemDrop(p, "potion"); }
             else if (Random.value < .13f) AddItemDrop(p, Items.Roll(false, save.stage));
         }
-        void AddDrop(Vector3 p, bool orb, int v)
+        void AddDrop(Vector3 p, string kind, int v)
         {
-            if (!coinMesh)
-            {
-                var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder); coinMesh = c.GetComponent<MeshFilter>().sharedMesh; Destroy(c);
-                coinMat = new Material(Catalog.I.glowMat); coinMat.SetFloat("_SrcBlend", 1); coinMat.SetFloat("_DstBlend", 0); coinMat.SetFloat("_UseVC", 0); coinMat.SetColor("_Color", new Color(1.6f, 1.1f, .3f));
-                orbMat = new Material(coinMat); orbMat.SetColor("_Color", new Color(.4f, 2.6f, .8f));
-            }
-            var go = new GameObject(orb ? "orb" : "coin"); go.AddComponent<MeshFilter>().sharedMesh = orb ? SphereMesh() : coinMesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = orb ? orbMat : coinMat;
-            go.transform.localScale = orb ? Vector3.one * .3f : new Vector3(.28f, .02f, .28f);
-            drops.Add(new Drop { go = go, orb = orb, v = v, p = p + Vector3.up * .6f, vel = new Vector3(Random.Range(-2.5f, 2.5f), Random.Range(3f, 6f), Random.Range(-2.5f, 2.5f)) });
+            if (!orbQuad) { var q = GameObject.CreatePrimitive(PrimitiveType.Quad); orbQuad = q.GetComponent<MeshFilter>().sharedMesh; Destroy(q); }
+            var go = new GameObject("orb_" + kind); go.AddComponent<MeshFilter>().sharedMesh = orbQuad; go.AddComponent<MeshRenderer>().sharedMaterial = OrbMat(kind); go.transform.localScale = Vector3.one * (kind == "gold" ? .62f : .72f);
+            var halo = new GameObject("halo"); halo.transform.SetParent(go.transform, false); halo.transform.localPosition = new Vector3(0, 0, .02f); halo.transform.localScale = Vector3.one * 2.1f; halo.AddComponent<MeshFilter>().sharedMesh = orbQuad;
+            var hm = new Material(Catalog.I.glowMat) { mainTexture = Fx.SoftTex }; hm.SetFloat("_SrcBlend", 1); hm.SetFloat("_DstBlend", 1); hm.SetFloat("_UseVC", 0); hm.SetColor("_Color", OrbGlow(kind) * .3f); hm.renderQueue = 2990; halo.AddComponent<MeshRenderer>().sharedMaterial = hm;
+            drops.Add(new Drop { go = go, orb = kind, halo = hm, v = v, p = p + Vector3.up * .6f, vel = new Vector3(Random.Range(-2.5f, 2.5f), Random.Range(3f, 6f), Random.Range(-2.5f, 2.5f)) });
         }
         static Mesh sphere; static Mesh SphereMesh() { if (!sphere) { var s = GameObject.CreatePrimitive(PrimitiveType.Sphere); sphere = s.GetComponent<MeshFilter>().sharedMesh; Destroy(s); } return sphere; }
 
         void UpdDrops(float dt)
         {
             float mag = pet.def != null && pet.def.gold ? 8 : 4;
+            if (goldPend > 0 && Time.time - goldShowT > .3f) { Number(hero.Pos + Vector3.up * 1.8f, "+" + goldPend, "gold"); goldPend = 0; goldShowT = Time.time; }
             for (int i = drops.Count - 1; i >= 0; i--)
             {
                 var d = drops[i]; d.t += dt;
@@ -714,14 +779,25 @@ namespace NovaBlade
                     if (d.item != null)
                     {
                         var it = Items.Get(d.item); var c = Items.RarityColor(it.rarity);
-                        if (AddItem(d.item)) { Number(hero.Pos + Vector3.up * 2.4f, "+ " + it.name, "crit"); Fx.Burst(hero.Pos + Vector3.up, 20, c, 4); Persist(); }
+                        if (AddItem(d.item)) { PickupText("+ " + it.name, "crit"); Fx.Burst(hero.Pos + Vector3.up, 20, c, 4); Persist(); }
                     }
-                    else if (!d.orb) { int v = Mathf.RoundToInt(d.v * (pet.def != null && pet.def.gold ? 1.5f : 1)); gold += v; Number(hero.Pos + Vector3.up * 1.8f, "+" + v, "gold"); }
-                    else { hero.Heal(hero.max * .1f); Fx.Burst(hero.Pos + Vector3.up, 14, new Color(.4f, 1, .55f), 3); }
+                    else
+                    {
+                        Fx.Burst(hero.Pos + Vector3.up, 14, OrbGlow(d.orb), 3);
+                        switch (d.orb)
+                        {
+                            case "heal": hero.Heal(hero.max * .1f); break;
+                            case "mana": hero.mp = Mathf.Min(hero.mpMax, hero.mp + 30); PickupText("+30 MP", "heal"); break;
+                            case "fury": hero.orbAtkT = 10; PickupText(Loc.S("พลังโจมตี +25%", "ATK +25%"), "crit"); break;
+                            case "quick": for (int c = 0; c < 3; c++) hero.cds[c] = Mathf.Max(0, hero.cds[c] - 3); PickupText(Loc.S("สกิลเร็วขึ้น -3 วิ", "Skills -3s"), "crit"); break;
+                            default: int v = Mathf.RoundToInt(d.v * (pet.def != null && pet.def.gold ? 1.5f : 1)); gold += v; goldPend += v; break;
+                        }
+                    }
                 }
-                d.go.transform.position = d.p + (d.orb ? Vector3.up * Mathf.Sin(d.t * 4) * .08f : Vector3.zero);
-                d.go.transform.rotation = d.item != null ? Quaternion.Euler(0, d.t * 120, 0) : Quaternion.Euler(d.orb ? 0 : 90, d.t * 280, 0);
-                if (dead) { Destroy(d.go); drops.RemoveAt(i); }
+                d.go.transform.position = d.p + (d.orb != null ? Vector3.up * (.28f + Mathf.Sin(d.t * 3) * .07f) : Vector3.zero);
+                d.go.transform.rotation = d.item != null ? Quaternion.Euler(0, d.t * 120, 0) : cam.transform.rotation;   // orbs always face the camera
+                if (d.halo != null) d.halo.SetColor("_Color", OrbGlow(d.orb) * (.26f + .08f * Mathf.Sin(d.t * 5)));
+                if (dead) { if (d.halo) Destroy(d.halo); Destroy(d.go); drops.RemoveAt(i); }
             }
         }
 
@@ -825,7 +901,7 @@ namespace NovaBlade
             kills = 0; gold = 0; time = 0; banked = 0; between = 0; wave = Theme.waves.Length;   // no waves: straight to the boss
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             camPos = hero.Pos + new Vector3(0, 3, 6);
-            ui.ShowHud(); ui.Banner(Loc.S("ดวลบอส · Soulslike", "Boss Duel · Soulslike"), Application.isMobilePlatform ? Loc.S("ลากจอขวาหมุนกล้อง · ปุ่มเป้าล็อกศัตรู", "Drag the right side to turn the camera · Target button locks on") : Loc.S("Tab ล็อกเป้า · คลิกซ้าย/ขวา โจมตี · Q ป้องกัน · Space หลบ", "Tab lock-on · Left/Right click attack · Q block · Space dodge"));
+            ui.ShowHud(); ui.Banner(Loc.S("ดวลบอส · Soulslike", "Boss Duel · Soulslike"), IsPhone ? Loc.S("ลากจอขวาหมุนกล้อง · ปุ่มเป้าล็อกศัตรู", "Drag the right side to turn the camera · Target button locks on") : Loc.S("Tab ล็อกเป้า · คลิกซ้าย/ขวา โจมตี · Q ป้องกัน · Space หลบ", "Tab lock-on · Left/Right click attack · Q block · Space dodge"));
             SpawnBoss(); foreach (var p in new[] { new Vector3(-5, 0, -8), new Vector3(5, 0, -8) }) SpawnFoe(Theme.waves[0][0].foe, p);
         }
 

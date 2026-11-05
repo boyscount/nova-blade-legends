@@ -22,7 +22,7 @@ namespace NovaBlade
         public void Build()
         {
             meshes.Clear(); mats.Clear();
-            bool mobile = Application.isMobilePlatform;
+            bool mobile = Main.IsPhone;
             var rnd = new System.Random(seed);
             float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
             for (int v = 0; v < 4; v++) { meshes.Add(Clump(rnd, mobile ? 11 : 18, height, v)); mats.Add(new List<Matrix4x4>()); }

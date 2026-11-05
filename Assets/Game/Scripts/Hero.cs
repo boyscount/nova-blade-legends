@@ -15,7 +15,7 @@ namespace NovaBlade
         public HeroDef def; public SwordDef sword; public string ModelId;   // sword = stats, ModelId = what is shown (weapon skin)
         public float mp = 100, mpMax = 100;   // power: each skill costs some, refills over time
         public static float SkillCost(float cd) => Mathf.Round(Mathf.Clamp(cd * 2.6f, 15, 40));
-        public float hp = 1, max = 1, face, inv, buffT, shieldT, dodgeCD;
+        public float hp = 1, max = 1, face, inv, buffT, shieldT, dodgeCD, orbAtkT;
         public readonly float[] cds = new float[3];
         public bool dead;
         public enum St { Idle, Atk, Skill, Dodge, Hurt, Dead }
@@ -142,11 +142,15 @@ namespace NovaBlade
         }
 
         public void PlaceLobby() { transform.position = new Vector3(0, def.rig ? 0 : .35f, 0); face = 0; transform.rotation = Quaternion.identity; }
+        // gear changed in the pause bag: new max health at the same share of health (so swapping pieces can never heal)
+        public int Level => Data.Level(G.save.HeroXp(def.id));
+        float BaseHp => def.hp * (1 + (Level - 1) * Data.LevelHp);
+        public void RefreshGear() { float share = max > 0 ? hp / max : 1; max = BaseHp + Items.Bonus(G.save).hp; if (!dead) hp = Mathf.Clamp(max * share, 1, max); }
         public void ResetForGame()
         {
-            mp = mpMax; offActive = false; swapCD = 0;
-            transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = def.hp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
-            buffT = shieldT = dodgeCD = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
+            mp = mpMax; offActive = false; swapCD = 0; G.runLoot.Clear(); G.runXp = 0;
+            transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
+            buffT = shieldT = dodgeCD = orbAtkT = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
             if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
             Play("idle", .05f);
             if (G.soul) { if (!soul) soul = gameObject.AddComponent<SoulController>(); soul.Begin(this); } else if (soul) soul.End();
@@ -240,7 +244,7 @@ namespace NovaBlade
         bool AtkHeld => G.ui.atkHold || ClickAttacking || (Keyboard.current?.jKey.isPressed ?? false) || (Mouse.current != null && Mouse.current.leftButton.isPressed && !G.ui.PointerOverUi);
 
         // ---------- helpers ----------
-        public float AtkPow => 100 * def.atk * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier] + Items.Bonus(G.save).atk) * (buffT > 0 ? 1.5f : 1);
+        public float AtkPow => 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier] + Items.Bonus(G.save).atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
         public int MasteryTier => Data.Tier(G.save.Mastery(sword.id));
         public float CritBonus => Data.MasteryCrit[MasteryTier] + Items.Bonus(G.save).crit;
         // a healing potion from the bag: 35% of health, 3 s apart
@@ -361,7 +365,7 @@ namespace NovaBlade
             if (G.mode == Main.Mode.Lobby) { LobbyIdle(); return; }
             if (G.mode != Main.Mode.Game && G.mode != Main.Mode.Result) return;
             float dt = Time.deltaTime; var ui = G.ui;
-            inv -= dt; dodgeCD -= dt; buffT -= dt; shieldT -= dt; chain -= dt; for (int i = 0; i < 3; i++) cds[i] -= dt;
+            inv -= dt; dodgeCD -= dt; buffT -= dt; orbAtkT -= dt; shieldT -= dt; chain -= dt; for (int i = 0; i < 3; i++) cds[i] -= dt;
             if (flashT > 0) { flashT -= dt; if (flashT <= 0) look.Flash(0); }
             if (bubble) { bubble.SetActive(shieldT > 0); bubble.transform.position = Pos + Vector3.up * (def.rig ? 1 : .65f); }
             trail.on = def.blade && (state == St.Atk || (state == St.Skill && skillId != "shield" && skillId != "cry" && skillId != "missile" && skillId != "heal" && skillId != "laser"));

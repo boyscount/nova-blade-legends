@@ -8,7 +8,8 @@ namespace NovaBlade
     public enum Slot { Helm, Armor, Boots, Accessory, Potion, Material }
 
     // A piece of gear, a potion or a crafting material. Gear comes in five rarities (one set per rarity) and adds to the
-    // hero's stats while worn; potions heal in a fight; materials come from dismantling gear (for upgrades later).
+    // hero's stats while worn; potions heal in a fight; materials come from dismantling gear and pay for enhancing it.
+// An enhanced piece keeps its level in its id ("helm_iron+3"), so old saves and the bag's plain id lists keep working.
     public class ItemDef
     {
         public string id, name, desc; public Slot slot; public int rarity;
@@ -17,6 +18,7 @@ namespace NovaBlade
     }
 
     public struct GearBonus { public float hp, def, spd, crit, atk; }
+    public enum EnhanceResult { Max, NoShards, NoGold, Failed, Success }
 
     public static class Items
     {
@@ -41,12 +43,12 @@ namespace NovaBlade
                 list.Add(new ItemDef { id = $"armor_{sid}", slot = Slot.Armor, rarity = r, name = Loc.S($"เกราะ{th}", $"{en} Armor"), desc = Loc.S("เกราะลำตัว ลดดาเมจที่โดน", "Body armour: takes the edge off every hit"), hp = 80 * k, def = .025f * k });
                 list.Add(new ItemDef { id = $"boots_{sid}", slot = Slot.Boots, rarity = r, name = Loc.S($"รองเท้า{th}", $"{en} Boots"), desc = Loc.S("เดินเร็วขึ้น", "Lighter on your feet"), spd = .12f * k, def = .008f * k });
                 list.Add(new ItemDef { id = $"ring_{sid}", slot = Slot.Accessory, rarity = r, name = Loc.S($"แหวน{th}", $"{en} Ring"), desc = Loc.S("เพิ่มพลังโจมตีและคริติคอล", "More attack and critical chance"), crit = .015f * k, atk = .03f * k });
-                list.Add(new ItemDef { id = $"shard_{r}", slot = Slot.Material, rarity = r, name = Loc.S($"ผลึก{RarityTh[r]}", $"{RarityEn[r]} Shard"), desc = Loc.S("ได้จากการย่อยของ ใช้ตีบวกอุปกรณ์ (เร็วๆ นี้)", "From dismantled gear; for upgrading gear (coming soon)") });
+                list.Add(new ItemDef { id = $"shard_{r}", slot = Slot.Material, rarity = r, name = Loc.S($"ผลึก{RarityTh[r]}", $"{RarityEn[r]} Shard"), desc = Loc.S("ได้จากการย่อยของ ใช้ตีบวกอุปกรณ์ระดับเดียวกัน", "From dismantled gear; enhances gear of the same rarity") });
             }
             list.Add(new ItemDef { id = "potion", slot = Slot.Potion, rarity = 1, name = Loc.S("ยาฟื้นพลัง", "Healing Potion"), desc = Loc.S("ใช้ตอนสู้: ฟื้นพลังชีวิต 35% (ปุ่ม H หรือปุ่มยาบนจอ)", "In a fight: restores 35% health (H, or the potion button)") });
             return list;
         }
-        public static ItemDef Get(string id) => All.FirstOrDefault(i => i.id == id);
+        public static ItemDef Get(string id) { var b = Base(id); return All.FirstOrDefault(i => i.id == b); }
         public static bool IsGear(ItemDef d) => d != null && d.slot <= Slot.Accessory;
 
         // what the worn gear adds up to
@@ -55,8 +57,8 @@ namespace NovaBlade
             var b = new GearBonus();
             foreach (var id in new[] { s.helm, s.armor, s.boots, s.acc })
             {
-                var d = Get(id); if (d == null) continue;
-                b.hp += d.hp; b.def += d.def; b.spd += d.spd; b.crit += d.crit; b.atk += d.atk;
+                var d = Get(id); if (d == null) continue; float k = Power(Level(id));
+                b.hp += d.hp * k; b.def += d.def * k; b.spd += d.spd * k; b.crit += d.crit * k; b.atk += d.atk * k;
             }
             b.def = Mathf.Min(b.def, .6f); return b;
         }
@@ -64,14 +66,58 @@ namespace NovaBlade
         public static void SetWorn(Main.Save s, Slot slot, string id) { switch (slot) { case Slot.Helm: s.helm = id; break; case Slot.Armor: s.armor = id; break; case Slot.Boots: s.boots = id; break; default: s.acc = id; break; } }
 
         // the stat lines of an item, for the details box
-        public static IEnumerable<(string k, string v)> Lines(ItemDef d)
+        public static IEnumerable<(string k, string v)> Lines(ItemDef d, int level = 0)
         {
-            if (d.hp > 0) yield return (Loc.S("พลังชีวิต", "HP"), $"+{d.hp:0}");
-            if (d.def > 0) yield return (Loc.S("ลดดาเมจ", "DEF"), $"+{d.def * 100:0.#}%");
-            if (d.spd > 0) yield return (Loc.S("ความเร็ว", "SPD"), $"+{d.spd:0.##}");
-            if (d.atk > 0) yield return (Loc.S("โจมตี", "ATK"), $"+{d.atk * 100:0.#}%");
-            if (d.crit > 0) yield return (Loc.S("คริติคอล", "CRIT"), $"+{d.crit * 100:0.#}%");
+            float k = Power(level);
+            if (d.hp > 0) yield return (Loc.S("พลังชีวิต", "HP"), $"+{d.hp * k:0}");
+            if (d.def > 0) yield return (Loc.S("ลดดาเมจ", "DEF"), $"+{d.def * k * 100:0.#}%");
+            if (d.spd > 0) yield return (Loc.S("ความเร็ว", "SPD"), $"+{d.spd * k:0.##}");
+            if (d.atk > 0) yield return (Loc.S("โจมตี", "ATK"), $"+{d.atk * k * 100:0.#}%");
+            if (d.crit > 0) yield return (Loc.S("คริติคอล", "CRIT"), $"+{d.crit * k * 100:0.#}%");
         }
+
+        // a piece against what is worn in its slot: each stat either has, its value and the change
+        static float[] Vals(string id) { var d = Get(id); if (d == null) return new float[5]; float k = Power(Level(id)); return new[] { d.hp * k, d.def * k * 100, d.spd * k, d.atk * k * 100, d.crit * k * 100 }; }
+        public static IEnumerable<(string k, string v, string diff, int sign)> Compare(string id, string worn)
+        {
+            float[] a = Vals(id), b = Vals(worn);
+            string[] names = { Loc.S("พลังชีวิต", "HP"), Loc.S("ลดดาเมจ", "DEF"), Loc.S("ความเร็ว", "SPD"), Loc.S("โจมตี", "ATK"), Loc.S("คริติคอล", "CRIT") }, fmt = { "0", "0.#", "0.##", "0.#", "0.#" }, unit = { "", "%", "", "%", "%" };
+            for (int i = 0; i < 5; i++)
+            {
+                if (a[i] <= 0 && b[i] <= 0) continue;
+                float d = a[i] - b[i]; int sign = Mathf.Abs(d) < .005f ? 0 : d > 0 ? 1 : -1;
+                string m = Mathf.Abs(d).ToString(fmt[i]) + unit[i];
+                yield return (names[i], "+" + a[i].ToString(fmt[i]) + unit[i], sign == 0 ? Loc.S("เท่าเดิม", "same") : sign > 0 ? Loc.S($"เพิ่ม {m}", $"+{m}") : Loc.S($"ลด {m}", $"-{m}"), sign);
+            }
+        }
+
+        // ---------- enhancing: +1 to +10, each level adds 8% of the piece's stats; a failed try costs the shards and gold, never a level ----------
+        public const int MaxLevel = 10; const float LevelStep = .08f;
+        static readonly float[] Chances = { 1, 1, 1, .9f, .8f, .7f, .6f, .5f, .4f, .3f };
+        public static string Base(string id) { if (string.IsNullOrEmpty(id)) return id; int p = id.IndexOf('+'); return p < 0 ? id : id.Substring(0, p); }
+        public static int Level(string id) { if (string.IsNullOrEmpty(id)) return 0; int p = id.IndexOf('+'); return p >= 0 && int.TryParse(id.Substring(p + 1), out int n) ? Mathf.Clamp(n, 0, MaxLevel) : 0; }
+        public static string WithLevel(string id, int level) => level > 0 ? $"{Base(id)}+{level}" : Base(id);
+        public static string Name(string id) { var d = Get(id); if (d == null) return ""; int n = Level(id); return n > 0 ? $"{d.name} +{n}" : d.name; }
+        public static float Power(int level) => 1 + level * LevelStep;
+        // the price of going up from this level
+        public static float Chance(int level) => Chances[Mathf.Clamp(level, 0, MaxLevel - 1)];
+        public static int ShardCost(int level) => 1 + level / 3;
+        public static int GoldCost(int rarity, int level) => 20 * (rarity + 1) * (level + 1);
+        public static EnhanceResult Enhance(Main.Save s, ref string id)
+        {
+            var d = Get(id); int n = Level(id); if (d == null || !IsGear(d) || n >= MaxLevel) return EnhanceResult.Max;
+            int shards = ShardCost(n), gold = GoldCost(d.rarity, n);
+            if (s.mats[d.rarity] < shards) return EnhanceResult.NoShards;
+            if (s.gold < gold) return EnhanceResult.NoGold;
+            s.mats[d.rarity] -= shards; s.gold -= gold;
+            if (Random.value >= Chance(n)) return EnhanceResult.Failed;
+            id = WithLevel(id, n + 1); return EnhanceResult.Success;
+        }
+        // an enhanced piece gives some of what went into it back: half the shards, and a higher price
+        public static int DismantleShards(string id) { var d = Get(id); int n = Level(id), spent = 0; for (int i = 0; i < n; i++) spent += ShardCost(i); return 1 + d.rarity / 2 + spent / 2; }
+        public static int SellPrice(string id) { var d = Get(id); return Mathf.RoundToInt(d.Sell * (1 + Level(id) * .25f)); }
+        // what the bulk-sell button takes: common and uncommon pieces that were never enhanced
+        public static List<string> Junk(Main.Save s) => s.bag.Where(i => (Get(i)?.rarity ?? 9) <= 1 && Level(i) == 0).ToList();
 
         // a random drop: monsters mostly give common pieces, bosses give better ones; the stage lifts the odds a little
         public static string Roll(bool boss, int stage)

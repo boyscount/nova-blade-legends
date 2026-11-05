@@ -31,7 +31,7 @@ namespace NovaBlade
         public void Begin(Hero hero)
         {
             h = hero; stamina = staminaMax; act = Act.None; lockTarget = null; yaw = Mathf.PI; pitch = 16; combo = 0; loop = null;
-            if (!Application.isMobilePlatform) Cursor.lockState = CursorLockMode.Locked;
+            if (!Main.IsPhone) Cursor.lockState = CursorLockMode.Locked;
         }
         public void End() { lockTarget = null; Cursor.lockState = CursorLockMode.None; if (slowT > 0) Time.timeScale = 1; slowT = 0; }
 

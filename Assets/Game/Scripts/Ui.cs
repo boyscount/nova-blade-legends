@@ -23,7 +23,7 @@ namespace NovaBlade
         VisualElement mpFill; Label mpT;
         public Vector3? Pan;   // set while the player holds the minimap: where the camera should look
         UIDocument doc; VisualElement root, lobby, hud, pauseOv, resultOv, cards, nums, bars, joyBase, joyKnob, joyZone, bossW, bossFill, hpFill, mini, banner, buffs;
-        Label heroT, heroN, heroD, detail, goldL, goldH, waveT, hpT, hudName, bossN, bannerA, bannerB, resH, resS, resK, resG, resT, petN;
+        Label heroT, heroN, heroD, detail, goldL, goldH, waveT, waveT2, waveT3, hpT, hudName, bossN, bannerA, bannerB, resH, resS, resK, resG, resT, petN;
         VisualElement[] stats; readonly VisualElement[] sk = new VisualElement[5]; VisualElement porImg, petImg; Button again;
         FontDefinition font, fontBold; string tab = "hero";
         Main G => Main.G;
@@ -69,9 +69,9 @@ namespace NovaBlade
             corner.Apply(); return corner;
         }
         // painted 9-slice button frame from Resources/UI/Lobby: sx / sy = untouched corner size in texture pixels, scale = corner size on screen
-        static void Frame(VisualElement b, string art, int sx, int sy, float scale)
+        static void Frame(VisualElement b, string art, int sx, int sy, float scale, string dir = "UI/Lobby/")
         {
-            var t = Resources.Load<Texture2D>("UI/Lobby/" + art); if (!t) return;
+            var t = Resources.Load<Texture2D>(dir + art); if (!t) return;
             b.style.backgroundImage = new StyleBackground(t); b.style.backgroundColor = Color.clear; Border(b, Color.clear, 0);
             b.style.unitySliceLeft = b.style.unitySliceRight = sx; b.style.unitySliceTop = b.style.unitySliceBottom = sy; b.style.unitySliceScale = scale;
             b.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 5, color = new Color(0, 0, 0, .85f) };
@@ -92,8 +92,8 @@ namespace NovaBlade
             doc = gameObject.AddComponent<UIDocument>(); doc.panelSettings = Resources.Load<PanelSettings>("UI/Panel");
             root = doc.rootVisualElement; root.pickingMode = PickingMode.Ignore; Abs(root, 0, 0, 0, 0);
             var args = System.Environment.GetCommandLineArgs();
-            WebPc = (Application.platform == RuntimePlatform.WebGLPlayer && !Application.isMobilePlatform) || args.Contains("-webctl");
-            touchUi = !WebPc && (Application.isMobilePlatform || Touchscreen.current != null || args.Contains("-touchui"));
+            WebPc = (Application.platform == RuntimePlatform.WebGLPlayer && !Main.IsPhone) || args.Contains("-webctl");
+            touchUi = !WebPc && (Main.IsPhone || Touchscreen.current != null || args.Contains("-touchui"));
             J = touchUi ? 1.7f : 1;
             Studio.Build();
             BuildLobby(); BuildHud(); BuildOverlays();
@@ -193,7 +193,7 @@ namespace NovaBlade
             var sk = Btn(Loc.S("ดูรายละเอียดสกิล", "Skill details"), ShowSkills, false); sk.style.alignSelf = Align.FlexStart; sk.style.marginTop = 10; sk.style.fontSize = touchUi ? 24 : 18;
             sk.style.paddingTop = sk.style.paddingBottom = touchUi ? 10 : 6; sk.style.paddingLeft = sk.style.paddingRight = 16; Round(sk, 18); sk.pickingMode = PickingMode.Position;
             var bagB = Btn(Loc.S("กระเป๋า", "Bag"), () => ShowBag(true)); bagB.style.fontSize = touchUi ? 24 : 18; bagB.style.marginTop = 10; bagB.style.marginLeft = 10;
-            bagB.style.paddingTop = bagB.style.paddingBottom = touchUi ? 10 : 6; bagB.style.paddingLeft = bagB.style.paddingRight = 20; Round(bagB, 18); bagB.pickingMode = PickingMode.Position;
+            bagB.style.paddingTop = bagB.style.paddingBottom = touchUi ? 10 : 6; bagB.style.paddingLeft = bagB.style.paddingRight = 20; Round(bagB, 18); bagB.pickingMode = PickingMode.Position; BagIcon(bagB, touchUi ? 34 : 28);
             var brow = Box(); brow.style.flexDirection = FlexDirection.Row; brow.style.alignItems = Align.Center; brow.Add(sk); brow.Add(bagB); info.Add(brow);
             var st = Box(); st.style.marginTop = 12; info.Add(st); stats = new VisualElement[4];
             string[] names = { Loc.S("พลังชีวิต", "Health"), Loc.S("โจมตี", "Attack"), Loc.S("ความเร็ว", "Speed"), Loc.S("ระยะ", "Range") };
@@ -208,8 +208,9 @@ namespace NovaBlade
             }
             // view controls: zoom in / out / reset + hint
             // left edge, mid-height: clear of the pet, the wings and the hero's name
-            var vc = Box(); Abs(vc, 36, 330); vc.style.alignItems = Align.Center; lobby.Add(vc);
-            foreach (var (txt, act) in new (string, System.Action)[] { ("+", () => lobbyZoom = Mathf.Clamp01(lobbyZoom + .25f)), ("−", () => lobbyZoom = Mathf.Clamp01(lobbyZoom - .25f)), (Loc.S("คืน", "Reset"), () => { lobbyZoom = 0; heroYaw = petYaw = 0; yawVel = 0; }) })
+            // PC: the mouse wheel zooms, so only the hint stays, under the logo
+            var vc = Box(); Abs(vc, touchUi ? 36 : 46, touchUi ? 330 : 214); vc.style.alignItems = touchUi ? Align.Center : Align.FlexStart; lobby.Add(vc);
+            if (touchUi) foreach (var (txt, act) in new (string, System.Action)[] { ("+", () => lobbyZoom = Mathf.Clamp01(lobbyZoom + .25f)), ("−", () => lobbyZoom = Mathf.Clamp01(lobbyZoom - .25f)), (Loc.S("คืน", "Reset"), () => { lobbyZoom = 0; heroYaw = petYaw = 0; yawVel = 0; }) })
             {
                 var b = new Button(act) { text = txt }; b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced; b.style.fontSize = txt.Length > 1 ? (touchUi ? 22 : 18) : (touchUi ? 34 : 28); b.style.color = Color.white;
                 b.style.width = b.style.height = touchUi ? 76 : 58; Round(b, 40); b.style.backgroundColor = new Color(.04f, .07f, .09f, .78f); Border(b, new Color(1, .84f, .55f, .5f), 2);
@@ -217,7 +218,7 @@ namespace NovaBlade
             }
             var hintV = L(touchUi ? Loc.S("ลากเพื่อหมุน · ถ่างนิ้วเพื่อซูม", "Drag to rotate · Pinch to zoom") : Loc.S("ลากเพื่อหมุน · ล้อเมาส์เพื่อซูม", "Drag to rotate · Mouse wheel to zoom"), 17, new Color(1, 1, 1, .8f)); Shadow(hintV); hintV.style.unityTextAlign = TextAnchor.MiddleCenter; vc.Add(hintV);
             // right panel: dark glass with a thin gold rim
-            var panel = Box(new Color(.03f, .045f, .06f, .62f), 18); lobbyPanel = panel; Border(panel, new Color(1, .82f, .5f, .45f), 2); Abs(panel, null, 70, 30, 30); panel.style.width = Length.Percent(44); Pad(panel, 18); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
+            var panel = Box(new Color(.045f, .085f, .125f, .76f), 12); lobbyPanel = panel; Border(panel, Gold, 2.5f); Abs(panel, null, 56, 44, 36); panel.style.width = Length.Percent(44); Pad(panel, 24); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
             var tabs = Box(new Color(0, 0, 0, .3f), 12); Border(tabs, new Color(1, .84f, .55f, .25f)); tabs.style.flexDirection = FlexDirection.Row; Pad(tabs, 4); panel.Add(tabs);
             int ti = 0;
             foreach (var (id, label) in new[] { ("hero", Loc.S("ฮีโร่", "Heroes")), ("skin", Loc.S("สกิน", "Skins")), ("sword", Loc.S("อาวุธ", "Weapons")), ("wskin", Loc.S("สกินอาวุธ", "Weapon Skins")), ("wings", Loc.S("ปีก", "Wings")), ("pet", Loc.S("สัตว์เลี้ยง", "Pets")), ("stage", Loc.S("ด่าน", "Stages")) })
@@ -275,12 +276,12 @@ namespace NovaBlade
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
             gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); bottom.Add(cur);
-            var play = Btn(Loc.S("สู้เลย", "BATTLE"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
+            var play = Btn(Loc.S("เริ่มต่อสู้", "START BATTLE"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
             if (Resources.Load<Texture2D>("UI/Lobby/btn_play_frame_new") is Texture2D pf)
             {   // painted frame at its own proportions (1200 x 360): the diamonds top and bottom must not stretch
                 float pw = touchUi ? 600 : 470; play.style.flexGrow = 0; play.style.width = pw; play.style.height = pw * .3f; play.style.marginLeft = Length.Auto(); play.style.marginRight = Length.Auto();
                 play.style.backgroundImage = new StyleBackground(pf); play.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; play.style.backgroundColor = Color.clear; Border(play, Color.clear, 0);
-                play.style.paddingLeft = play.style.paddingRight = play.style.paddingTop = play.style.paddingBottom = 0; play.style.fontSize = touchUi ? 50 : 40;
+                play.style.paddingLeft = play.style.paddingRight = play.style.paddingTop = play.style.paddingBottom = 0; play.style.fontSize = Loc.En ? (touchUi ? 38 : 30) : (touchUi ? 46 : 36);
                 play.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .08f, 0, .95f) }; play.style.color = new Color(1, .96f, .82f);
             }
             else { play.style.paddingTop = play.style.paddingBottom = touchUi ? 30 : 20; Frame(play, "btn_play_frame", 230, 90, touchUi ? .36f : .28f); play.style.paddingLeft = play.style.paddingRight = touchUi ? 90 : 70; }
@@ -290,11 +291,34 @@ namespace NovaBlade
             halo.style.left = Length.Percent(-14); halo.style.right = Length.Percent(-14); halo.style.top = Length.Percent(-55); halo.style.bottom = Length.Percent(-55);
             halo.style.backgroundImage = new StyleBackground(SoftGlow()); halo.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; halo.style.unityBackgroundImageTintColor = new Color(1, .55f, .18f);
             play.style.marginLeft = play.style.marginRight = 0;
-            playBox.Add(halo); playBox.Add(play); bottom.Add(playBox);
+            // fire round the button: the painted flames twice (one mirrored and out of step, so they seem to move), and sparks that rise from it
+            VisualElement Flames()
+            {
+                var v = new VisualElement { pickingMode = PickingMode.Ignore }; v.style.position = Position.Absolute; v.style.left = v.style.right = Length.Percent(-19); v.style.top = v.style.bottom = Length.Percent(-27);
+                if (FrameArt("btn_battle_fire") is Texture2D t) { v.style.backgroundImage = new StyleBackground(t); v.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; }
+                return v;
+            }
+            var fireA = Flames(); var fireB = Flames();
+            var embers = new VisualElement { pickingMode = PickingMode.Ignore }; embers.style.position = Position.Absolute; embers.style.left = embers.style.right = Length.Percent(-14); embers.style.top = Length.Percent(-90); embers.style.bottom = Length.Percent(-6);
+            embers.generateVisualContent += ctx =>
+            {
+                float w = embers.resolvedStyle.width, h = embers.resolvedStyle.height, t = Time.unscaledTime; if (float.IsNaN(w) || !FrameArt("btn_battle_fire")) return; var p = ctx.painter2D;
+                for (int i = 0; i < 22; i++)
+                {
+                    float seed = i * 12.9898f, u = Mathf.Repeat(t * (.22f + Mathf.Repeat(seed, .23f)) + seed * .37f, 1), x = Mathf.Repeat(seed * .618f, 1) * w + Mathf.Sin(t * 1.7f + seed) * 9, y = h * (1 - u);
+                    float fade = Mathf.Sin(u * Mathf.PI); p.fillColor = new Color(1, .55f + .35f * (1 - u), .18f, fade * .9f); p.BeginPath(); p.Arc(new Vector2(x, y), 1.5f + 2.2f * Mathf.Repeat(seed * 1.3f, 1) * (1 - u * .5f), 0, 360); p.Fill();
+                }
+            };
+            playBox.Add(halo); playBox.Add(fireB); playBox.Add(fireA); playBox.Add(play); playBox.Add(embers); bottom.Add(playBox);
+            FrameOrnaments(panel);
             playBox.schedule.Execute(() =>
             {
                 float k = .5f + .5f * Mathf.Sin(Time.unscaledTime * 2.6f);
                 halo.style.opacity = .45f + .4f * k; halo.style.scale = new Scale(Vector3.one * (.94f + .1f * k));
+                float now = Time.unscaledTime, flick = .5f + .3f * Mathf.Sin(now * 7.3f) + .2f * Mathf.Sin(now * 13.1f + 1.7f);   // uneven, the way a fire is
+                fireA.style.opacity = .78f + .22f * flick; fireA.style.scale = new Scale(new Vector3(1 + .025f * k, 1 + .05f * flick, 1));
+                fireB.style.opacity = .3f + .4f * (1 - flick); fireB.style.scale = new Scale(new Vector3(-(1.04f + .03f * flick), 1.08f + .05f * (1 - k), 1));
+                embers.MarkDirtyRepaint();
                 play.style.textShadow = new TextShadow { offset = Vector2.zero, blurRadius = 10 + 10 * k, color = new Color(1, .62f + .2f * k, .25f, .9f) };
             }).Every(33);
             lobby.schedule.Execute(() =>
@@ -312,7 +336,7 @@ namespace NovaBlade
         }
         void RenderInfo()
         {
-            var h = G.hero.def; heroT.text = h.title; heroN.text = h.name; heroD.text = Loc.S("สกิล: ", "Skills: ") + string.Join(" · ", h.skills.Select(s => Data.SkillLook(h.id, s).n));
+            var h = G.hero.def; heroT.text = $"Lv.{Data.Level(G.save.HeroXp(h.id))}  ·  {h.title}"; heroN.text = h.name; heroD.text = Loc.S("สกิล: ", "Skills: ") + string.Join(" · ", h.skills.Select(s => Data.SkillLook(h.id, s).n));
             for (int i = 0; i < 4; i++) stats[i].style.width = Length.Percent(h.stats[i] * 100);
             goldL.text = G.save.gold.ToString("N0"); gemsL.text = G.save.gems.ToString("N0") + Loc.S(" (ทดสอบ)", " (test)");
         }
@@ -513,6 +537,7 @@ namespace NovaBlade
         // left: the five worn slots beside the hero; right: filters, the grid, the chosen item's details and actions
         VisualElement bagOv, bagGrid, bagDetail, bagEquip; Label bagCap, bagMsg; string bagFilter = "all", bagSel;
         class BagEntry { public string kind, id, key; public int count, index; public bool worn; }
+        string bagConfirm; Label pauseBagText;
         public bool BagOpen => bagOv != null && bagOv.style.display == DisplayStyle.Flex;
         public void ShowBag(bool on)
         {
@@ -520,7 +545,7 @@ namespace NovaBlade
             bagOv.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             if (lobbyPanel != null) lobbyPanel.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
             if (lobbyInfo != null && touchUi) lobbyInfo.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;   // phones: the arc needs the height the hero card takes
-            if (on) { bagMsg.text = ""; RenderBag(); } else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderCards(); }
+            if (on) { bagMsg.text = ""; bagConfirm = null; RenderBag(); } else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderInfo(); RenderCards(); }
         }
         void BuildBag()
         {
@@ -529,16 +554,11 @@ namespace NovaBlade
             // worn slots
             // the worn slots sit on an arc that curves round the hero, with a thin gold line through them
             bagEquip = Box(); Abs(bagEquip, touchUi ? 220 : 300, touchUi ? 200 : 130); bagEquip.style.width = ArcW; bagEquip.style.height = ArcH; bagEquip.pickingMode = PickingMode.Ignore; bagOv.Add(bagEquip);
-            bagEquip.generateVisualContent += ctx =>
-            {
-                var p = ctx.painter2D; var c = ArcC;
-                p.lineWidth = 2; p.strokeColor = new Color(1, .84f, .55f, .55f); p.BeginPath(); p.Arc(c, ArcR, 106, 254); p.Stroke();
-                p.lineWidth = 6; p.strokeColor = new Color(1, .7f, .3f, .08f); p.BeginPath(); p.Arc(c, ArcR, 110, 250); p.Stroke();
-            };
+            bagEquip.generateVisualContent += PaintArc;
             // the panel
-            var pn = Box(new Color(.03f, .045f, .06f, .8f), 18); Border(pn, new Color(1, .82f, .5f, .5f), 2); Abs(pn, null, 70, 30, 30); pn.style.width = Length.Percent(54); Pad(pn, 18); pn.pickingMode = PickingMode.Position; bagOv.Add(pn);
+            var pn = Box(new Color(.045f, .085f, .125f, .9f), 12); Border(pn, Gold, 2.5f); Abs(pn, null, 70, 44, 44); pn.style.width = Length.Percent(54); Pad(pn, 32); pn.pickingMode = PickingMode.Position; bagOv.Add(pn);
             var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
-            var tl = L(Loc.S("กระเป๋าและไอเทม", "INVENTORY & BAG"), 40 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; top.Add(tl);
+            var tl = L(Loc.S("กระเป๋าและไอเทม", "INVENTORY & BAG"), 40 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; tl.style.marginLeft = 10; var titleBag = BagPic(52 * big); titleBag.style.marginLeft = 20; top.Add(titleBag); top.Add(tl);
             bagCap = L("", 22 * big, Muted, true); top.Add(bagCap);
             var plus = new Button(() => { var s = G.save; if (s.bagCap >= 120) { bagMsg.text = Loc.S("กระเป๋าขยายเต็มที่แล้ว", "The bag is at its largest"); return; } if (s.gems < 50) { bagMsg.text = Loc.S("Gem ไม่พอ (ต้องใช้ 50)", "Not enough Gems (50 needed)"); return; } s.gems -= 50; s.bagCap += 10; G.Persist(); bagMsg.text = Loc.S("ขยายกระเป๋า +10 ช่อง (-50 Gem)", "Bag +10 slots (-50 Gems)"); RenderBag(); }) { text = "+" };
             plus.style.fontSize = 26 * big; plus.style.width = plus.style.height = 40 * big; Round(plus, 20 * big); plus.style.color = Ink; plus.style.backgroundColor = new Color(1, .7f, .25f, .25f); Border(plus, Gold, 1.5f); plus.style.marginLeft = 8; top.Add(plus);
@@ -553,18 +573,21 @@ namespace NovaBlade
             var body = Box(); body.style.flexDirection = FlexDirection.Row; body.style.flexGrow = 1; body.style.marginTop = 12; pn.Add(body);
             var sv = new ScrollView(ScrollViewMode.Vertical); sv.style.flexGrow = 1; body.Add(sv);
             bagGrid = sv.contentContainer; bagGrid.style.flexDirection = FlexDirection.Row; bagGrid.style.flexWrap = Wrap.Wrap;
-            bagDetail = Box(new Color(0, 0, 0, .35f), 14); Border(bagDetail, new Color(1, .84f, .55f, .3f), 1.5f); Pad(bagDetail, 14); bagDetail.style.width = 330 * big; bagDetail.style.marginLeft = 12; bagDetail.style.flexShrink = 0; body.Add(bagDetail);
+            // (the details scroll: a piece with its enhance box and all its buttons can be taller than a phone's panel)
+            var detailBox = Box(new Color(0, 0, 0, .35f), 14); Border(detailBox, new Color(1, .84f, .55f, .3f), 1.5f); Pad(detailBox, 14); detailBox.style.width = 330 * big; detailBox.style.marginLeft = 12; detailBox.style.flexShrink = 0; body.Add(detailBox);
+            var detailSv = new ScrollView(ScrollViewMode.Vertical); detailSv.style.flexGrow = 1; detailBox.Add(detailSv); bagDetail = detailSv.contentContainer;
             var bot = Box(); bot.style.flexDirection = FlexDirection.Row; bot.style.alignItems = Align.Center; bot.style.marginTop = 10; pn.Add(bot);
-            var sort = Btn(Loc.S("เรียง", "SORT"), () => { G.save.bag = G.save.bag.OrderBy(i => Items.Get(i)?.slot ?? Slot.Material).ThenByDescending(i => Items.Get(i)?.rarity ?? 0).ToList(); bagSel = null; RenderBag(); }, false);
-            sort.style.fontSize = 20 * big; sort.style.paddingLeft = sort.style.paddingRight = 26; bot.Add(sort);
+            var sort = Btn(Loc.S("เรียง", "SORT"), () => { G.save.bag = G.save.bag.OrderBy(i => Items.Get(i)?.slot ?? Slot.Material).ThenByDescending(i => Items.Get(i)?.rarity ?? 0).ThenByDescending(Items.Level).ToList(); bagSel = null; RenderBag(); }, false);
+            StyleGold(sort, false); sort.style.fontSize = 20 * big; sort.style.paddingLeft = sort.style.paddingRight = 26; bot.Add(sort);
             var bulk = Btn(Loc.S("ขายของธรรมดา", "BULK SELL"), () =>
             {
-                var s = G.save; var junk = s.bag.Where(i => (Items.Get(i)?.rarity ?? 9) <= 1).ToList(); int g = junk.Sum(i => Items.Get(i).Sell);
+                var s = G.save; var junk = Items.Junk(s); int g = junk.Sum(i => Items.Get(i).Sell);
                 foreach (var i in junk) s.bag.Remove(i); s.gold += g; bagSel = null; G.Persist();
                 bagMsg.text = junk.Count == 0 ? Loc.S("ไม่มีของธรรมดาให้ขาย", "Nothing common to sell") : Loc.S($"ขาย {junk.Count} ชิ้น ได้ {g} Gold", $"Sold {junk.Count} pieces for {g} Gold"); RenderBag();
             }, false);
-            bulk.style.fontSize = 20 * big; bulk.style.marginLeft = 10; bulk.style.paddingLeft = bulk.style.paddingRight = 26; bot.Add(bulk);
+            StyleGold(bulk, false); bulk.style.fontSize = 20 * big; bulk.style.marginLeft = 10; bulk.style.paddingLeft = bulk.style.paddingRight = 26; bot.Add(bulk);
             bagMsg = L("", 19 * big, Gold); bagMsg.style.marginLeft = 16; bagMsg.style.flexGrow = 1; bagMsg.style.whiteSpace = WhiteSpace.Normal; bot.Add(bagMsg);
+            FrameOrnaments(pn);
             bagOv.style.display = DisplayStyle.None;
         }
         List<BagEntry> BagEntries()
@@ -581,7 +604,7 @@ namespace NovaBlade
             var v = Box(); v.style.width = v.style.height = size; v.pickingMode = PickingMode.Ignore;
             if (kind == "w") { var t = Studio.Weapon(id); if (t) v.style.backgroundImage = new StyleBackground(t); return v; }
             var d = Items.Get(id); if (d == null) return v;
-            var png = Resources.Load<Texture2D>("UI/Items/" + id); if (png) { v.style.backgroundImage = new StyleBackground(png); return v; }   // painted icon (ITEM-PROMPTS.md)
+            var png = Resources.Load<Texture2D>("UI/Items/" + Items.Base(id)); if (png) { v.style.backgroundImage = new StyleBackground(png); return v; }   // painted icon (ITEM-PROMPTS.md)
             var c = Color.Lerp(Color.white, Items.RarityColor(d.rarity), .55f);
             v.generateVisualContent += ctx => Items.Icon(ctx, d.slot, v.resolvedStyle.width, c); return v;
         }
@@ -598,19 +621,18 @@ namespace NovaBlade
             { bool on = b.name == "bf_" + bagFilter; b.style.backgroundColor = on ? new Color(1, .7f, .25f, .25f) : new Color(1, 1, 1, .05f); Border(b, on ? Gold : new Color(1, 1, 1, .15f), 1.5f); }
             // worn slots
             bagEquip.Clear(); var eqT = L(Loc.S("สวมใส่", "EQUIPPED"), 24 * big, Gold, true); eqT.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 6, color = Color.black };
-            { var a0 = ArcPos(0); Abs(eqT, a0.x - 30 * big, a0.y - 84 * big); } bagEquip.Add(eqT);
+            { var a0 = ArcPos(0); Abs(eqT, a0.x - 60 * big, a0.y - 100 * big); } bagEquip.Add(eqT); AddBlooms(bagEquip);
             int slotN = 0;
             var wornList = new List<(string label, string kind, string id, string key)> { (Loc.S("อาวุธ", "WEAPON"), "w", s.sword, "w:" + s.sword) };
             foreach (var sl in new[] { Slot.Helm, Slot.Armor, Slot.Boots, Slot.Accessory }) { var id = Items.Worn(s, sl); wornList.Add((Items.SlotName(sl).ToUpper(), "g", id, "worn:" + sl)); }
             foreach (var (label, kind, id, key) in wornList)
             {
-                float ws = 88 * big; var cell = Box(); cell.style.alignItems = Align.Center; cell.pickingMode = PickingMode.Position; cell.style.width = ws + 60;
-                var at = ArcPos(slotN++); Abs(cell, at.x - (ws + 60) / 2, at.y - ws / 2); bagEquip.Add(cell);
+                float ws = 78 * big; var cell = Box(); cell.style.flexDirection = FlexDirection.Row; cell.style.alignItems = Align.Center; cell.pickingMode = PickingMode.Position;
+                var at = ArcPos(slotN++); Abs(cell, at.x - ws / 2, at.y - ws / 2); bagEquip.Add(cell);
                 int r = string.IsNullOrEmpty(id) ? 0 : kind == "w" ? Rarity(new BagEntry { kind = "w", id = id }) : Items.Get(id)?.rarity ?? 0; var rc = Items.RarityColor(r);
-                var ring = Box(new Color(.03f, .05f, .07f, .85f), ws / 2); ring.style.width = ring.style.height = ws; Border(ring, string.IsNullOrEmpty(id) ? new Color(1, .84f, .55f, .35f) : rc, bagSel == key ? 4 : 2.5f);
-                ring.style.alignItems = Align.Center; ring.style.justifyContent = Justify.Center; ring.pickingMode = PickingMode.Ignore; cell.Add(ring);
+                var ring = FieldRing(ws, !string.IsNullOrEmpty(id), bagSel == key, string.IsNullOrEmpty(id) ? Color.clear : rc); ring.style.flexShrink = 0; cell.Add(ring);
                 if (!string.IsNullOrEmpty(id)) ring.Add(ItemPic(kind, id, ws * .7f));
-                var lb = L(label, 16 * big, Ink, true); lb.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 5, color = Color.black }; lb.style.marginTop = 3; cell.Add(lb);
+                int wornLv = kind == "g" ? Items.Level(id) : 0; var lb = L(wornLv > 0 ? $"{label} +{wornLv}" : label, 16 * big, Ink, true); lb.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 5, color = Color.black }; lb.style.marginLeft = 20; lb.style.top = slotN == 1 ? 42 : slotN == 5 ? -42 : 0; cell.Add(lb);
                 string k2 = key; cell.RegisterCallback<PointerDownEvent>(e => { if (!string.IsNullOrEmpty(id)) { bagSel = k2; RenderBag(); } });
             }
             // the grid
@@ -622,6 +644,7 @@ namespace NovaBlade
                 c.style.alignItems = Align.Center; c.style.justifyContent = Justify.Center; c.pickingMode = PickingMode.Position; c.Add(ItemPic(e.kind, e.id, cs * .7f));
                 if (e.count > 1) { var n = L("x" + e.count, 17 * big, Ink, true); Abs(n, null, null, 6, 4); n.style.textShadow = new TextShadow { offset = new Vector2(0, 1), blurRadius = 3, color = Color.black }; c.Add(n); }
                 if (e.worn) { var w = L("E", 17 * big, Gold, true); Abs(w, 6, 4); c.Add(w); }
+                if (e.kind == "g" && Items.Level(e.id) > 0) { var pl = L("+" + Items.Level(e.id), 18 * big, Gold, true); Abs(pl, 6, 4); pl.style.textShadow = new TextShadow { offset = new Vector2(0, 1), blurRadius = 3, color = Color.black }; c.Add(pl); }
                 var ee = e; c.RegisterCallback<PointerDownEvent>(ev => { bagSel = ee.key; RenderBag(); }); bagGrid.Add(c);
             }
             for (int i = entries.Count; i < Mathf.Max(entries.Count + (5 - entries.Count % 5) % 5, 15); i++)
@@ -636,25 +659,63 @@ namespace NovaBlade
             }
             var hd = L(Loc.S("รายละเอียด", "ITEM DETAILS"), 20 * big, Gold, true); hd.style.unityTextAlign = TextAnchor.MiddleCenter; bagDetail.Add(hd);
             int sr = Rarity(sel); var src = Items.RarityColor(sr); var def = Items.Get(sel.id); var wdef = sel.kind == "w" ? Data.Swords.First(w => w.id == sel.id) : null;
-            var nm = L(wdef != null ? wdef.name : def.name, 22 * big, Ink, true); nm.style.whiteSpace = WhiteSpace.Normal; nm.style.unityTextAlign = TextAnchor.MiddleCenter; nm.style.marginTop = 8; bagDetail.Add(nm);
+            var nm = L(wdef != null ? wdef.name : Items.Name(sel.id), 22 * big, Ink, true); nm.style.whiteSpace = WhiteSpace.Normal; nm.style.unityTextAlign = TextAnchor.MiddleCenter; nm.style.marginTop = 8; bagDetail.Add(nm);
             var rl = L($"({Items.RarityName(sr)}" + (def != null ? $" · {Items.SlotName(def.slot)})" : ")"), 18 * big, src, true); rl.style.unityTextAlign = TextAnchor.MiddleCenter; bagDetail.Add(rl);
-            var pic = ItemPic(sel.kind, sel.id, 120 * big); pic.style.alignSelf = Align.Center; pic.style.marginTop = 8; pic.style.marginBottom = 8; bagDetail.Add(pic);
-            IEnumerable<(string k, string v)> lines = wdef != null ? new[] { (Loc.S("ดาเมจ", "DMG"), $"x{wdef.dmg:0.##}"), (Loc.S("ความเร็ว", "SPD"), $"x{wdef.spd:0.##}"), (Loc.S("คริติคอล", "CRIT"), $"+{wdef.crit * 100:0}%") } : Items.Lines(def);
+            var pic = ItemPic(sel.kind, sel.id, (sel.kind == "g" ? 70 : 120) * big); pic.style.alignSelf = Align.Center; pic.style.marginTop = 8; pic.style.marginBottom = 8; bagDetail.Add(pic);
+            IEnumerable<(string k, string v)> lines = wdef != null ? new[] { (Loc.S("ดาเมจ", "DMG"), $"x{wdef.dmg:0.##}"), (Loc.S("ความเร็ว", "SPD"), $"x{wdef.spd:0.##}"), (Loc.S("คริติคอล", "CRIT"), $"+{wdef.crit * 100:0}%") } : Items.Lines(def, Items.Level(sel.id));
             foreach (var (k, v) in lines) { var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.justifyContent = Justify.SpaceBetween; row.Add(L(k + ":", 20 * big, Ink, true)); row.Add(L(v, 20 * big, Green, true)); bagDetail.Add(row); }
             var ds = L(wdef != null ? wdef.desc : def.desc, 17 * big, Muted); ds.style.whiteSpace = WhiteSpace.Normal; ds.style.marginTop = 8; ds.style.flexGrow = 1; bagDetail.Add(ds);
-            void Act(string text, bool primary, System.Action a) { var b = Btn(text, () => { a(); G.Persist(); RenderBag(); }, primary); b.style.fontSize = (primary ? 20 : 16) * big; b.style.whiteSpace = WhiteSpace.Normal; b.style.marginTop = 8; b.style.paddingTop = b.style.paddingBottom = 8; bagDetail.Add(b); }
+            void Act(string text, bool primary, System.Action a) { var b = Btn(text, () => { a(); G.Persist(); RenderBag(); }, primary); b.style.fontSize = (primary ? 20 : 16) * big; b.style.whiteSpace = WhiteSpace.Normal; b.style.marginTop = 8; b.style.paddingTop = b.style.paddingBottom = 8; StyleGold(b, primary); bagDetail.Add(b); }
+            // the enhance box: what the next level needs, in red when there is not enough
+            void EnhanceBox()
+            {
+                int lv = Items.Level(sel.id), rar = def.rarity;
+                var box = Box(new Color(1, .7f, .25f, .08f), 10); Border(box, new Color(1, .84f, .55f, .35f), 1.5f); Pad(box, 8); box.style.marginTop = 10; bagDetail.Add(box);
+                VisualElement Row(string k, string v, Color c) { var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.justifyContent = Justify.SpaceBetween; var kl = L(k, 17 * big, Ink); row.Add(kl); row.Add(L(v, 17 * big, c, true)); box.Add(row); return row; }
+                if (lv >= Items.MaxLevel) { var mx = L(Loc.S($"ตีบวกสูงสุดแล้ว (+{Items.MaxLevel})", $"Fully enhanced (+{Items.MaxLevel})"), 18 * big, Gold, true); mx.style.unityTextAlign = TextAnchor.MiddleCenter; box.Add(mx); return; }
+                int shards = Items.ShardCost(lv), gold = Items.GoldCost(rar, lv);
+                var ht = L(Loc.S($"ตีบวก +{lv} > +{lv + 1} (ค่าพลัง x{Items.Power(lv + 1):0.00})", $"Enhance +{lv} > +{lv + 1} (stats x{Items.Power(lv + 1):0.00})"), 18 * big, Gold, true); ht.style.whiteSpace = WhiteSpace.Normal; box.Add(ht);
+                Row(Loc.S("โอกาสสำเร็จ", "Success"), $"{Items.Chance(lv) * 100:0}%", Items.Chance(lv) >= 1 ? Green : Ink);
+                Row(Loc.S($"ผลึก{Items.RarityTh[rar]}", $"{Items.RarityEn[rar]} Shard"), $"{s.mats[rar]} / {shards}", s.mats[rar] >= shards ? Green : Red);
+                Row("Gold", $"{s.gold:N0} / {gold:N0}", s.gold >= gold ? Green : Red);
+                var eb = Btn(Loc.S("ตีบวก", "ENHANCE"), () =>
+                {
+                    string now = sel.id; var res = Items.Enhance(s, ref now);
+                    if (res == EnhanceResult.Success)
+                    {
+                        if (sel.worn) Items.SetWorn(s, def.slot, now); else s.bag[sel.index] = now;
+                        Fx.Burst(G.hero.Pos + Vector3.up, 40, Items.RarityColor(rar), 4, 1.2f, .1f);
+                        bagMsg.text = Loc.S($"สำเร็จ! {Items.Name(now)}", $"Success! {Items.Name(now)}");
+                    }
+                    else bagMsg.text = res switch
+                    {
+                        EnhanceResult.Failed => Loc.S("ไม่สำเร็จ เสียผลึกและ Gold แต่ระดับยังเท่าเดิม", "Failed: the shards and Gold are gone, the level stays"),
+                        EnhanceResult.NoShards => Loc.S($"ผลึก{Items.RarityTh[rar]}ไม่พอ ย่อยอุปกรณ์ระดับเดียวกันเพื่อรับผลึก", $"Not enough {Items.RarityEn[rar]} Shards: dismantle gear of that rarity"),
+                        EnhanceResult.NoGold => Loc.S("Gold ไม่พอ", "Not enough Gold"),
+                        _ => "",
+                    };
+                    G.Persist(); RenderBag();
+                }); eb.style.fontSize = 20 * big; eb.style.marginTop = 8; eb.style.paddingTop = eb.style.paddingBottom = 8; StyleGold(eb, true); box.Add(eb);
+            }
+            // an enhanced piece asks for a second tap before it is dismantled or sold
+            void Guarded(string what, System.Action a) { if (Confirmed(what + sel.key + sel.id, sel.id, bagMsg)) a(); }
             if (sel.kind == "w")
             {
                 if (s.sword == sel.id) bagDetail.Add(L(Loc.S("ใส่อยู่", "Equipped"), 20 * big, Gold, true));
                 else Act(Loc.S("สวมใส่", "EQUIP"), true, () => { s.sword = sel.id; if (s.sword2 == sel.id) s.sword2 = ""; G.hero.Equip(); bagSel = "w:" + sel.id; bagMsg.text = Loc.S("เปลี่ยนอาวุธแล้ว", "Weapon equipped"); });
             }
             else if (sel.worn)
+            {
                 Act(Loc.S("ถอดออก", "UNEQUIP"), true, () => { if (s.BagUsed >= s.bagCap) { bagMsg.text = Loc.S("กระเป๋าเต็ม", "The bag is full"); return; } s.bag.Add(sel.id); Items.SetWorn(s, def.slot, ""); bagSel = null; });
+                EnhanceBox();
+            }
             else if (sel.kind == "g")
             {
                 Act(Loc.S("สวมใส่", "EQUIP"), true, () => { var old = Items.Worn(s, def.slot); s.bag.RemoveAt(sel.index); if (!string.IsNullOrEmpty(old)) s.bag.Add(old); Items.SetWorn(s, def.slot, sel.id); bagSel = "worn:" + def.slot; bagMsg.text = Loc.S($"สวม {def.name} แล้ว", $"{def.name} equipped"); });
-                Act(Loc.S($"ย่อย (ได้ผลึก{Items.RarityTh[def.rarity]} x{1 + def.rarity / 2})", $"DISMANTLE (+{1 + def.rarity / 2} {Items.RarityEn[def.rarity]} Shard)"), false, () => { s.bag.RemoveAt(sel.index); s.mats[def.rarity] += 1 + def.rarity / 2; bagSel = null; bagMsg.text = Loc.S("ย่อยแล้ว", "Dismantled"); });
-                Act(Loc.S($"ขาย (+{def.Sell} Gold)", $"SELL (+{def.Sell} Gold)"), false, () => { s.bag.RemoveAt(sel.index); s.gold += def.Sell; bagSel = null; bagMsg.text = Loc.S($"ขายแล้ว +{def.Sell} Gold", $"Sold +{def.Sell} Gold"); });
+                EnhanceBox();
+                int dShards = Items.DismantleShards(sel.id), price = Items.SellPrice(sel.id);
+                Act(Loc.S($"ย่อย (ได้ผลึก{Items.RarityTh[def.rarity]} x{dShards})", $"DISMANTLE (+{dShards} {Items.RarityEn[def.rarity]} Shard)"), false, () => Guarded("d", () => { s.bag.RemoveAt(sel.index); s.mats[def.rarity] += dShards; bagSel = null; bagMsg.text = Loc.S("ย่อยแล้ว", "Dismantled"); }));
+                Act(Loc.S($"ขาย (+{price} Gold)", $"SELL (+{price} Gold)"), false, () => Guarded("s", () => { s.bag.RemoveAt(sel.index); s.gold += price; bagSel = null; bagMsg.text = Loc.S($"ขายแล้ว +{price} Gold", $"Sold +{price} Gold"); }));
             }
             else if (sel.kind == "p")
             {
@@ -663,6 +724,231 @@ namespace NovaBlade
             }
             else
                 Act(Loc.S($"ขายทั้งหมด (+{def.Sell * sel.count} Gold)", $"SELL ALL (+{def.Sell * sel.count} Gold)"), false, () => { s.gold += def.Sell * s.mats[sel.index]; s.mats[sel.index] = 0; bagSel = null; });
+        }
+        VisualElement xpFill; Label resX;
+        bool Confirmed(string key, string id, Label msg)
+        {
+            if (Items.Level(id) > 0 && bagConfirm != key) { bagConfirm = key; msg.text = Loc.S($"{Items.Name(id)} ตีบวกแล้ว แตะอีกครั้งเพื่อยืนยัน", $"{Items.Name(id)} is enhanced: tap again to confirm"); return false; }
+            bagConfirm = null; return true;
+        }
+
+        // ---------- the Moon Arc: the bag during a fight, opened from the pause screen (or B); the game stays paused ----------
+        // The worn slots on their arc round the hero, the gear picked up this fight first, each piece against what it would replace.
+        // Enhancing stays in the lobby.
+        VisualElement fbOv, fbArc, fbHero, fbGrid, fbDetail, fbActions; Label fbTitle, fbMsg; Button fbMode, pauseBagBtn; bool fbAll; string fbSel;
+        public bool FieldBagOpen => fbOv != null && fbOv.style.display == DisplayStyle.Flex;
+        void PauseBagLabel()
+        {
+            if (pauseBagBtn == null) return; int n = G.runLoot.Count; string keyHint = touchUi ? "" : " (B)";
+            string label = n > 0 ? Loc.S($"กระเป๋า · ของใหม่ {n}{keyHint}", $"Bag · {n} new{keyHint}") : Loc.S($"กระเป๋า{keyHint}", $"Bag{keyHint}"); if (pauseBagText != null) pauseBagText.text = label; else pauseBagBtn.text = label;
+        }
+        public void OpenFieldBag()
+        {
+            if (G.mode != Main.Mode.Game) return; if (!G.paused) TogglePause(); if (fbOv == null) BuildFieldBag();
+            pauseOv.style.display = DisplayStyle.None; joyZone.style.display = DisplayStyle.None; fbOv.style.display = DisplayStyle.Flex; fbAll = false; fbSel = null; fbMsg.text = ""; bagConfirm = null; RenderFieldBag();
+        }
+        public void CloseFieldBag() { if (fbOv == null) return; fbOv.style.display = DisplayStyle.None; joyZone.style.display = WebPc ? DisplayStyle.None : DisplayStyle.Flex; G.Persist(); if (G.paused) { pauseOv.style.display = DisplayStyle.Flex; PauseBagLabel(); } }
+        public void ResumeFromPause() { if (G.paused) TogglePause(); }
+        void BuildFieldBag()
+        {
+            float big = touchUi ? 1.2f : 1;
+            fbOv = Box(new Color(.02f, .03f, .05f, .78f)); Abs(fbOv, 0, 0, 0, 0); fbOv.pickingMode = PickingMode.Position; root.Add(fbOv);
+            fbHero = Box(); Abs(fbHero, touchUi ? 300 : 280, 130); fbHero.style.width = 400; fbHero.style.height = 820; fbHero.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); fbHero.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center); fbOv.Add(fbHero);
+            fbArc = Box(); Abs(fbArc, 10, touchUi ? 210 : 190); fbArc.style.width = ArcW; fbArc.style.height = ArcH; fbArc.pickingMode = PickingMode.Ignore; fbOv.Add(fbArc);
+            fbArc.generateVisualContent += PaintArc;
+            var pn = Box(new Color(.045f, .085f, .125f, .97f), 12); Border(pn, Gold, 2.5f); Abs(pn, null, 70, 56, 60); pn.style.width = Length.Percent(56); Pad(pn, 40); pn.pickingMode = PickingMode.Position; fbOv.Add(pn);
+            var hair = Box(); Abs(hair, 7, 7, 7, 7); Border(hair, new Color(1, .78f, .35f, .3f), 1); Round(hair, 8); pn.Add(hair);
+            var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
+            fbTitle = L("", 34 * big, new Color(1, .93f, .8f), true); fbTitle.style.flexGrow = 1; fbTitle.style.marginLeft = 24; top.Add(fbTitle);
+            if (FrameArt("icon_bag") is Texture2D bagIcon) { var bi = Box(); bi.style.width = bi.style.height = 56 * big; bi.style.marginRight = 12; bi.style.backgroundImage = new StyleBackground(bagIcon); bi.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); top.Add(bi); }
+            fbMode = Btn("", () => { fbAll = !fbAll; fbSel = null; RenderFieldBag(); }, false); fbMode.style.fontSize = 18 * big; fbMode.style.paddingTop = fbMode.style.paddingBottom = 8; fbMode.style.paddingLeft = fbMode.style.paddingRight = 16; top.Add(fbMode);
+            var x = new Button(CloseFieldBag) { text = "" }; DrawX(x); x.style.width = x.style.height = 56 * big; x.style.marginLeft = 12; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 28 * big); top.Add(x);
+            var strip = new ScrollView(ScrollViewMode.Horizontal); strip.style.flexShrink = 0; strip.style.height = 136 * big; strip.style.marginTop = 12; pn.Add(strip);
+            fbGrid = strip.contentContainer; fbGrid.style.flexDirection = FlexDirection.Row; fbGrid.style.paddingTop = 8;
+            var dsv = new ScrollView(ScrollViewMode.Vertical); dsv.style.flexGrow = 1; dsv.style.flexShrink = 1; dsv.style.marginTop = 8; dsv.style.borderTopWidth = 1; dsv.style.borderTopColor = new Color(1, 1, 1, .15f); dsv.style.paddingTop = 8; pn.Add(dsv); fbDetail = dsv.contentContainer;
+            fbMsg = L("", 19 * big, Gold); fbMsg.style.whiteSpace = WhiteSpace.Normal; fbMsg.style.marginTop = 6; pn.Add(fbMsg);
+            fbActions = Box(); fbActions.style.flexDirection = FlexDirection.Row; fbActions.style.marginTop = 8; fbActions.style.flexShrink = 0; pn.Add(fbActions);
+            FrameOrnaments(pn);
+            fbOv.style.display = DisplayStyle.None;
+        }
+        // the painted pouch: on a button (left of its text) or as a plain picture
+        VisualElement BagPic(float size) { var v = Box(); v.style.width = v.style.height = size; v.style.flexShrink = 0; if (FrameArt("icon_bag") is Texture2D t) { v.style.backgroundImage = new StyleBackground(t); v.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); } return v; }
+        // (a button with children no longer sizes itself from its text, so the text becomes a label beside the pouch)
+        Label BagIcon(Button b, float size)
+        {
+            if (!FrameArt("icon_bag")) return null; string t = b.text; float fs = b.style.fontSize.value.value; var col = b.style.color.value; b.text = "";
+            b.style.flexDirection = FlexDirection.Row; b.style.alignItems = Align.Center; b.style.justifyContent = Justify.Center; b.Add(BagPic(size));
+            var l = L(t, fs, col, true); l.style.marginLeft = 6; b.Add(l); return l;
+        }
+        static Texture2D FrameArt(string n) => Resources.Load<Texture2D>("UI/Frames/" + n);
+        void GoldPanel(VisualElement p) { p.style.backgroundColor = new Color(.045f, .085f, .125f, .97f); Border(p, Gold, 2.5f); Round(p, 12); Pad(p, 44); }
+        void FrameOrnaments(VisualElement pn, float cz = 190, float off = -30, bool topPiece = true)
+        {
+            // ornaments over the frame: painted art when it is in Resources/UI/Frames (UI-FRAME-PROMPTS.md), otherwise drawn
+            for (int i = 0; i < 4; i++)
+            {
+                bool right = i % 2 == 1, low = i >= 2; var co = Box(); co.style.position = Position.Absolute; co.style.width = co.style.height = cz;
+                if (right) co.style.right = off; else co.style.left = off; if (low) co.style.bottom = off; else co.style.top = off;
+                co.style.scale = new Scale(new Vector3(right ? -1 : 1, low ? -1 : 1, 1));
+                var ca = FrameArt("frame_corner"); if (ca) { co.style.backgroundImage = new StyleBackground(ca); co.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); }
+                else co.generateVisualContent += ctx => DrawCorner(ctx.painter2D, cz);
+                pn.Add(co);
+            }
+            if (!topPiece) return;
+            var tp = Box(); tp.style.position = Position.Absolute; tp.style.top = -24; tp.style.left = Length.Percent(50); tp.style.marginLeft = -210; tp.style.width = 420; tp.style.height = 48; pn.Add(tp);
+            var ta = FrameArt("frame_top"); if (ta) { tp.style.backgroundImage = new StyleBackground(ta); tp.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); }
+            else tp.generateVisualContent += ctx => { var p = ctx.painter2D; p.strokeColor = Gold; p.lineWidth = 2; p.BeginPath(); p.MoveTo(new Vector2(130, 24)); p.LineTo(new Vector2(290, 24)); p.Stroke(); p.fillColor = Gold; p.BeginPath(); p.MoveTo(new Vector2(210, 8)); p.LineTo(new Vector2(228, 24)); p.LineTo(new Vector2(210, 40)); p.LineTo(new Vector2(192, 24)); p.ClosePath(); p.Fill(); };
+        }
+        Vector2 ArcAt(float deg, float off = 0) { float a = deg * Mathf.Deg2Rad; return ArcC + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (ArcR + off); }
+        void PaintArc(MeshGenerationContext ctx)
+        {
+            // two gold ribbons, thin at both tips and full in the middle, bowing apart into a crescent; then drifting petals and sparks
+            var p = ctx.painter2D;
+            foreach (var (grow, a) in new[] { (26f, .05f), (16f, .1f), (8f, .22f) }) { Ribbon(p, -26, 13 + grow, new Color(1, .72f, .28f, a)); Ribbon(p, 22, 6 + grow * .6f, new Color(1, .72f, .28f, a * .7f)); }
+            Ribbon(p, 22, 5, new Color(1, .84f, .48f)); Ribbon(p, -26, 12, new Color(1, .78f, .36f)); Ribbon(p, -26, 4.5f, new Color(1, .95f, .72f));
+            var rnd = new System.Random(7);
+            for (int i = 0; i < 22; i++)
+            {
+                var c = ArcAt(96 + (float)rnd.NextDouble() * 168, -100 + (float)rnd.NextDouble() * 175); float z = 6 + (float)rnd.NextDouble() * 7, tilt = (float)rnd.NextDouble() * 6.28f; var d = new Vector2(Mathf.Cos(tilt), Mathf.Sin(tilt)) * z; var n = new Vector2(-d.y, d.x) * .55f;
+                p.fillColor = new Color(1, .72f, .82f, .45f + (float)rnd.NextDouble() * .45f); p.BeginPath(); p.MoveTo(c - d); p.BezierCurveTo(c - d * .3f + n, c + d * .3f + n, c + d); p.BezierCurveTo(c + d * .3f - n, c - d * .3f - n, c - d); p.Fill();
+            }
+            for (int i = 0; i < 16; i++) { p.fillColor = new Color(1, .86f, .5f, .35f + (float)rnd.NextDouble() * .55f); p.BeginPath(); p.Arc(ArcAt(96 + (float)rnd.NextDouble() * 168, -60 + (float)rnd.NextDouble() * 110), 1.5f + (float)rnd.NextDouble() * 2.5f, 0, 360); p.Fill(); }
+            if (!FrameArt("blossom")) foreach (var b in ArcBlooms) DrawBlossom(p, ArcAt(b.deg, b.off), b.size * .3f);
+        }
+        void AddBlooms(VisualElement to)
+        {
+            if (!(FrameArt("blossom") is Texture2D bl)) return;
+            foreach (var (deg, off, z, rot) in ArcBlooms) { var at = ArcAt(deg, off); var bx = Box(); Abs(bx, at.x - z / 2, at.y - z / 2); bx.style.width = bx.style.height = z; bx.style.rotate = new Rotate(rot); bx.style.backgroundImage = new StyleBackground(bl); bx.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); to.Add(bx); }
+        }
+        // the gold / teal look of the buttons in the framed panels
+        void StyleGold(Button b, bool primary)
+        {
+            if (primary) { b.style.backgroundImage = new StyleBackground(Grad(new Color(1, .86f, .45f), new Color(.8f, .54f, .14f), true)); b.style.backgroundColor = new Color(.87f, .63f, .2f); b.style.color = new Color(.2f, .12f, .02f); Border(b, new Color(1, .88f, .55f), 2.5f); b.style.textShadow = new TextShadow(); }
+            else { b.style.backgroundColor = new Color(.07f, .17f, .2f); Border(b, new Color(.75f, .72f, .5f, .8f), 1.5f); }
+            Frame(b, primary ? "btn_gold" : "btn_teal", 90, 55, .45f, "UI/Frames/"); if (primary) b.style.textShadow = new TextShadow();
+        }
+        // one ribbon along the arc: bow = how far its middle leans out from the arc, width = its thickness at the middle; both come to a point at the tips
+        void Ribbon(Painter2D p, float bow, float width, Color c)
+        {
+            const int N = 64; const float A0 = 80, A1 = 280; p.fillColor = c; p.BeginPath();
+            for (int side = 0; side < 2; side++)
+                for (int i = 0; i <= N; i++)
+                {
+                    float t = side == 0 ? i / (float)N : 1 - i / (float)N, s = Mathf.Sin(t * Mathf.PI), h = width * Mathf.Pow(s, .8f) * .5f; var q = ArcAt(Mathf.Lerp(A0, A1, t), bow * s + (side == 0 ? h : -h));
+                    if (side == 0 && i == 0) p.MoveTo(q); else p.LineTo(q);
+                }
+            p.ClosePath(); p.Fill();
+        }
+        // blossom clusters in the gaps between the slots and at both tails: angle on the arc, distance out from it, size, tilt
+        static readonly (float deg, float off, float size, float rot)[] ArcBlooms =
+        {
+            (257, 14, 40, -20), (263, -10, 26, 30),
+            (226, 24, 54, 10), (231, -14, 30, -40), (222, -30, 22, 60),
+            (196, 28, 38, -15), (193, -18, 26, 35),
+            (165, 26, 48, 20), (167, -20, 24, -30),
+            (134, 30, 42, -10), (130, -16, 28, 40), (138, -34, 20, 15),
+            (105, 16, 46, 25), (99, -10, 28, -35),
+        };
+        static void DrawBlossom(Painter2D p, Vector2 c, float r)
+        {
+            p.fillColor = new Color(1, .76f, .84f); for (int i = 0; i < 5; i++) { float a = i * 72 * Mathf.Deg2Rad - Mathf.PI / 2; p.BeginPath(); p.Arc(c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r * .62f, r * .5f, 0, 360); p.Fill(); }
+            p.fillColor = Gold; p.BeginPath(); p.Arc(c, r * .28f, 0, 360); p.Fill();
+        }
+        // a drawn corner, top-left way up (flipped for the others): gold scroll along both edges and a cluster of blossoms
+        static void DrawCorner(Painter2D p, float z)
+        {
+            p.strokeColor = Gold; p.lineWidth = 3; p.lineCap = LineCap.Round;
+            p.BeginPath(); p.MoveTo(new Vector2(z * .92f, z * .2f)); p.BezierCurveTo(new Vector2(z * .6f, z * .1f), new Vector2(z * .35f, z * .1f), new Vector2(z * .22f, z * .22f)); p.BezierCurveTo(new Vector2(z * .1f, z * .35f), new Vector2(z * .1f, z * .6f), new Vector2(z * .2f, z * .92f)); p.Stroke();
+            DrawBlossom(p, new Vector2(z * .2f, z * .2f), z * .13f); DrawBlossom(p, new Vector2(z * .44f, z * .13f), z * .08f); DrawBlossom(p, new Vector2(z * .13f, z * .44f), z * .08f);
+        }
+        // a worn slot's ring: filled ones glow gold, the selected one more
+        VisualElement FieldRing(float ws, bool filled, bool on, Color rc)
+        {
+            var ring = Box(new Color(rc.r * .14f + .02f, rc.g * .14f + .03f, rc.b * .14f + .05f, .96f), ws / 2); ring.style.width = ring.style.height = ws; ring.style.alignItems = Align.Center; ring.style.justifyContent = Justify.Center; ring.pickingMode = PickingMode.Ignore;
+            var art = FrameArt("slot_ring");
+            if (filled || on) ring.generateVisualContent += ctx => { var p = ctx.painter2D; var c = new Vector2(ws / 2, ws / 2); foreach (var (w, a) in new[] { (34f, .06f), (24f, .1f), (14f, .16f), (7f, .26f) }) { p.lineWidth = w; p.strokeColor = new Color(1, .68f, .22f, on ? a * 1.6f : a); p.BeginPath(); p.Arc(c, ws * .6f + w / 2, 0, 360); p.Stroke(); } };
+            if (art) { var ov = Box(); float z = ws * 1.24f; Abs(ov, (ws - z) / 2, (ws - z) / 2); ov.style.width = ov.style.height = z; ov.style.backgroundImage = new StyleBackground(art); ov.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); ov.style.opacity = filled ? 1 : .45f; ring.Add(ov); return ring; }
+            Border(ring, filled || on ? Gold : new Color(1, .84f, .55f, .4f), on ? 5 : 3);
+            return ring;
+        }
+        // newest first; a piece counts as new while it came from this fight and has not been worn, dismantled or sold
+        List<(string id, int index, bool isNew)> FieldEntries()
+        {
+            var s = G.save; var fresh = new List<string>(G.runLoot); var list = new List<(string, int, bool)>();
+            for (int i = s.bag.Count - 1; i >= 0; i--) { bool n = fresh.Remove(s.bag[i]); if (n || fbAll) list.Add((s.bag[i], i, n)); }
+            return list;
+        }
+        void FieldWear(string id, int index)
+        {
+            var s = G.save; var def = Items.Get(id); var old = Items.Worn(s, def.slot);
+            s.bag.RemoveAt(index); if (!string.IsNullOrEmpty(old)) s.bag.Add(old); Items.SetWorn(s, def.slot, id); G.runLoot.Remove(id); G.hero.RefreshGear(); fbSel = "worn:" + def.slot;
+            fbMsg.text = Loc.S($"สวม {Items.Name(id)} แล้ว", $"{Items.Name(id)} equipped"); G.Persist();
+        }
+        public string FieldWearFirst() { var e = FieldEntries(); if (e.Count == 0) return "nothing"; FieldWear(e[0].id, e[0].index); RenderFieldBag(); return Items.Name(e[0].id); }   // test mode
+        void RenderFieldBag()
+        {
+            var s = G.save; float big = touchUi ? 1.2f : 1, cs = 104 * big; var entries = FieldEntries();
+            var art = Studio.HeroFull(G.hero.def.id) ?? Studio.Hero(G.hero.def.id); if (art) fbHero.style.backgroundImage = new StyleBackground(art);
+            fbTitle.text = fbAll ? Loc.S($"กระเป๋าทั้งหมด ({entries.Count})", $"All gear ({entries.Count})") : Loc.S($"ของที่เก็บได้รอบนี้ ({entries.Count})", $"Found this fight ({entries.Count})");
+            fbMode.text = fbAll ? Loc.S("เฉพาะของใหม่", "New only") : Loc.S("ดูทั้งกระเป๋า", "All gear");
+            if (fbSel == null && entries.Count > 0) fbSel = "g:" + entries[0].index;
+            // the arc
+            fbArc.Clear(); int slotN = 1;
+            { var at = ArcPos(0); float ws = 78 * big; var wr = FieldRing(ws, true, false, Gold); Abs(wr, at.x - ws / 2, at.y - ws / 2); wr.Add(ItemPic("w", G.hero.sword.id, ws * .7f)); fbArc.Add(wr); }
+            AddBlooms(fbArc);
+            foreach (var sl in new[] { Slot.Helm, Slot.Armor, Slot.Boots, Slot.Accessory })
+            {
+                string id = Items.Worn(s, sl), key = "worn:" + sl; float ws = 78 * big; var cell = Box(); cell.style.flexDirection = FlexDirection.Row; cell.style.alignItems = Align.Center; cell.pickingMode = PickingMode.Position;
+                var at = ArcPos(slotN++); Abs(cell, at.x - ws / 2, at.y - ws / 2); fbArc.Add(cell); bool has = !string.IsNullOrEmpty(id); var rc = has ? Items.RarityColor(Items.Get(id)?.rarity ?? 0) : new Color(1, .84f, .55f, .35f);
+                var ring = FieldRing(ws, has, fbSel == key, has ? rc : Color.clear); ring.style.flexShrink = 0; cell.Add(ring);
+                if (has) ring.Add(ItemPic("g", id, ws * .7f));
+                int lv = Items.Level(id); var lb = L(lv > 0 ? $"{Items.SlotName(sl).ToUpper()} +{lv}" : Items.SlotName(sl).ToUpper(), 16 * big, Ink, true); lb.style.marginLeft = 20; lb.style.top = slotN == 5 ? -42 : 0; lb.style.textShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 5, color = Color.black }; cell.Add(lb);
+                cell.RegisterCallback<PointerDownEvent>(_ => { if (has) { fbSel = key; RenderFieldBag(); } });
+            }
+            fbArc.MarkDirtyRepaint();
+            // the strip
+            fbGrid.Clear();
+            foreach (var (id, index, isNew) in entries)
+            {
+                var rc = Items.RarityColor(Items.Get(id)?.rarity ?? 0); string key = "g:" + index; bool on = fbSel == key;
+                var c = Box(new Color(rc.r * .16f, rc.g * .16f, rc.b * .16f, .92f), 12); c.style.width = c.style.height = cs; c.style.flexShrink = 0; c.style.marginRight = 10; Border(c, on ? Gold : new Color(rc.r, rc.g, rc.b, .75f), on ? 3.5f : 2);
+                c.style.alignItems = Align.Center; c.style.justifyContent = Justify.Center; c.pickingMode = PickingMode.Position; c.Add(ItemPic("g", id, cs * .7f));
+                if (isNew) { var tag = Box(new Color(.91f, .66f, .23f), 8); Abs(tag, null, -7, -5); tag.style.paddingLeft = tag.style.paddingRight = 6; tag.Add(L(Loc.S("ใหม่", "NEW"), 15 * big, new Color(.23f, .15f, .02f), true)); c.Add(tag); }
+                if (Items.Level(id) > 0) { var pl = L("+" + Items.Level(id), 18 * big, Gold, true); Abs(pl, 6, 4); c.Add(pl); }
+                c.RegisterCallback<PointerDownEvent>(_ => { fbSel = key; fbMsg.text = ""; RenderFieldBag(); }); fbGrid.Add(c);
+            }
+            // the piece
+            fbDetail.Clear(); fbActions.Clear(); string sid = null; int sindex = -1; bool worn = fbSel != null && fbSel.StartsWith("worn:");
+            if (worn) sid = Items.Worn(s, (Slot)System.Enum.Parse(typeof(Slot), fbSel.Substring(5)));
+            else if (fbSel != null && int.TryParse(fbSel.Substring(2), out sindex) && sindex < s.bag.Count) sid = s.bag[sindex];
+            if (string.IsNullOrEmpty(sid))
+            {
+                var hint = L(fbAll ? Loc.S("ยังไม่มีอุปกรณ์ในกระเป๋า", "No gear in the bag yet") : Loc.S("รอบนี้ยังไม่ได้ของใหม่ เดินเก็บแสงที่มอนสเตอร์ทิ้งไว้ได้เลย", "Nothing new yet this fight: walk over the lights monsters leave behind"), 20 * big, Muted); hint.style.whiteSpace = WhiteSpace.Normal; fbDetail.Add(hint); return;
+            }
+            var def = Items.Get(sid); var src = Items.RarityColor(def.rarity);
+            var nm = Box(); nm.style.flexDirection = FlexDirection.Row; nm.style.alignItems = Align.Center; nm.Add(L(Items.Name(sid), 26 * big, Ink, true)); var rl = L($"({Items.RarityName(def.rarity)} · {Items.SlotName(def.slot)})", 20 * big, src, true); rl.style.marginLeft = 12; nm.Add(rl); fbDetail.Add(nm);
+            void Row(string k, string v, string d, Color dc) { var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.marginTop = 6; var kl = L(k, 22 * big, Ink, true); kl.style.flexGrow = 1; row.Add(kl); row.Add(L(d != null ? $"{v} ({d})" : v, 22 * big, dc, true)); fbDetail.Add(row); }
+            string current = worn ? "" : Items.Worn(s, def.slot);
+            if (worn) { foreach (var (k, v) in Items.Lines(def, Items.Level(sid))) Row(k, v, null, Green); var eh = L(Loc.S("ตีบวกได้ที่ล็อบบี้", "Enhance it in the lobby"), 17 * big, Muted); eh.style.marginTop = 6; fbDetail.Add(eh); }
+            else
+            {
+                var cmp = L(string.IsNullOrEmpty(current) ? Loc.S("ช่องนี้ยังว่าง: ได้เพิ่มทั้งหมด", "This slot is empty: all of it is a gain") : Loc.S($"เทียบกับ {Items.Name(current)} ที่ใส่อยู่", $"Against your {Items.Name(current)}"), 18 * big, Muted); cmp.style.marginBottom = 4; cmp.style.whiteSpace = WhiteSpace.Normal; fbDetail.Add(cmp);
+                foreach (var (k, v, d, sign) in Items.Compare(sid, current)) Row(k, v, string.IsNullOrEmpty(current) ? null : d, sign > 0 ? Green : sign < 0 ? Red : Muted);
+            }
+            void Act(string text, bool primary, System.Action a)
+            {
+                var b = Btn(text, () => { a(); RenderFieldBag(); }, primary); b.style.fontSize = (primary ? 24 : 18) * big; b.style.whiteSpace = WhiteSpace.Normal; b.style.paddingTop = b.style.paddingBottom = 13; b.style.paddingLeft = b.style.paddingRight = 10; b.style.flexGrow = primary ? 3 : 1; b.style.flexBasis = 0; b.style.marginLeft = fbActions.childCount > 0 ? 12 : 0;
+                StyleGold(b, primary); fbActions.Add(b);
+            }
+            if (worn)
+                Act(Loc.S("ถอดออก", "UNEQUIP"), true, () => { if (s.BagUsed >= s.bagCap) { fbMsg.text = Loc.S("กระเป๋าเต็ม", "The bag is full"); return; } s.bag.Add(sid); Items.SetWorn(s, def.slot, ""); G.hero.RefreshGear(); fbSel = null; G.Persist(); });
+            else
+            {
+                int idx = sindex, shards = Items.DismantleShards(sid), price = Items.SellPrice(sid);
+                Act(Loc.S("สวมใส่", "EQUIP"), true, () => FieldWear(sid, idx));
+                Act(Loc.S($"ย่อย (+{shards} ผลึก)", $"DISMANTLE (+{shards})"), false, () => { if (!Confirmed("d" + idx + sid, sid, fbMsg)) return; s.bag.RemoveAt(idx); s.mats[def.rarity] += shards; G.runLoot.Remove(sid); fbSel = null; fbMsg.text = Loc.S("ย่อยแล้ว", "Dismantled"); G.Persist(); });
+                Act(Loc.S($"ขาย (+{price})", $"SELL (+{price})"), false, () => { if (!Confirmed("s" + idx + sid, sid, fbMsg)) return; s.bag.RemoveAt(idx); s.gold += price; G.runLoot.Remove(sid); fbSel = null; fbMsg.text = Loc.S($"ขายแล้ว +{price} Gold", $"Sold +{price} Gold"); G.Persist(); });
+            }
         }
         public void TestBag(string sel) { ShowBag(true); bagSel = sel; RenderBag(); }   // weapons tab: the detail line shows the shield picked last
         void Offer(ItemKind k, string id, string name, string text)
@@ -747,6 +1033,8 @@ namespace NovaBlade
             var mpBar = Box(new Color(0, 0, 0, .6f), 7); mpBar.style.width = 380; mpBar.style.height = 14; mpBar.style.marginTop = 4; Border(mpBar, new Color(1, 1, 1, .2f)); col.Add(mpBar);
             mpFill = Box(new Color(.25f, .55f, 1), 7); mpFill.style.height = Length.Percent(100); mpFill.style.backgroundImage = new StyleBackground(Grad(new Color(.45f, .78f, 1), new Color(.2f, .4f, 1), true)); mpBar.Add(mpFill);
             mpT = L("", 12, Ink, true); Abs(mpT, 0, 0, 0, 0); mpT.style.unityTextAlign = TextAnchor.MiddleCenter; mpBar.Add(mpT);
+            var xpBar = Box(new Color(0, 0, 0, .6f), 4); xpBar.style.width = 380; xpBar.style.height = 8; xpBar.style.marginTop = 3; Border(xpBar, new Color(1, .84f, .55f, .35f)); col.Add(xpBar);
+            xpFill = Box(Gold, 4); xpFill.style.height = Length.Percent(100); xpBar.Add(xpFill);
             stamBar = Box(new Color(0, 0, 0, .6f), 6); stamBar.style.width = 300; stamBar.style.height = 11; stamBar.style.marginTop = 4; Border(stamBar, new Color(1, 1, 1, .2f)); col.Add(stamBar);
             stamFill = Box(new Color(1, .82f, .3f), 6); stamFill.style.height = Length.Percent(100); stamBar.Add(stamFill);
             var petRow = Box(); petRow.style.flexDirection = FlexDirection.Row; petRow.style.alignItems = Align.Center; petRow.style.marginTop = 6; col.Add(petRow);
@@ -755,7 +1043,23 @@ namespace NovaBlade
             buffs = Box(); buffs.style.flexDirection = FlexDirection.Row; buffs.style.marginTop = 6; col.Add(buffs);
             // top-centre: wave + boss
             var mid = Box(); Abs(mid, 0, 20, 0); mid.style.alignItems = Align.Center; hud.Add(mid);
-            waveT = L("", 24, Ink, true); mid.Add(waveT);
+            // the stage plate: carved stone with a gold edge (painted art if UI/Frames/hud_stage_plate is there, otherwise drawn)
+            const float plateW = 620, plateH = 148;
+            var plate = Box(); plate.style.width = plateW; plate.style.height = plateH; plate.style.alignItems = Align.Center; plate.style.justifyContent = Justify.Center; mid.Add(plate);
+            var plateArt = Resources.Load<Texture2D>("UI/Frames/hud_stage_plate");
+            if (plateArt) Frame(plate, "hud_stage_plate", 110, 8, .75f, "UI/Frames/");
+            else plate.generateVisualContent += ctx =>
+            {
+                var p = ctx.painter2D; float w = plateW, h = plateH, c = 34; const float d = 15;
+                void Hex(float i) { p.BeginPath(); p.MoveTo(new Vector2(i * 1.6f, h / 2)); p.LineTo(new Vector2(c + i, i)); p.LineTo(new Vector2(w - c - i, i)); p.LineTo(new Vector2(w - i * 1.6f, h / 2)); p.LineTo(new Vector2(w - c - i, h - i)); p.LineTo(new Vector2(c + i, h - i)); p.ClosePath(); }
+                p.fillColor = new Color(.2f, .185f, .16f, .95f); Hex(3); p.Fill();
+                p.strokeColor = new Color(.82f, .64f, .3f); p.lineWidth = 4; p.lineJoin = LineJoin.Miter; Hex(3); p.Stroke();
+                p.strokeColor = new Color(.05f, .04f, .03f, .7f); p.lineWidth = 2; Hex(10); p.Stroke();
+                p.fillColor = Gold; foreach (float x in new[] { d, w - d }) { p.BeginPath(); p.MoveTo(new Vector2(x, h / 2 - d)); p.LineTo(new Vector2(x + d, h / 2)); p.LineTo(new Vector2(x, h / 2 + d)); p.LineTo(new Vector2(x - d, h / 2)); p.ClosePath(); p.Fill(); }
+            };
+            var plateShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 3, color = new Color(0, 0, 0, .9f) }; var plateInk = new Color(.96f, .9f, .74f);
+            waveT = L("", 33, plateInk, true); waveT2 = L("", 28, plateInk, true); waveT3 = L("", 26, plateInk, true);
+            foreach (var l in new[] { waveT, waveT2, waveT3 }) { l.style.textShadow = plateShadow; l.style.unityTextAlign = TextAnchor.MiddleCenter; plate.Add(l); }
             bossW = Box(); bossW.style.width = 700; bossW.style.marginTop = 8; mid.Add(bossW);
             bossN = L("", 22, new Color(.91f, .71f, 1), true); bossN.style.unityTextAlign = TextAnchor.MiddleCenter; bossW.Add(bossN);
             var bb = Box(new Color(0, 0, 0, .6f), 10); bb.style.height = 20; Border(bb, new Color(.9f, .7f, 1, .45f)); bossW.Add(bb); bossFill = Box(new Color(.6f, .2f, 1), 10); bossFill.style.height = Length.Percent(100); bb.Add(bossFill);
@@ -764,16 +1068,14 @@ namespace NovaBlade
             var tr = Box(); Abs(tr, null, 22, 30); tr.style.flexDirection = FlexDirection.Row; tr.style.alignItems = Align.FlexStart; hud.Add(tr);
             var cur = Box(new Color(0, 0, 0, .45f), 20); Border(cur, Line); Pad(cur, 8); cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center; cur.style.marginRight = 12;
             cur.Add(Coin(22)); goldH = L("0", 22, Ink, true); goldH.style.marginLeft = 8; cur.Add(goldH); tr.Add(cur);
-            mini = Box(new Color(.04f, .08f, .06f, .65f), 95); mini.style.width = mini.style.height = touchUi ? 230 : 190; Border(mini, Line, 3); mini.generateVisualContent += DrawMini;
-            if (touchUi) { Abs(mini, 24, 22); hud.Add(mini); me.style.left = 24 + 230 + 18; }
-            else if (PcArt("minimap_frame") is Texture2D mf)
-            {   // compass frame (600 px, round hole of 404 px) around the paper map; the minimap is drawn on the paper
-                const float P = 230, F = P * 600f / 404f; var wrap = Box(); wrap.style.width = wrap.style.height = F; wrap.style.marginTop = -(F - P) / 2 + 40; wrap.style.marginRight = -(F - P) / 2 + 10; tr.Add(wrap);
-                mini.style.width = mini.style.height = P; Abs(mini, (F - P) / 2, (F - P) / 2); Round(mini, P / 2); mini.style.overflow = Overflow.Hidden; Border(mini, Color.clear, 0);
-                mini.style.backgroundColor = new Color(.84f, .75f, .54f); if (PcArt("minimap_paper") is Texture2D pp) mini.style.backgroundImage = new StyleBackground(pp);
-                wrap.Add(mini); var fr = Box(); Abs(fr, 0, 0, 0, 0); fr.style.backgroundImage = new StyleBackground(mf); fr.pickingMode = PickingMode.Ignore; wrap.Add(fr);
-            }
-            else tr.Add(mini);
+            // a small square map in the corner, under the button row: dark and gold-edged so the dots stand out over any stage
+            float mapSize = touchUi ? 210 : 190;
+            var mapBox = Box(); Abs(mapBox, null, touchUi ? 130 : 122, 34); mapBox.style.width = mapBox.style.height = mapSize; hud.Add(mapBox);
+            mini = Box(new Color(.03f, .07f, .1f, .92f), 10); Abs(mini, 0, 0, 0, 0); Border(mini, Gold, 2.5f); mini.style.overflow = Overflow.Hidden; mini.generateVisualContent += DrawMini; mapBox.Add(mini);
+            var mapHair = Box(); Abs(mapHair, 5, 5, 5, 5); Border(mapHair, new Color(1, .78f, .35f, .32f), 1); Round(mapHair, 6); mapBox.Add(mapHair);
+            FrameOrnaments(mapBox, 74, -14, false);
+            var mapN = Box(new Color(.03f, .07f, .1f, .95f), 12); Abs(mapN, null, -13); mapN.style.left = Length.Percent(50); mapN.style.marginLeft = -15; mapN.style.width = mapN.style.height = 30; Border(mapN, Gold, 1.5f); mapN.style.alignItems = Align.Center; mapN.style.justifyContent = Justify.Center;
+            var mapNt = L("N", 18, Gold, true); mapN.Add(mapNt); mapBox.Add(mapN);
             // hold / drag on the minimap: the camera looks at that spot (scout the lanes); let go and it returns to the hero
             mini.pickingMode = PickingMode.Position; int mpid = -1;
             void PanTo(Vector2 lp) { float W = mini.resolvedStyle.width; if (float.IsNaN(W) || G == null) return; float S = W / 2 / ((G.lane ? Lane.HalfL : Data.ArenaR) + 3); Pan = new Vector3(-(lp.x - W / 2) / S, 0, (lp.y - W / 2) / S); }
@@ -841,7 +1143,7 @@ namespace NovaBlade
                 swapBtn.RegisterCallback<PointerDownEvent>(e => { swapP = true; e.StopPropagation(); }); btns.Add(swapBtn);
             }
             {   // healing potion: count and a cooldown dim; H on a keyboard
-                float ps = touchUi ? 96 : 70; potBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(potBtn, touchUi ? 30 : 24, touchUi ? 150 : 120); potBtn.style.width = potBtn.style.height = ps; Round(potBtn, ps / 2);
+                float ps = touchUi ? 96 : 70; potBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(potBtn, touchUi ? 30 : 24, touchUi ? 150 : 136); potBtn.style.width = potBtn.style.height = ps; Round(potBtn, ps / 2);
                 Border(potBtn, new Color(1, .45f, .5f, .85f), 3); potBtn.pickingMode = PickingMode.Position; potBtn.style.alignItems = Align.Center; potBtn.style.justifyContent = Justify.Center;
                 var pi = Box(); pi.style.width = pi.style.height = ps * .72f; pi.pickingMode = PickingMode.Ignore; var potPng = Resources.Load<Texture2D>("UI/Items/potion");
                 if (potPng) pi.style.backgroundImage = new StyleBackground(potPng); else pi.generateVisualContent += ctx => Items.Icon(ctx, Slot.Potion, pi.resolvedStyle.width, Color.white); potBtn.Add(pi);
@@ -1024,6 +1326,9 @@ namespace NovaBlade
         {
             if (G == null || G.hero == null) return; var p = ctx.painter2D; float W = mini.resolvedStyle.width; if (float.IsNaN(W)) return; float S = W / 2 / ((G.lane ? Lane.HalfL : Data.ArenaR) + 3); var c = new Vector2(W / 2, W / 2);
             Vector2 M(Vector3 w) => c + new Vector2(-w.x, w.z) * S;   // screen-right is world -X
+            void Dot(Vector2 at, float r, Color col) { p.fillColor = new Color(0, 0, 0, .75f); p.BeginPath(); p.Arc(at, r + 2, 0, 360); p.Fill(); p.fillColor = col; p.BeginPath(); p.Arc(at, r, 0, 360); p.Fill(); }
+            p.fillColor = new Color(.1f, .22f, .17f, .9f); p.BeginPath(); p.Arc(c, W * .47f, 0, 360); p.Fill();
+            p.strokeColor = new Color(1, .85f, .55f, .07f); p.lineWidth = 1; for (int g = 1; g < 4; g++) { float q = W * g / 4; p.BeginPath(); p.MoveTo(new Vector2(q, 0)); p.LineTo(new Vector2(q, W)); p.Stroke(); p.BeginPath(); p.MoveTo(new Vector2(0, q)); p.LineTo(new Vector2(W, q)); p.Stroke(); }
             if (G.lane && Lane.Lanes == 3)
             {   // three lane strips that meet at both bases, a river across the middle
                 p.strokeColor = new Color(.7f, .55f, .32f, .55f); p.lineWidth = 5.5f * S; p.lineJoin = LineJoin.Round;
@@ -1031,11 +1336,11 @@ namespace NovaBlade
                 p.strokeColor = new Color(.3f, .6f, .9f, .5f); p.lineWidth = 3 * S; p.BeginPath(); p.MoveTo(M(new Vector3(-Lane.HalfW, 0, 0))); p.LineTo(M(new Vector3(Lane.HalfW, 0, 0))); p.Stroke();
             }
             else if (G.lane) { p.fillColor = new Color(.6f, .45f, .28f, .35f); p.BeginPath(); var a0 = M(new Vector3(Lane.HalfW, 0, -Lane.HalfL)); var a1 = M(new Vector3(-Lane.HalfW, 0, Lane.HalfL)); p.MoveTo(a0); p.LineTo(new Vector2(a1.x, a0.y)); p.LineTo(a1); p.LineTo(new Vector2(a0.x, a1.y)); p.ClosePath(); p.Fill(); }
-            else { p.strokeColor = new Color(.6f, .45f, .28f, .55f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
-            foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower"; p.fillColor = f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : Red; p.BeginPath(); p.Arc(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5, 0, 360); p.Fill(); }
-            p.fillColor = new Color(1, .88f, .54f); p.BeginPath(); p.Arc(M(G.pet.Pos), 5, 0, 360); p.Fill();
+            else { p.strokeColor = new Color(.85f, .68f, .4f, .8f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
+            foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower"; Dot(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5.5f, f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : Red); }
+            Dot(M(G.pet.Pos), 4, new Color(1, .88f, .54f));
             var hp = M(G.hero.Pos); float a = G.hero.face; Vector2 R(float x, float y) => hp + new Vector2(-(x * Mathf.Cos(a) + y * Mathf.Sin(a)), -x * Mathf.Sin(a) + y * Mathf.Cos(a));
-            p.fillColor = Cyan; p.BeginPath(); p.MoveTo(R(0, 13)); p.LineTo(R(-9, -8)); p.LineTo(R(9, -8)); p.ClosePath(); p.Fill();
+            p.fillColor = new Color(.37f, .96f, 1, .22f); p.BeginPath(); p.Arc(hp, 22, 0, 360); p.Fill(); p.strokeColor = new Color(0, 0, 0, .8f); p.lineWidth = 3; p.lineJoin = LineJoin.Round; p.BeginPath(); p.MoveTo(R(0, 15)); p.LineTo(R(-10, -9)); p.LineTo(R(10, -9)); p.ClosePath(); p.Stroke(); p.fillColor = Cyan; p.Fill();
         }
 
         public void ShowHud()
@@ -1079,14 +1384,16 @@ namespace NovaBlade
         void BuildOverlays()
         {
             pauseOv = Box(new Color(0, 0, 0, .7f)); Abs(pauseOv, 0, 0, 0, 0); pauseOv.style.alignItems = Align.Center; pauseOv.style.justifyContent = Justify.Center; pauseOv.pickingMode = PickingMode.Position; root.Add(pauseOv);
-            var pb = Box(Panel, 18); Border(pb, Line); Pad(pb, 30); pb.style.alignItems = Align.Center; pauseOv.Add(pb);
+            var pb = Box(); GoldPanel(pb); pb.style.minWidth = 780; pb.style.alignItems = Align.Center; pauseOv.Add(pb);
             pb.Add(L(Loc.S("หยุดเกม", "Paused"), 56, Ink, true)); var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.marginTop = 20; pb.Add(row);
-            row.Add(Btn(Loc.S("เล่นต่อ", "Resume"), TogglePause)); var q = Btn(Loc.S("กลับล็อบบี้", "Back to Lobby"), () => { TogglePause(); G.ShowLobby(); }, false); q.style.marginLeft = 14; row.Add(q);
+            var resume = Btn(Loc.S("เล่นต่อ", "Resume"), TogglePause); StyleGold(resume, true); row.Add(resume);
+            pauseBagBtn = Btn("", () => OpenFieldBag(), false); StyleGold(pauseBagBtn, false); pauseBagBtn.style.marginLeft = 14; pauseBagText = BagIcon(pauseBagBtn, 40); row.Add(pauseBagBtn);
+            var q = Btn(Loc.S("กลับล็อบบี้", "Back to Lobby"), () => { G.BankGold(); TogglePause(); G.ShowLobby(); }, false); StyleGold(q, false); q.style.marginLeft = 14; row.Add(q); FrameOrnaments(pb, 120, -20);
             confirmOv = Box(new Color(0, 0, 0, .7f)); Abs(confirmOv, 0, 0, 0, 0); confirmOv.style.alignItems = Align.Center; confirmOv.style.justifyContent = Justify.Center; confirmOv.pickingMode = PickingMode.Position; root.Add(confirmOv);
-            var cb = Box(Panel, 18); Border(cb, Line); Pad(cb, 28); cb.style.alignItems = Align.Center; cb.style.width = 700; confirmOv.Add(cb);
+            var cb = Box(); GoldPanel(cb); cb.style.alignItems = Align.Center; cb.style.width = 700; confirmOv.Add(cb);
             cb.Add(L(Loc.S("ยืนยันการซื้อ", "Confirm Purchase"), 44, Ink, true)); confirmT = L("", 24, Muted); confirmT.style.whiteSpace = WhiteSpace.Normal; confirmT.style.unityTextAlign = TextAnchor.MiddleCenter; confirmT.style.marginTop = 10; cb.Add(confirmT);
             var crow = Box(); crow.style.flexDirection = FlexDirection.Row; crow.style.marginTop = 20; cb.Add(crow);
-            crow.Add(Btn(Loc.S("ยืนยัน", "Confirm"), () => DoBuy())); var cn = Btn(Loc.S("ยกเลิก", "Cancel"), () => confirmOv.style.display = DisplayStyle.None, false); cn.style.marginLeft = 14; crow.Add(cn);
+            var yes = Btn(Loc.S("ยืนยัน", "Confirm"), () => DoBuy()); StyleGold(yes, true); crow.Add(yes); var cn = Btn(Loc.S("ยกเลิก", "Cancel"), () => confirmOv.style.display = DisplayStyle.None, false); StyleGold(cn, false); cn.style.marginLeft = 14; crow.Add(cn); FrameOrnaments(cb, 120, -20);
             confirmOv.style.display = DisplayStyle.None;
             // hero details: the hero's three skills with what each does; closes with the X or a tap outside
             skillOv = Box(new Color(0, 0, 0, .55f)); Abs(skillOv, 0, 0, 0, 0); skillOv.style.alignItems = Align.Center; skillOv.style.justifyContent = Justify.Center; skillOv.pickingMode = PickingMode.Position; root.Add(skillOv);
@@ -1094,13 +1401,13 @@ namespace NovaBlade
             skillBox = Box(Panel, 20); Border(skillBox, new Color(1, .84f, .45f, .6f), 2); Pad(skillBox, 28); skillBox.style.width = touchUi ? 1100 : 940; skillBox.pickingMode = PickingMode.Position; skillOv.Add(skillBox);
             skillOv.style.display = DisplayStyle.None;
             resultOv = Box(new Color(0, 0, 0, .7f)); Abs(resultOv, 0, 0, 0, 0); resultOv.style.alignItems = Align.Center; resultOv.style.justifyContent = Justify.Center; resultOv.pickingMode = PickingMode.Position; root.Add(resultOv);
-            var rb = Box(Panel, 18); Border(rb, Line); Pad(rb, 30); rb.style.alignItems = Align.Center; rb.style.width = 760; resultOv.Add(rb);
+            var rb = Box(); GoldPanel(rb); rb.style.alignItems = Align.Center; rb.style.width = 760; resultOv.Add(rb);
             resH = L("", 64, Gold, true); rb.Add(resH); resS = L("", 22, Muted); resS.style.whiteSpace = WhiteSpace.Normal; resS.style.unityTextAlign = TextAnchor.MiddleCenter; resS.style.marginTop = 8; rb.Add(resS);
             var grid = Box(); grid.style.flexDirection = FlexDirection.Row; grid.style.marginTop = 18; rb.Add(grid);
-            foreach (var (lbl, set) in new (string, System.Action<Label>)[] { (Loc.S("กำจัด", "Kills"), l => resK = l), (Loc.S("ทอง", "Gold"), l => resG = l), (Loc.S("เวลา", "Time"), l => resT = l) })
-            { var cell = Box(new Color(1, 1, 1, .05f), 10); Pad(cell, 12); cell.style.width = 200; cell.style.marginLeft = cell.style.marginRight = 6; cell.style.alignItems = Align.Center; var v = L("0", 40, Ink, true); set(v); cell.Add(v); cell.Add(L(lbl, 20, Muted)); grid.Add(cell); }
+            foreach (var (lbl, set) in new (string, System.Action<Label>)[] { (Loc.S("กำจัด", "Kills"), l => resK = l), (Loc.S("ทอง", "Gold"), l => resG = l), ("EXP", l => resX = l), (Loc.S("เวลา", "Time"), l => resT = l) })
+            { var cell = Box(new Color(1, 1, 1, .05f), 10); Pad(cell, 12); cell.style.width = 160; cell.style.marginLeft = cell.style.marginRight = 6; cell.style.alignItems = Align.Center; var v = L("0", 40, Ink, true); set(v); cell.Add(v); cell.Add(L(lbl, 20, Muted)); grid.Add(cell); }
             var r2 = Box(); r2.style.flexDirection = FlexDirection.Row; r2.style.marginTop = 22; rb.Add(r2);
-            again = Btn("", () => { }); r2.Add(again); var tl = Btn(Loc.S("ล็อบบี้", "Lobby"), () => G.ShowLobby(), false); tl.style.marginLeft = 14; r2.Add(tl);
+            again = Btn("", () => { }); StyleGold(again, true); r2.Add(again); var tl = Btn(Loc.S("ล็อบบี้", "Lobby"), () => G.ShowLobby(), false); StyleGold(tl, false); tl.style.marginLeft = 14; r2.Add(tl); FrameOrnaments(rb, 120, -20);
             pauseOv.style.display = resultOv.style.display = DisplayStyle.None;
         }
         System.Action againAct;
@@ -1125,7 +1432,7 @@ namespace NovaBlade
         }
         public void ShowResult(bool win)
         {
-            resultOv.style.display = DisplayStyle.Flex; resH.text = win ? Loc.S("ชนะแล้ว!", "Victory!") : Loc.S("พ่ายแพ้…", "Defeated…"); resH.style.color = win ? Gold : Red;
+            resultOv.style.display = DisplayStyle.Flex; resX.text = "+" + G.runXp; resH.text = win ? Loc.S("ชนะแล้ว!", "Victory!") : Loc.S("พ่ายแพ้…", "Defeated…"); resH.style.color = win ? Gold : Red;
             var T = G.Theme;
             if (G.lane)
             {
@@ -1138,7 +1445,7 @@ namespace NovaBlade
             again.text = win ? (Loc.En ? $"Stage {G.stage + 1} ▶" : $"ด่าน {G.stage + 1} ▶") : Loc.S("ลองอีกครั้ง", "Try Again");
             if (againAct != null) again.clicked -= againAct; int st = G.stage; againAct = () => G.StartGame(win ? st + 1 : st, win); again.clicked += againAct;
         }
-        void TogglePause() { if (G.mode != Main.Mode.Game) return; G.paused = !G.paused; UnityEngine.Cursor.lockState = G.soul && !G.paused && !Application.isMobilePlatform ? UnityEngine.CursorLockMode.Locked : UnityEngine.CursorLockMode.None; Time.timeScale = G.paused ? 0 : 1; pauseOv.style.display = G.paused ? DisplayStyle.Flex : DisplayStyle.None; }
+        void TogglePause() { if (G.mode != Main.Mode.Game) return; G.paused = !G.paused; UnityEngine.Cursor.lockState = G.soul && !G.paused && !Main.IsPhone ? UnityEngine.CursorLockMode.Locked : UnityEngine.CursorLockMode.None; Time.timeScale = G.paused ? 0 : 1; pauseOv.style.display = G.paused ? DisplayStyle.Flex : DisplayStyle.None; if (G.paused) PauseBagLabel(); }
         void OnApplicationPause(bool p) { if (p && G && G.mode == Main.Mode.Game && !G.paused) TogglePause(); }
 
         public string PickName() { var pt = Pointer.current; if (pt == null || root?.panel == null) return "-"; var sp = pt.position.ReadValue(); sp.y = Screen.height - sp.y; var e = root.panel.Pick(RuntimePanelUtils.ScreenToPanel(root.panel, sp)); return e == null ? "none" : $"{e.GetType().Name}:{e.name}:{e.parent?.name}"; }
@@ -1155,7 +1462,8 @@ namespace NovaBlade
             if (bagOv != null && G && G.mode != Main.Mode.Lobby && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
             if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }
             if (G == null || G.hero == null) return;
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) TogglePause();
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) { if (FieldBagOpen) CloseFieldBag(); else TogglePause(); }
+            if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame && G.mode == Main.Mode.Game) { if (FieldBagOpen) CloseFieldBag(); else OpenFieldBag(); }
             float dt = Time.unscaledDeltaTime;
             if (G.mode == Main.Mode.Lobby)
             {   // drag on empty space rotates the hero
@@ -1171,13 +1479,23 @@ namespace NovaBlade
             if (G.mode != Main.Mode.Game && G.mode != Main.Mode.Result) return;
             var h = G.hero;
             hpFill.style.width = Length.Percent(Mathf.Clamp01(h.hp / h.max) * 100); hpT.text = $"{Mathf.CeilToInt(h.hp)} / {h.max:0}";
+            { int heroXp = G.save.HeroXp(h.def.id); hudName.text = $"Lv.{Data.Level(heroXp)}  {h.def.name}"; xpFill.style.width = Length.Percent(Data.LevelProgress(heroXp) * 100); }
             mpFill.style.width = Length.Percent(Mathf.Clamp01(h.mp / h.mpMax) * 100); mpT.text = $"{Mathf.FloorToInt(h.mp)} / {h.mpMax:0}"; goldH.text = G.gold.ToString();
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;
-            if (G.lane) waveT.text = (Loc.En ? $"Battle {G.laneSize} vs {G.laneSize} · Our towers {G.TowersLeft(0)} · Enemy towers {G.TowersLeft(1)} · Wave {G.wave}" : $"สนามรบ {G.laneSize} vs {G.laneSize} · ป้อมเรา {G.TowersLeft(0)} · ป้อมศัตรู {G.TowersLeft(1)} · ระลอก {G.wave}");
-            else waveT.text = G.wave < nw ? (Loc.En ? $"Stage {G.stage} · {G.Theme.name} · Wave {G.wave + 1}/{nw} · Enemies {left}" : $"ด่าน {G.stage} · {G.Theme.name} · คลื่น {G.wave + 1}/{nw} · ศัตรู {left}") : (Loc.En ? $"Stage {G.stage} · {G.Theme.name} · Boss Fight" : $"ด่าน {G.stage} · {G.Theme.name} · ศึกบอส");
+            if (G.lane)
+            {
+                waveT.text = Loc.En ? $"BATTLE {G.laneSize} VS {G.laneSize}" : $"สนามรบ {G.laneSize} vs {G.laneSize}"; waveT2.text = Loc.En ? $"WAVE {G.wave}" : $"ระลอก {G.wave}";
+                waveT3.text = Loc.En ? $"TOWERS: {G.TowersLeft(0)} VS {G.TowersLeft(1)}" : $"ป้อมเรา {G.TowersLeft(0)} · ป้อมศัตรู {G.TowersLeft(1)}";
+            }
+            else
+            {
+                waveT.text = Loc.En ? $"STAGE {G.stage}: {G.Theme.name.ToUpper()}" : $"ด่าน {G.stage}: {G.Theme.name}";
+                bool waves = G.wave < nw; waveT2.text = waves ? (Loc.En ? $"WAVE {G.wave + 1}/{nw}" : $"คลื่น {G.wave + 1}/{nw}") : Loc.S("ศึกบอส", "BOSS FIGHT");
+                waveT3.text = waves ? (Loc.En ? $"ENEMIES: {left}/{Mathf.Max(left, G.waveTotal)}" : $"ศัตรู: {left}/{Mathf.Max(left, G.waveTotal)}") : (Loc.En ? $"ENEMIES: {left}" : $"ศัตรู: {left}");
+            }
             if (G.boss) bossFill.style.width = Length.Percent(Mathf.Clamp01(G.boss.hp / G.boss.maxHp) * 100);
-            buffs.Clear(); if (h.buffT > 0) buffs.Add(Tag((Loc.En ? $"Battle Fury {Mathf.CeilToInt(h.buffT)}" : $"คลั่งศึก {Mathf.CeilToInt(h.buffT)}"), Red)); if (h.shieldT > 0) buffs.Add(Tag((Loc.En ? $"Barrier {Mathf.CeilToInt(h.shieldT)}" : $"บาเรีย {Mathf.CeilToInt(h.shieldT)}"), Cyan));
+            buffs.Clear(); if (h.orbAtkT > 0) buffs.Add(Tag(Loc.En ? $"ATK +25% {Mathf.CeilToInt(h.orbAtkT)}" : $"พลังโจมตี +25% {Mathf.CeilToInt(h.orbAtkT)}", Red)); if (h.buffT > 0) buffs.Add(Tag((Loc.En ? $"Battle Fury {Mathf.CeilToInt(h.buffT)}" : $"คลั่งศึก {Mathf.CeilToInt(h.buffT)}"), Red)); if (h.shieldT > 0) buffs.Add(Tag((Loc.En ? $"Barrier {Mathf.CeilToInt(h.shieldT)}" : $"บาเรีย {Mathf.CeilToInt(h.shieldT)}"), Cyan));
             if (G.soul)
             {
                 var sc = h.soul; if (sc) stamFill.style.width = Length.Percent(Mathf.Clamp01(sc.stamina / sc.staminaMax) * 100);

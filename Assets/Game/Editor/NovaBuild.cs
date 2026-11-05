@@ -23,6 +23,27 @@ public static class NovaBuild
     static float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
 
     [MenuItem("Nova Blade/Rebuild Everything (assets + scene)")] public static void All() { Assets(); Scene(); Debug.Log("[NovaBuild] done"); }
+    // PC picture: a sharpening step on the PC renderer (phones keep their own renderer without it) and a lighter blur behind the lobby hero
+    [MenuItem("Nova Blade/Add PC Sharpening")]
+    public static void PcSharpen()
+    {
+        const string mp = "Assets/Game/Generated/Sharpen.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("NovaBlade/Sharpen")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.SetFloat("_Amount", .6f); EditorUtility.SetDirty(mat);
+        var rd = AssetDatabase.LoadAssetAtPath<UniversalRendererData>("Assets/Settings/PC_Renderer.asset");
+        if (!rd.rendererFeatures.OfType<FullScreenPassRendererFeature>().Any())
+        {
+            var fx = ScriptableObject.CreateInstance<FullScreenPassRendererFeature>(); fx.name = "PC Sharpen"; fx.injectionPoint = FullScreenPassRendererFeature.InjectionPoint.AfterRenderingPostProcessing; fx.fetchColorBuffer = true; fx.requirements = ScriptableRenderPassInput.Color; fx.passMaterial = mat;
+            AssetDatabase.AddObjectToAsset(fx, rd); AssetDatabase.TryGetGUIDAndLocalFileIdentifier(fx, out string _, out long id);
+            var so = new SerializedObject(rd); var list = so.FindProperty("m_RendererFeatures"); var map = so.FindProperty("m_RendererFeatureMap");
+            list.arraySize++; list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = fx; map.arraySize++; map.GetArrayElementAtIndex(map.arraySize - 1).longValue = id; so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(rd);
+        }
+        var dp = AssetDatabase.LoadAssetAtPath<VolumeProfile>($"{Gen}/LobbyDOF.asset");
+        if (dp && dp.TryGet<DepthOfField>(out var dof)) { dof.gaussianStart.Override(9); dof.gaussianMaxRadius.Override(.7f); EditorUtility.SetDirty(dof); EditorUtility.SetDirty(dp); }
+        AssetDatabase.SaveAssets(); Debug.Log("[NovaBuild] PC sharpening on");
+    }
+    public static void PcSharpenAndWin() { PcSharpen(); BuildWin(); }
     [MenuItem("Nova Blade/Rebuild Scene Only")] static void SceneMenu() { Scene(); Debug.Log("[NovaBuild] scene rebuilt"); }
     // scene + both players in one batch run: -executeMethod NovaBuild.SceneAndPlayers
     public static void SceneAndPlayers() { Scene(); BuildWin(); BuildWebGL(); }
@@ -333,7 +354,7 @@ public static class NovaBuild
         {   // lobby depth of field: the hero sharp, the forest behind softly out of focus (LobbyNight sets the weight)
             var dofGo = new GameObject("LobbyDOF"); var dv = dofGo.AddComponent<Volume>(); dv.isGlobal = true; dv.priority = 5; dv.weight = 0;
             var dp = ScriptableObject.CreateInstance<VolumeProfile>(); var dof = dp.Add<DepthOfField>(true);
-            dof.mode.Override(DepthOfFieldMode.Gaussian); dof.gaussianStart.Override(6.5f); dof.gaussianEnd.Override(17); dof.gaussianMaxRadius.Override(1.1f); dof.highQualitySampling.Override(true);
+            dof.mode.Override(DepthOfFieldMode.Gaussian); dof.gaussianStart.Override(9); dof.gaussianEnd.Override(17); dof.gaussianMaxRadius.Override(.7f); dof.highQualitySampling.Override(true);
             var dpath = $"{Gen}/LobbyDOF.asset"; if (File.Exists(dpath)) AssetDatabase.DeleteAsset(dpath); AssetDatabase.CreateAsset(dp, dpath); AssetDatabase.AddObjectToAsset(dof, dp); dv.sharedProfile = dp;
         }
         var volGo = new GameObject("Post"); var vol = volGo.AddComponent<Volume>(); vol.isGlobal = true;
