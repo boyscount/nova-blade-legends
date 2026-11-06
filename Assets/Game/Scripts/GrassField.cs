@@ -26,7 +26,7 @@ namespace NovaBlade
         long lastTris;
         public Mesh DebugMesh => meshes.Count > 0 ? meshes[0] : null;
 
-        void Start() => Build();
+        void Start() { if (!Crumb.Has("nograss")) Build(); }
         public void Build()
         {
             meshes.Clear(); farMeshes.Clear(); cells.Clear(); cellList.Clear();

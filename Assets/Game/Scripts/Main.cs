@@ -117,6 +117,9 @@ namespace NovaBlade
             G = this;
             Application.targetFrameRate = 60;
             if (IsPhone) QualitySettings.SetQualityLevel(0, true);   // phones (also mobile browsers): the Mobile URP asset
+            Crumb.Begin(); Crumb.Mark("game opened");
+            if (Crumb.Has("lowtex")) QualitySettings.globalTextureMipmapLimit = 1;
+            if (Crumb.Has("noshadow")) UnityEngine.Rendering.Universal.UniversalRenderPipeline.asset.shadowDistance = 0;
             else if (Camera.main && Camera.main.TryGetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(out var cd))
                 cd.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.None;   // PC: the pipeline's 4x MSAA keeps edges sharp; FXAA would soften the whole frame
             save = JsonUtility.FromJson<Save>(PlayerPrefs.GetString("novaBlade", "{}")) ?? new Save();
@@ -952,17 +955,22 @@ namespace NovaBlade
 
         public void StartGame(int st, bool carry = false)
         {
-            ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
-            stage = st; save.stage = st; Persist(); SetTheme(Data.ThemeOf(st));
+            Crumb.Mark($"stage {st}: pressed"); ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
+            stage = st; save.stage = st; Persist(); SetTheme(Data.ThemeOf(st)); Crumb.Mark($"stage {st}: scene on");
             if (!carry) { kills = 0; gold = 0; time = 0; banked = 0; }
             between = 0; wave = 0;
-            hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
+            hero.Equip(); Crumb.Mark($"stage {st}: hero ready"); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); Crumb.Mark($"stage {st}: pet ready"); StartCoroutine(StageCrumbs(st));
             camPos = new Vector3(0, 9, 14);
             if (River.Active) StartCoroutine(After(.1f, () => ui.Banner(Loc.S("ลุยน้ำได้ แต่จะช้าลง", "You can wade, but water slows you"), Loc.S("ข้ามสะพานไม้เพื่อความเร็ว", "Cross the bridges to keep your speed"))));
             ui.ShowHud();
             StartWave(0);
         }
 
+        System.Collections.IEnumerator StageCrumbs(int st)
+        {
+            yield return null; Crumb.Mark($"stage {st}: frame 1"); yield return null; Crumb.Mark($"stage {st}: frame 2");
+            foreach (var s in new[] { 1, 3, 6, 10 }) { yield return new WaitForSecondsRealtime(s == 1 ? 1 : s == 3 ? 2 : s == 6 ? 3 : 4); if (mode != Mode.Game) yield break; Crumb.Mark($"stage {st}: alive {s}s"); }
+        }
         void StartWave(int k)
         {
             wave = k; queue.Clear();
@@ -995,7 +1003,7 @@ namespace NovaBlade
         public Foe SpawnFoe(string id, Vector3 p) => SpawnUnit(Data.Foe(id), p, 1);
         public Foe SpawnUnit(FoeDef def, Vector3 p, int team)
         {
-            var f = new GameObject($"Unit_{def.id}_{team}").AddComponent<Foe>(); f.Init(def, p, null, team); foes.Add(f); return f;
+            Crumb.Mark("spawn " + def.id); var f = new GameObject($"Unit_{def.id}_{team}").AddComponent<Foe>(); f.Init(def, p, null, team); foes.Add(f); return f;
         }
         void SpawnBoss()
         {
