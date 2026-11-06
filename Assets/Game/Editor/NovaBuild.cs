@@ -47,7 +47,7 @@ public static class NovaBuild
     // experiment: one hero's skins imported at full size for the Windows player (-executeMethod NovaBuild.Skin2048AndWin)
     public static void Skin2048AndWin() { HdSkins(); BuildWin(); }
     // heroes regenerated with 2048 skins keep them on PC (web PC build and Windows); the phone build caps them through WebSlim
-    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy", "elf", "ninja", "spartan" };
+    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy", "elf", "ninja", "spartan", "lyra" };
     static void HdSkins()
     {
         foreach (var id in HdHeroes) foreach (var guid in AssetDatabase.FindAssets(id + "_tex t:Texture2D", new[] { "Assets/Game/Models/Heroes" }))

@@ -115,8 +115,8 @@ namespace NovaBlade
         {
             root = new GameObject("LobbyNight"); var dot = Dot();
             // key light from the camera side so the hero still reads in the dark, cool moon rim from behind
-            Point(new Vector3(-1.6f, 2.2f, 3f), new Color(1, .94f, .88f), 14f, 10);
-            Spot(new Vector3(.7f, 2f, 3.4f), new Color(1, .95f, .9f), 15, 8);   // a warm light on the hero alone, so skin and cloth keep their colours at night
+            Point(new Vector3(-1.6f, 2.2f, 3f), new Color(1, .94f, .88f), 10f, 10);
+            Spot(new Vector3(.7f, 2f, 3.4f), new Color(1, .95f, .9f), 10, 8);   // a warm light on the hero alone, so skin and cloth keep their colours at night
             Point(new Vector3(.5f, 2.3f, -1.6f), new Color(.5f, .65f, 1), 6f, 6);
             // rim lights from behind both shoulders, cool moonlight and warm firelight, so the hero's edges glow off the dark
             Spot(new Vector3(-1.5f, 2.5f, -1.9f), new Color(.55f, .72f, 1), 16, 7);

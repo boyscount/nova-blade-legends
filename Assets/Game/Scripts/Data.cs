@@ -21,7 +21,7 @@ namespace NovaBlade
     public static class Data
     {
         // per-class movement and attack clips (AnimatorOverrideController in Resources/Anim/<set>); null = the shared Great Sword set
-        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" => "mage", "elf" or "hood" or "harpy" => "bow", "ninja" => "ninja", "monk" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
+        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" or "lyra" => "mage", "elf" or "hood" or "harpy" => "bow", "ninja" => "ninja", "monk" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
         static Color C(int hex) => new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f);
         static Color G(int hex, float k) => C(hex) * k;
 
@@ -51,6 +51,9 @@ namespace NovaBlade
             new HeroDef { id = "sunpriest", female = true, name = Loc.S("โซเลีย", "Solia"), title = Loc.S("นักบวชแห่งสุริยะ", "Priestess of the Sun"), desc = Loc.S("สายนักบวช ยิงแสงศักดิ์สิทธิ์ ฟื้นพลังชีวิต และกางบาเรีย", "Cleric: holy light, healing and barriers"), cls = "cleric", hp = 1050, spd = 3.9f, atk = 0.95f, rig = true, ranged = true, blade = false,
                 skills = new[] { "heal", "shield", "cry" }, stats = new[] { 0.7f, 0.6f, 0.6f, 0.85f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("รุ่งอรุณ", "Dawn"), C(0xffd8b0), G(0xff9a3a, .22f)), (Loc.S("จันทรา", "Moonlight"), C(0xd8e0ff), G(0x8aa8ff, .22f)), (Loc.S("สุริยคราส", "Eclipse"), C(0x9a8a7a), G(0xff5a1a, .22f)) } },
+            new HeroDef { id = "lyra", female = true, name = Loc.S("ไลร่า", "Lyra"), title = Loc.S("นักบวชจันทราแห่งเอลฟ์", "Elven Moon Priestess"), desc = Loc.S("สายนักบวช พรแห่งจันทราฟื้นพลังชีวิต กางวงป้องกัน และลงทัณฑ์ศัตรู", "Cleric: moonlit healing, a warding circle and smiting light"), cls = "cleric", hp = 1050, spd = 3.9f, atk = 0.95f, rig = true, ranged = true, blade = false,
+                skills = new[] { "heal", "shield", "cry" }, stats = new[] { 0.7f, 0.6f, 0.6f, 0.85f },
+                skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("แสงเงิน", "Silverlight"), C(0xd8e4ff), G(0x8aa8ff, .22f)), (Loc.S("กุหลาบ", "Rose"), C(0xffd0dc), G(0xff5a8a, .2f)) } },
             new HeroDef { id = "monk", name = Loc.S("หมิง", "Ming"), title = Loc.S("จอมยุทธ์หมัดเพลิงทอง", "Golden Flame Fist"), desc = Loc.S("สายหมัด เตะลอยฟ้า บู๊มือเปล่า ทุบพื้น ปั่นตัวเป็นพายุหมัด", "Fighter: flying kicks, bare-handed brawling, ground slams and fist storms"), cls = "monk", hp = 1250, spd = 4.13f, atk = 1.1f, rig = true, blade = false,
                 skills = new[] { "slam", "whirl", "cry" }, stats = new[] { 0.85f, 0.8f, 0.7f, 0.5f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("จีวรแดง", "Crimson Robe"), C(0xffb0a0), G(0xff4a2a, .22f)), (Loc.S("ภูเขาหิมะ", "Snow Peak"), C(0xe0f0ff), G(0x8ad8ff, .22f)), (Loc.S("มังกรทอง", "Golden Dragon"), C(0xffe2a2), G(0xffb52e, .22f)) } },
@@ -170,6 +173,9 @@ namespace NovaBlade
             ["hood:dance"] = (Loc.S("ล่าในเงามืด", "Hunt in Shadow"), C(0x7a7bff)),
             ["hood:iaido"] = (Loc.S("แทงทะลุหลัง", "Backstab"), C(0x3ddc97)),
             ["hood:petal"] = (Loc.S("พายุใบมีด", "Blade Tempest"), C(0x9be15d)),
+            ["lyra:heal"] = (Loc.S("พรแห่งจันทรา", "Moon Blessing"), C(0xbfe0ff)),
+            ["lyra:shield"] = (Loc.S("วงจันทรา", "Moon Circle"), C(0x9cc8ff)),
+            ["lyra:cry"] = (Loc.S("ทัณฑ์จันทรา", "Moon Smite"), C(0xd8e8ff)),
             ["sunpriest:heal"] = (Loc.S("แสงเยียวยา", "Healing Light"), C(0xffd75e)),
             ["sunpriest:shield"] = (Loc.S("วงศักดิ์สิทธิ์", "Sanctuary"), C(0xffa94d)),
             ["sunpriest:cry"] = (Loc.S("ทัณฑ์แห่งแสง", "Holy Smite"), C(0xffe07a)),

@@ -127,6 +127,7 @@ namespace NovaBlade
             int qt = System.Array.IndexOf(args, "-questtest"); if (qt >= 0 && qt + 1 < args.Length) StartCoroutine(QuestTest(args[qt + 1]));
             int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
+            int wc = System.Array.IndexOf(args, "-weaponcards"); if (wc >= 0 && wc + 1 < args.Length) StartCoroutine(WeaponCardsTest(args[wc + 1]));
             int n5 = System.Array.IndexOf(args, "-new5test"); if (n5 >= 0 && n5 + 1 < args.Length) StartCoroutine(New5Test(args[n5 + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
         }
@@ -606,6 +607,20 @@ namespace NovaBlade
                 ShowLobby(); yield return new WaitForSecondsRealtime(.8f);
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "move.txt"), log.ToString());
+            Application.Quit();
+        }
+        // Test mode (-weaponcards <dir>): the weapons tab for one hero of each kind, suited weapons first.
+        System.Collections.IEnumerator WeaponCardsTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            foreach (var hd in Data.Heroes) if (Studio.HeroFull(hd.id) is Texture2D card) System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, "card_" + hd.id + ".png"), card.EncodeToPNG());
+            foreach (var h in new[] { "warrior", "lyra", "spartan", "samurai" })
+            {
+                save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.SetTab("hero"); yield return new WaitForSecondsRealtime(1.2f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_" + h + ".png")); yield return new WaitForSecondsRealtime(.4f);
+            }
+            save.hero = "lyra"; save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f); hero.mp = hero.mpMax;
+            for (int i = 0; i < 3; i++) { ui.skP[i] = true; yield return new WaitForSecondsRealtime(1.1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"lyra_skill{i}.png")); yield return new WaitForSecondsRealtime(.4f); hero.mp = hero.mpMax; }
             Application.Quit();
         }
         // Test mode (-new5test <dir>): the five empty-handed heroes holding chosen weapons, then the two bosses that replaced the dragon.

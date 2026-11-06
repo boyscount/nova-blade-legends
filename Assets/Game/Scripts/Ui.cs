@@ -387,7 +387,7 @@ namespace NovaBlade
                 var off = Data.Swords.FirstOrDefault(w => w.id == s.sword2 && w.id != s.sword);
                 Card(pickOff ? Loc.S("เลือกอาวุธรอง: แตะอาวุธที่มีแล้ว", "Choose the off-hand: tap an owned weapon") : off != null ? Loc.S($"อาวุธรอง: {off.name} · กดสลับ X หรือปุ่มสลับ", $"Off-hand: {off.name} · swap with X or the swap button") : Loc.S("ตั้งอาวุธรอง (สลับระหว่างสู้)", "Set an off-hand weapon (swap mid-fight)"),
                     off != null ? Studio.Weapon(off.id) : null, null, pickOff, () => { pickOff = !pickOff; RenderCards(); }, true);
-                foreach (var w in Data.Swords)
+                foreach (var w in Data.Swords.OrderByDescending(x => Data.AffinityBonus(G.hero.def.cls, x.type)))   // what suits this hero first; otherwise the usual order
                 {
                     var ww = w; string badge = s.sword2 == w.id && w.id != s.sword ? Loc.S("อาวุธรอง", "Off-hand") : Badge(ItemKind.Weapon, w.id, s.sword == w.id);
                     Card(w.name, Studio.Weapon(w.id), null, G.hero.sword.id == w.id, () =>
@@ -395,7 +395,7 @@ namespace NovaBlade
                         if (pickOff && Shop.Owns(ItemKind.Weapon, ww.id)) { s.sword2 = ww.id == s.sword ? "" : ww.id; pickOff = false; Pick(); return; }
                         shieldFocus = false;
                         if (Shop.Owns(ItemKind.Weapon, ww.id)) { G.ClearPreview(); s.sword = ww.id; if (s.sword2 == ww.id) s.sword2 = ""; } else G.pvSword = ww.id; Pick();
-                    }, false, badge, MasteryLine(w, true));
+                    }, false, badge, MasteryLine(w, true), null, Data.AffinityBonus(G.hero.def.cls, w.type) > 0 ? Loc.S("เหมาะกับสายนี้", "Suits this class") : null);
                 }
                 // shields: worn on the left arm with the weapon (warriors and clerics)
                 bool canShield = Data.ShieldFits(G.hero.def); string shs = G.pvShield ?? s.shield;
@@ -1013,7 +1013,7 @@ namespace NovaBlade
             buyBtn.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             if (show) { buyBtn.text = Loc.S($"ลองใส่อยู่ · ซื้อ {name} ({Shop.PriceText(k, id)})", $"Trying on · Buy {name} ({Shop.PriceText(k, id)})"); detail.text += Loc.S("\nกำลังลองใส่: เอาเข้าไปเล่นได้หลังซื้อ", "\nTrying on: buy it to take it into battle"); }
         }
-        void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null, Color? glowBg = null)
+        void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null, Color? glowBg = null, string tag = null)
         {
             var c = Box(on ? new Color(.22f, .16f, .06f, .78f) : new Color(.07f, .09f, .12f, .66f), 14); Border(c, on ? new Color(1, .84f, .42f) : new Color(1, 1, 1, .12f), on ? 2.5f : 1); Pad(c, 5);
             c.style.width = Length.Percent(wide ? 48 : 31.3f); c.style.marginRight = Length.Percent(1.6f); c.style.marginBottom = 12; c.pickingMode = PickingMode.Position;
@@ -1030,6 +1030,7 @@ namespace NovaBlade
                 bool owned = badge == Loc.S("ใส่อยู่", "Equipped") || badge == Loc.S("มีแล้ว", "Owned"); var bg = Box(owned ? new Color(.1f, .35f, .2f, .9f) : new Color(.35f, .2f, .05f, .92f), 8); Abs(bg, 4, 4); Pad(bg, 3);
                 bg.Add(L(badge, 16, owned ? Green : Gold, true)); pic.Add(bg);
             }
+            if (tag != null) { var tg = Box(new Color(.04f, .36f, .32f, .94f), 8); tg.style.position = Position.Absolute; tg.style.left = 4; tg.style.right = 4; tg.style.bottom = 4; Pad(tg, 3); Border(tg, new Color(.45f, 1, .85f, .7f), 1); var tl = L(tag, touchUi ? 19 : 15, new Color(.72f, 1, .92f), true); tl.style.unityTextAlign = TextAnchor.MiddleCenter; tg.Add(tl); pic.Add(tg); }
             c.Add(pic); var l = L(label, touchUi ? 27 : 21, on ? new Color(1, .88f, .58f) : Ink, true); l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.whiteSpace = WhiteSpace.Normal; l.style.marginTop = 5; l.style.marginBottom = 2; Shadow(l, 4, .7f); c.Add(l);
             if (sub != null) { var sl = L(sub, touchUi ? 19 : 15, on ? new Color(1, .85f, .6f, .9f) : Muted); sl.style.unityTextAlign = TextAnchor.MiddleCenter; sl.style.marginTop = -2; sl.style.marginBottom = 3; c.Add(sl); }
             if (on) Sparkle(c);

@@ -38,7 +38,7 @@ namespace NovaBlade
             {
                 var pf = h.rig ? Resources.Load<GameObject>("Heroes/Hero_" + h.id) : Catalog.I.Model(h.id);
                 tex["hero_" + h.id] = h.rig ? Portrait(pf) : Shoot(pf, .5f, 1.1f, .35f, true);
-                tex["herofull_" + h.id] = FullBody(pf, h.rig);
+                tex["herofull_" + h.id] = FullBody(pf, h.rig, h.female);
             }
             float tHeroes = Lap();
             foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
@@ -87,7 +87,7 @@ namespace NovaBlade
             RenderTexture.active = pa; cam.targetTexture = prev; big.Release(); Object.DestroyImmediate(inst); return t2;
         }
         // select-screen card: the whole hero standing tall, seen from a little below (heroic), 384 x 576, 4x anti-aliased
-        static Texture2D FullBody(GameObject pf, bool rig)
+        static Texture2D FullBody(GameObject pf, bool rig, bool female)
         {
             if (!pf) return null; const int W = 384, H = 576;
             var inst = Object.Instantiate(pf, Spot, Quaternion.identity);
@@ -96,7 +96,7 @@ namespace NovaBlade
             var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
             // a model built in T-pose (much wider than a standing figure) takes its lobby stance for the card; the framing still comes from its height
             bool tPose = an && b.size.x > b.size.y * .7f;
-            if (tPose) { an.enabled = true; an.Rebind(); an.Play("show", 0, .15f); an.Update(0); an.enabled = false; }
+            if (tPose) { an.enabled = true; if (Resources.Load<RuntimeAnimatorController>("Anim/warrior" + (female ? "_f" : "_m")) is RuntimeAnimatorController stance) an.runtimeAnimatorController = stance; an.Rebind(); an.Play("show", 0, 0); an.Update(0); an.enabled = false; }   // the plain standing pose, not a posed one with crossed legs
             if (an && an.isHuman && an.GetBoneTransform(HumanBodyBones.LeftUpperArm) is Transform la && an.GetBoneTransform(HumanBodyBones.RightUpperArm) is Transform ra)
             {   // every card faces straight ahead: undo whatever turn the stance has, going by the shoulders
                 var fwd = Vector3.Cross(ra.position - la.position, Vector3.up); if (fwd.sqrMagnitude > .001f) inst.transform.Rotate(0, -Vector3.SignedAngle(Vector3.forward, fwd, Vector3.up), 0, Space.World);
