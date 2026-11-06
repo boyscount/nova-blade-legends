@@ -994,7 +994,7 @@ namespace NovaBlade
             stage = st; save.stage = st; Persist(); SetTheme(Data.ThemeOf(st)); Crumb.Mark($"stage {st}: scene on");
             if (!carry) { kills = 0; gold = 0; time = 0; banked = 0; }
             between = 0; wave = 0;
-            hero.Equip(); Crumb.Mark($"stage {st}: hero ready"); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); Crumb.Mark($"stage {st}: pet ready"); StartCoroutine(StageCrumbs(st));
+            hero.Equip(); Crumb.Mark($"stage {st}: hero ready"); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); Crumb.Mark($"stage {st}: pet ready"); StartCoroutine(StageCrumbs(st)); PreloadStage();
             camPos = new Vector3(0, 9, 14);
             if (River.Active) StartCoroutine(After(.1f, () => ui.Banner(Loc.S("ลุยน้ำได้ แต่จะช้าลง", "You can wade, but water slows you"), Loc.S("ข้ามสะพานไม้เพื่อความเร็ว", "Cross the bridges to keep your speed"))));
             ui.ShowHud();
@@ -1005,6 +1005,21 @@ namespace NovaBlade
         {
             yield return null; Crumb.Mark($"stage {st}: frame 1"); yield return null; Crumb.Mark($"stage {st}: frame 2");
             foreach (var s in new[] { 1, 3, 6, 10 }) { yield return new WaitForSecondsRealtime(s == 1 ? 1 : s == 3 ? 2 : s == 6 ? 3 : 4); if (mode != Mode.Game) yield break; Crumb.Mark($"stage {st}: alive {s}s"); }
+        }
+        // what this fight will use, loaded on the way in: otherwise the first swing, skill and each new monster each stall a frame while they load
+        readonly List<Object> preloaded = new();
+        void PreloadStage()
+        {
+            preloaded.Clear(); var ids = new List<string> { "sx_basic", "sx_double", "sx_explode", "sx_multi", "sx_shiny", "sx_mesh", "mx_spark_y", "mx_spark_w" };
+            ids.AddRange(hero.def.cls switch { "cleric" => new[] { "mx_heal_circle", "mx_holy_hit" }, "mage" => new[] { "mx_snow", "mx_meteors", "mx_charge" }, _ => new string[0] });
+            foreach (var id in ids) if (Catalog.I.Fx(id) is GameObject fx) preloaded.Add(fx);
+            foreach (var wave in Theme.waves) foreach (var (foe, _) in wave)
+            {
+                var model = Data.Foe(foe)?.model; if (string.IsNullOrEmpty(model)) continue;
+                var pf = model.StartsWith("rig_") ? Resources.Load<GameObject>("Heroes/Hero_" + model.Substring(4)) : model.StartsWith("hero_") || model.StartsWith("@") ? null : Catalog.I.Model(model);
+                if (pf) preloaded.Add(pf);
+            }
+            Crumb.Mark($"stage {stage}: preloaded {preloaded.Count}");
         }
         void StartWave(int k)
         {
