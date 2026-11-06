@@ -96,7 +96,7 @@ namespace NovaBlade
             var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
             // a model built in T-pose (much wider than a standing figure) takes its lobby stance for the card; the framing still comes from its height
             bool tPose = an && b.size.x > b.size.y * .7f;
-            if (tPose) { an.enabled = true; an.Rebind(); foreach (var st in new[] { "show_f", "show_m", "show" }) if (an.HasState(0, Animator.StringToHash(st))) { an.Play(st, 0, .15f); break; } an.Update(0); an.enabled = false; }
+            if (tPose) { an.enabled = true; an.Rebind(); an.Play("show", 0, .15f); an.Update(0); an.enabled = false; }
             float hgt = tPose ? b.size.y : Mathf.Max(b.size.y, b.size.x * H / W * .8f), fov = cam.fieldOfView;
             float dist = hgt * 1.1f * .5f / Mathf.Tan(fov * .5f * Mathf.Deg2Rad);
             var look = new Vector3(b.center.x, b.min.y + b.size.y * .5f, b.center.z);

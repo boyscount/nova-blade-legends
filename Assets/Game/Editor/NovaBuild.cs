@@ -47,7 +47,7 @@ public static class NovaBuild
     // experiment: one hero's skins imported at full size for the Windows player (-executeMethod NovaBuild.Skin2048AndWin)
     public static void Skin2048AndWin() { HdSkins(); BuildWin(); }
     // heroes regenerated with 2048 skins keep them on PC (web PC build and Windows); the phone build caps them through WebSlim
-    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy" };
+    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy", "elf" };
     static void HdSkins()
     {
         foreach (var id in HdHeroes) foreach (var guid in AssetDatabase.FindAssets(id + "_tex t:Texture2D", new[] { "Assets/Game/Models/Heroes" }))
@@ -56,6 +56,11 @@ public static class NovaBuild
             if (ti.maxTextureSize == 2048 && ps.overridden && ps.maxTextureSize == 2048 && ti.GetDefaultPlatformTextureSettings().maxTextureSize == 2048) continue;
             var def = ti.GetDefaultPlatformTextureSettings(); def.maxTextureSize = 2048; ti.SetPlatformTextureSettings(def); ti.maxTextureSize = 2048; ps.overridden = true; ps.maxTextureSize = 2048; ti.SetPlatformTextureSettings(ps); ti.SaveAndReimport();
         }
+    }
+    // new clips in the class sets: rebuild the override controllers and the clip timings, then the Windows player
+    public static void AnimsAndWin()
+    {
+        NovaSetup.AnimSets(); var cat = AssetDatabase.LoadAssetAtPath<Catalog>("Assets/Game/Resources/Catalog.asset"); cat.clips = ClipTimings(); EditorUtility.SetDirty(cat); AssetDatabase.SaveAssets(); BuildWin();
     }
     public static void HdHeroesAndWin() { NovaSetup.NewHeroes(); HdSkins(); BuildWin(); }
     [MenuItem("Nova Blade/Rebuild Scene Only")] static void SceneMenu() { Scene(); Debug.Log("[NovaBuild] scene rebuilt"); }

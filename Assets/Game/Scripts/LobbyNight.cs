@@ -22,9 +22,9 @@ namespace NovaBlade
             if (!root) Build();
             root.SetActive(true); if (set) set.SetActive(true);
             Dof(1); Cull(true);
-            sun = RenderSettings.sun; if (sun) { sunCol = sun.color; sunInt = sun.intensity; sun.color = new Color(.6f, .7f, 1); sun.intensity = .6f; }
-            Color sky = new(.24f, .29f, .5f), eq = new(.13f, .15f, .24f), ground = new(.05f, .06f, .07f), fog = new(.04f, .065f, .1f);
-            RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = fog; RenderSettings.fogDensity = .032f;
+            sun = RenderSettings.sun; if (sun) { sunCol = sun.color; sunInt = sun.intensity; sun.color = new Color(.78f, .82f, .98f); sun.intensity = .75f; }
+            Color sky = new(.3f, .34f, .5f), eq = new(.18f, .19f, .26f), ground = new(.05f, .06f, .07f), fog = new(.04f, .065f, .1f);
+            RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = fog; RenderSettings.fogDensity = .022f;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight; RenderSettings.ambientSkyColor = sky; RenderSettings.ambientEquatorColor = eq; RenderSettings.ambientGroundColor = ground;
             var sh = new UnityEngine.Rendering.SphericalHarmonicsL2(); sh.AddAmbientLight(eq);
             sh.AddDirectionalLight(Vector3.up, (sky - eq) * 1.6f, 1); sh.AddDirectionalLight(Vector3.down, (ground - eq) * 1.6f, 1);
@@ -105,7 +105,8 @@ namespace NovaBlade
         {
             root = new GameObject("LobbyNight"); var dot = Dot();
             // key light from the camera side so the hero still reads in the dark, cool moon rim from behind
-            Point(new Vector3(-1.6f, 2.2f, 3f), new Color(1, .93f, .85f), 12f, 10);
+            Point(new Vector3(-1.6f, 2.2f, 3f), new Color(1, .94f, .88f), 14f, 10);
+            Spot(new Vector3(.7f, 2f, 3.4f), new Color(1, .95f, .9f), 15, 8);   // a warm light on the hero alone, so skin and cloth keep their colours at night
             Point(new Vector3(.5f, 2.3f, -1.6f), new Color(.5f, .65f, 1), 6f, 6);
             // rim lights from behind both shoulders, cool moonlight and warm firelight, so the hero's edges glow off the dark
             Spot(new Vector3(-1.5f, 2.5f, -1.9f), new Color(.55f, .72f, 1), 16, 7);

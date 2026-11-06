@@ -46,13 +46,16 @@ namespace NovaBlade
             {
                 model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform);
                 anim = model.GetComponentInChildren<Animator>();
-                animSet = Data.AnimSet(def.id); if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
+                animSet = Data.AnimSet(def.id); if (animSet != null) animSet += def.female ? "_f" : "_m";   // each class set comes in a women's and a men's walk, run and stance
+                if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
                 // lobby: a bowed head warps the faces of the auto-rigged heroes, so the head keeps its sculpted angle
                 // on the neck (the neck and body still move; see LateUpdate)
                 lockBones = lobby && anim ? model.GetComponentsInChildren<Transform>(true).Where(t => t.name.ToLower() == "head").ToArray() : null;
                 lockRot = lockBones?.Select(t => t.localRotation).ToArray();
                 socket = model.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 BuildMounts();
+                stanceYaw = 0; footL = anim ? anim.GetBoneTransform(HumanBodyBones.LeftFoot) : null; footR = anim ? anim.GetBoneTransform(HumanBodyBones.RightFoot) : null; groundDrop = 0;
+                footRest = footL && footR ? Mathf.Min(footL.position.y, footR.position.y) - transform.position.y : 0;   // still in its rest pose here
                 holder = model.transform; pivot = null;
             }
             else
@@ -107,6 +110,7 @@ namespace NovaBlade
             if (swordGo) Destroy(swordGo); if (offGo) Destroy(offGo);
             // the weapon's stats stay "sword"; a weapon skin only swaps the model that is shown
             ModelId = lobby && G.pvWeaponSkin != null ? G.pvWeaponSkin : Shop.ModelFor(sword);
+            if (def.id == "elf" && Data.Swords.First(w => w.id == ModelId).type is not ("bow" or "crossbow")) ModelId = "w_longbow";   // the ranger always shows a bow: her model has none of its own
             var mdef = Data.Swords.First(w => w.id == ModelId);
             // sword: weapon models run along the glTF X axis from the grip (mirrored by glTFast); find which way the blade points
             swordGo = Instantiate(Catalog.I.Model(ModelId), socket ? socket : model.transform);
@@ -417,7 +421,7 @@ namespace NovaBlade
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);
-                    var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 2.4f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
+                    var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 1.45f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
                 }
                 else Loop(G.mode == Main.Mode.Lobby ? Show : "idle");
             }
@@ -429,11 +433,34 @@ namespace NovaBlade
         }
         // character select: women and men each have a stance of their own once its clip is in the controller (else the shared "show")
         bool GenderShow => anim && anim.HasState(0, Animator.StringToHash(def.female ? "show_f" : "show_m"));
-        string Show => !GenderShow ? "show" : def.female ? "show_f" : "idle";   // men stand: the show_m clip is a kneel that drops them out of the picture
+        string Show => "show";   // each class set has its own lobby stance
         public string animSet; Transform[] lockBones; Quaternion[] lockRot;
+        // the run clips leave both feet up to 30 cm in the air and some idles stand a few cm high: while standing or running the
+        // body comes down so the lower foot stays at its resting height (skills and jumps keep their own height)
+        Transform footL, footR; float footRest, groundDrop; const float MaxDrop = .25f;
+        // lobby stances turn the body aside: turn the model back so the hero mostly faces the camera (dragging still turns the whole hero)
+        float stanceYaw; const float FaceShare = .75f, MaxStanceYaw = 50;
+        void FaceCamera()
+        {
+            var la = anim.GetBoneTransform(HumanBodyBones.LeftUpperArm); var ra = anim.GetBoneTransform(HumanBodyBones.RightUpperArm); if (!la || !ra) return;
+            var fwd = Vector3.Cross(ra.position - la.position, Vector3.up); if (fwd.sqrMagnitude < .001f) return;
+            float body = Vector3.SignedAngle(transform.forward, fwd, Vector3.up) - stanceYaw;   // the stance's own turn, without the correction already applied
+            float want = Mathf.Clamp(-body * FaceShare, -MaxStanceYaw, MaxStanceYaw);
+            stanceYaw = Mathf.LerpAngle(stanceYaw, want, Mathf.Min(1, Time.deltaTime * 2.5f)); model.transform.localRotation = Quaternion.Euler(0, stanceYaw, 0);
+        }
+        void KeepFeetDown()
+        {
+            if (!anim || !anim.isHuman || !footL || !footR || !model) return;
+            float now = Mathf.Min(footL.position.y, footR.position.y) - transform.position.y - model.transform.localPosition.y;
+            float want = state == St.Idle && !soul ? Mathf.Clamp(now - footRest, 0, MaxDrop) : 0;
+            groundDrop = Mathf.Lerp(groundDrop, want, Mathf.Min(1, Time.deltaTime * 24));
+            var p = model.transform.localPosition; p.y = -groundDrop; model.transform.localPosition = p;
+        }
         void LateUpdate()
         {
+            KeepFeetDown();
             if (G.mode != Main.Mode.Lobby || !anim || !anim.isHuman) return;
+            FaceCamera();
             // every hero breathes and shifts its weight the same way on top of its own idle, so none stands frozen
             float t = Time.time, breath = Mathf.Sin(t * 1.7f), shift = Mathf.Sin(t * .55f);
             void Turn(HumanBodyBones b, Vector3 e) { var tr = anim.GetBoneTransform(b); if (tr) tr.localRotation *= Quaternion.Euler(e); }

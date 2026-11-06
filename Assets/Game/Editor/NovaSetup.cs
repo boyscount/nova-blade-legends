@@ -45,13 +45,20 @@ public static class NovaSetup
     public static readonly Dictionary<string, Dictionary<string, (string file, bool loop)>> Sets = new()
     {
         ["mage"] = new() { ["idle"] = ("mage_idle", true), ["show"] = ("show_mage|mage_idle", true), ["walk"] = ("mage_walk", true), ["run"] = ("mage_run", true), ["cast2"] = ("mage_cast_big", false) },
-        ["bow"] = new() { ["idle"] = ("bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
-        ["ninja"] = new() { ["idle"] = ("ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
-        ["monk"] = new() { ["idle"] = ("monk_idle", true), ["walk"] = ("monk_walk", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
-        ["warrior"] = new() { },
-        ["shield"] = new() { ["walk"] = ("shield_walk", true), ["run"] = ("shield_run", true) },
-        ["samurai"] = new() { },
+        ["bow"] = new() { ["show"] = ("bow_idle", true), ["idle"] = ("bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
+        ["ninja"] = new() { ["show"] = ("show_ninja", true), ["idle"] = ("ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
+        ["monk"] = new() { ["show"] = ("monk_idle", true), ["idle"] = ("monk_idle", true), ["walk"] = ("monk_walk", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
+        ["warrior"] = new() { ["show"] = ("show_warrior", true) },
+        ["shield"] = new() { ["show"] = ("show_warrior", true), ["walk"] = ("shield_walk", true), ["run"] = ("shield_run", true) },
+        ["samurai"] = new() { ["show"] = ("show_samurai", true) },
     };
+    // every class set also comes in a women's and a men's version: same attacks, their own walk, run and lobby stance
+    static NovaSetup()
+    {
+        foreach (var set in Sets.Keys.ToList())
+            foreach (var (sfx, run, walk, stance) in new[] { ("_f", "f_run", "f_walk", "f_idle"), ("_m", "m_run", "m_walk", "m_idle") })
+                Sets[set + sfx] = new(Sets[set]) { ["run"] = (run, true), ["walk"] = (walk, true), ["show"] = (stance, true) };
+    }
     public static string SetPath(string clip)
     {
         foreach (var c in clip.Split('|')) foreach (var p in new[] { $"{Anim}/new/Ch02_nonPBR@{c}.fbx", $"{Anim}/new/{c}.fbx" }) if (File.Exists(p)) return p;

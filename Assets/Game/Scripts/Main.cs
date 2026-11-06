@@ -110,6 +110,7 @@ namespace NovaBlade
             int nh = System.Array.IndexOf(args, "-newherotest"); if (nh >= 0 && nh + 1 < args.Length) StartCoroutine(NewHeroTest(args[nh + 1]));
             if (System.Array.IndexOf(args, "-hitchtest") >= 0 || Application.absoluteURL.Contains("hitch")) StartCoroutine(HitchTest(System.Array.IndexOf(args, "-hitchtest") >= 0));
             int shots = System.Array.IndexOf(args, "-stageshots"); if (shots >= 0 && shots + 1 < args.Length) StartCoroutine(StageShots(args[shots + 1]));
+            int gt = System.Array.IndexOf(args, "-gaittest"); if (gt >= 0 && gt + 1 < args.Length) StartCoroutine(GaitTest(args[gt + 1]));
             int qt = System.Array.IndexOf(args, "-questtest"); if (qt >= 0 && qt + 1 < args.Length) StartCoroutine(QuestTest(args[qt + 1]));
             int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
@@ -433,6 +434,23 @@ namespace NovaBlade
                     Debug.Log($"[Hitch] round {round} {h,-10} equip {eq,6:0.0} pet {pe,5:0.0} save {sv,5:0.0} info {info,5:0.0} cards {cards,6:0.0} ms");
                 }
             if (quit) Application.Quit();
+        }
+        // Test mode (-gaittest <dir>): every hero's lobby stance and run: how high the feet stay off the ground, how fast the run clip plays, pictures of both
+        System.Collections.IEnumerator GaitTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.helm = save.armor = save.boots = save.acc = ""; save.shield = ""; save.sword = Data.Swords[0].id;
+            foreach (var d in Data.Heroes)
+            {
+                save.hero = d.id; ShowLobby(); ui.lobbyZoom = 0; ui.heroYaw = 0; yield return new WaitForSecondsRealtime(2.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"lobby_{d.id}.png")); yield return new WaitForSecondsRealtime(.4f);
+                save.best = 5; StartGame(1); pet.gameObject.SetActive(false); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(1.2f); float idle = 9, run = 9, top = -9, rate = 0; int n = 0;
+                float Foot() { var a = hero.GetComponentInChildren<Animator>(); if (!a || !a.isHuman) return 0; float m = 9; foreach (var b in new[] { HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes }) { var t = a.GetBoneTransform(b); if (t) m = Mathf.Min(m, t.position.y - hero.Pos.y); } return m; }
+                for (float t = 0; t < 1; t += Time.deltaTime) { hero.inv = 0; idle = Mathf.Min(idle, Foot()); yield return null; }
+                bool shot = false;
+                for (float t = 0; t < 3.2f; t += Time.deltaTime) { hero.inv = 0; hero.hp = hero.max; ui.Joy = new Vector2(Mathf.Sin(t), -1).normalized; if (t > .6f) { float f = Foot(); run = Mathf.Min(run, f); top = Mathf.Max(top, f); var a = hero.GetComponentInChildren<Animator>(); if (a) { rate += a.GetFloat("Speed"); n++; } if (!shot && t > 2) { shot = true; ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"run_{d.id}.png")); } } yield return null; }
+                ui.Joy = Vector2.zero; pet.gameObject.SetActive(true);
+                log.AppendLine($"{d.id,-10} {d.name,-8} speed {d.spd:0.00} set {Data.AnimSet(d.id) ?? "base",-8} clip rate {(n > 0 ? rate / n : 0):0.00}  lowest foot idle {idle:0.000} run {run:0.000} highest {top:0.000}");
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "gait.txt"), log.ToString()); Application.Quit();
         }
         // Test mode (-questtest <dir>): counters, claiming once only, a finished quest in a real fight, and the quest panel on screen.
         System.Collections.IEnumerator QuestTest(string dir)
@@ -1038,7 +1056,7 @@ namespace NovaBlade
                 else
                 {   // zoom moves in toward the chest/face; the side offset scales with distance so the hero keeps its place left of the panel
                     bool winged = WingsShown != null;   // wings reach above the head and out to the sides: frame the whole spread
-                    float d = Mathf.Lerp(bot ? 5 : 4.1f, 1.6f, z) * (winged ? Mathf.Lerp(1.22f, 1.05f, z) : 1);
+                    float d = Mathf.Lerp(bot ? 5 : 3.5f, 1.6f, z) * (winged ? Mathf.Lerp(1.22f, 1.05f, z) : 1);
                     look = new Vector3(side * (bot ? 1.25f : 1) * d / 4.1f, Mathf.Lerp(bot ? .75f : .95f, bot ? .7f : 1.42f, z) + (winged ? .22f * (1 - z) : 0), 0); want = look + new Vector3(0, Mathf.Lerp(.4f, .08f, z), d);
                 }
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * 6)); camLook = Vector3.Lerp(camLook, look, 1 - Mathf.Exp(-dt * 6));

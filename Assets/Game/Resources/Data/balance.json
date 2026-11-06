@@ -140,79 +140,79 @@
         {
             "id": "warrior",
             "hp": 1300.0,
-            "speed": 5.0,
+            "speed": 3.9,
             "attack": 1.15
         },
         {
             "id": "samurai",
             "hp": 1000.0,
-            "speed": 5.8,
+            "speed": 4.52,
             "attack": 1.05
         },
         {
             "id": "harpy",
             "hp": 950.0,
-            "speed": 5.4,
+            "speed": 4.21,
             "attack": 1.0
         },
         {
             "id": "spartan",
             "hp": 1350.0,
-            "speed": 4.9,
+            "speed": 3.82,
             "attack": 1.15
         },
         {
             "id": "elf",
             "hp": 900.0,
-            "speed": 5.5,
+            "speed": 4.29,
             "attack": 1.05
         },
         {
             "id": "ninja",
             "hp": 950.0,
-            "speed": 6.0,
+            "speed": 4.68,
             "attack": 1.1
         },
         {
             "id": "hood",
             "hp": 1000.0,
-            "speed": 5.8,
+            "speed": 4.52,
             "attack": 1.1
         },
         {
             "id": "sunpriest",
             "hp": 1050.0,
-            "speed": 5.0,
+            "speed": 3.9,
             "attack": 0.95
         },
         {
             "id": "monk",
             "hp": 1250.0,
-            "speed": 5.3,
+            "speed": 4.13,
             "attack": 1.1
         },
         {
             "id": "mage",
             "hp": 850.0,
-            "speed": 5.0,
+            "speed": 3.9,
             "attack": 1.15
         },
         {
             "id": "darkmage",
             "hp": 880.0,
-            "speed": 5.1,
+            "speed": 3.98,
             "attack": 1.15
         },
         {
             "id": "sorceress",
             "hp": 820.0,
-            "speed": 5.4,
+            "speed": 4.21,
             "attack": 1.1
         },
         {
             "id": "toybot",
             "hp": 1100.0,
-            "speed": 5.2,
+            "speed": 4.06,
             "attack": 1.0
         }
     ],

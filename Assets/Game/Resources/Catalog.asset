@@ -212,7 +212,7 @@ MonoBehaviour:
   - id: run
     length: 0.6
     hit: 0.53333336
-    speed: 3.1411748
+    speed: 3.0369422
   - id: atk0
     length: 2.3333335
     hit: 1.1666669
@@ -259,19 +259,19 @@ MonoBehaviour:
     speed: 0
   - id: crouch
     length: 0.9333334
-    hit: 0.43333334
+    hit: 0.46666667
     speed: 0
   - id: walk
     length: 1.3666668
     hit: 0.26666668
-    speed: 1.2030891
+    speed: 1.1623018
   - id: strafeL
     length: 1.1
     hit: 0.13333334
     speed: 0
   - id: strafeR
     length: 1.1666667
-    hit: 0.6000001
+    hit: 0.10000001
     speed: 0
   - id: blockidle
     length: 0.9666667
@@ -283,7 +283,7 @@ MonoBehaviour:
     speed: 0
   - id: heavy
     length: 1.8000001
-    hit: 0.7666669
+    hit: 0.7333335
     speed: 0
   - id: jumpatk
     length: 2.1666667
@@ -315,7 +315,7 @@ MonoBehaviour:
     speed: 0
   - id: show_m
     length: 2.766667
-    hit: 1.4999999
+    hit: 1.5333332
     speed: 0
   - id: cast1
     length: 2.3000002
@@ -327,7 +327,7 @@ MonoBehaviour:
     speed: 0
   - id: sblock
     length: 1.4000001
-    hit: 1.4
+    hit: 1.3666667
     speed: 0
   - id: sblockhit
     length: 0.7666667
@@ -344,14 +344,18 @@ MonoBehaviour:
   - id: mage:walk
     length: 1.1333334
     hit: 0.6666668
-    speed: 1.6299278
+    speed: 1.5724372
   - id: mage:run
     length: 0.73333335
-    hit: 0.46666667
-    speed: 2.7165623
+    hit: 0.06666667
+    speed: 2.625119
   - id: mage:cast2
     length: 2.966667
     hit: 1.2666668
+    speed: 0
+  - id: bow:show
+    length: 5.1000004
+    hit: 3.1333318
     speed: 0
   - id: bow:idle
     length: 5.1000004
@@ -360,26 +364,34 @@ MonoBehaviour:
   - id: bow:walk
     length: 1.2
     hit: 0.10000001
-    speed: 1.1697565
+    speed: 1.1355578
   - id: bow:run
     length: 0.86666673
     hit: 0.8333336
-    speed: 2.45567
+    speed: 2.4038665
+  - id: ninja:show
+    length: 3.3333335
+    hit: 1.9999994
+    speed: 0
   - id: ninja:idle
     length: 2.5333335
     hit: 2.0999994
     speed: 0
   - id: ninja:walk
-    length: 0.90000004
-    hit: 0.06666667
-    speed: 2.4071116
+    length: 1.0666667
+    hit: 0.033333335
+    speed: 2.0870059
   - id: ninja:run
     length: 0.53333336
     hit: 0.46666667
-    speed: 3.7010753
+    speed: 3.6030395
   - id: ninja:atk0
     length: 1.6666667
     hit: 0.8333336
+    speed: 0
+  - id: monk:show
+    length: 2.966667
+    hit: 1.066667
     speed: 0
   - id: monk:idle
     length: 2.966667
@@ -388,11 +400,11 @@ MonoBehaviour:
   - id: monk:walk
     length: 1.2333333
     hit: 0.70000017
-    speed: 1.1235896
+    speed: 1.0776217
   - id: monk:run
     length: 0.70000005
-    hit: 0.43333334
-    speed: 2.4470367
+    hit: 0.4
+    speed: 2.7985516
   - id: monk:atk0
     length: 1.0333334
     hit: 0.5
@@ -405,14 +417,266 @@ MonoBehaviour:
     length: 2.5000002
     hit: 0.866667
     speed: 0
+  - id: warrior:show
+    length: 11.466667
+    hit: 7.0999947
+    speed: 0
+  - id: shield:show
+    length: 11.466667
+    hit: 7.0999947
+    speed: 0
   - id: shield:walk
     length: 1.1
     hit: 0.06666667
-    speed: 1.444828
+    speed: 1.3923439
   - id: shield:run
     length: 0.70000005
     hit: 0.13333334
-    speed: 2.8581693
+    speed: 2.783628
+  - id: samurai:show
+    length: 2
+    hit: 1.3666667
+    speed: 0
+  - id: mage_f:idle
+    length: 1.8666668
+    hit: 1.7999996
+    speed: 0
+  - id: mage_f:show
+    length: 2
+    hit: 0.96666706
+    speed: 0
+  - id: mage_f:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.2445073
+  - id: mage_f:run
+    length: 0.70000005
+    hit: 0.4
+    speed: 2.8323221
+  - id: mage_f:cast2
+    length: 2.966667
+    hit: 1.2666668
+    speed: 0
+  - id: mage_m:idle
+    length: 1.8666668
+    hit: 1.7999996
+    speed: 0
+  - id: mage_m:show
+    length: 6.0000005
+    hit: 2.2333326
+    speed: 0
+  - id: mage_m:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.4512709
+  - id: mage_m:run
+    length: 0.73333335
+    hit: 0.70000017
+    speed: 2.7337766
+  - id: mage_m:cast2
+    length: 2.966667
+    hit: 1.2666668
+    speed: 0
+  - id: bow_f:show
+    length: 2
+    hit: 0.96666706
+    speed: 0
+  - id: bow_f:idle
+    length: 5.1000004
+    hit: 3.1333318
+    speed: 0
+  - id: bow_f:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.2445073
+  - id: bow_f:run
+    length: 0.70000005
+    hit: 0.4
+    speed: 2.8323221
+  - id: bow_m:show
+    length: 6.0000005
+    hit: 2.2333326
+    speed: 0
+  - id: bow_m:idle
+    length: 5.1000004
+    hit: 3.1333318
+    speed: 0
+  - id: bow_m:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.4512709
+  - id: bow_m:run
+    length: 0.73333335
+    hit: 0.70000017
+    speed: 2.7337766
+  - id: ninja_f:show
+    length: 2
+    hit: 0.96666706
+    speed: 0
+  - id: ninja_f:idle
+    length: 2.5333335
+    hit: 2.0999994
+    speed: 0
+  - id: ninja_f:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.2445073
+  - id: ninja_f:run
+    length: 0.70000005
+    hit: 0.4
+    speed: 2.8323221
+  - id: ninja_f:atk0
+    length: 1.6666667
+    hit: 0.8333336
+    speed: 0
+  - id: ninja_m:show
+    length: 6.0000005
+    hit: 2.2333326
+    speed: 0
+  - id: ninja_m:idle
+    length: 2.5333335
+    hit: 2.0999994
+    speed: 0
+  - id: ninja_m:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.4512709
+  - id: ninja_m:run
+    length: 0.73333335
+    hit: 0.70000017
+    speed: 2.7337766
+  - id: ninja_m:atk0
+    length: 1.6666667
+    hit: 0.8333336
+    speed: 0
+  - id: monk_f:show
+    length: 2
+    hit: 0.96666706
+    speed: 0
+  - id: monk_f:idle
+    length: 2.966667
+    hit: 1.066667
+    speed: 0
+  - id: monk_f:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.2445073
+  - id: monk_f:run
+    length: 0.70000005
+    hit: 0.4
+    speed: 2.8323221
+  - id: monk_f:atk0
+    length: 1.0333334
+    hit: 0.5
+    speed: 0
+  - id: monk_f:atk1
+    length: 2.1666667
+    hit: 0.96666706
+    speed: 0
+  - id: monk_f:atk2
+    length: 2.5000002
+    hit: 0.866667
+    speed: 0
+  - id: monk_m:show
+    length: 6.0000005
+    hit: 2.2333326
+    speed: 0
+  - id: monk_m:idle
+    length: 2.966667
+    hit: 1.066667
+    speed: 0
+  - id: monk_m:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.4512709
+  - id: monk_m:run
+    length: 0.73333335
+    hit: 0.70000017
+    speed: 2.7337766
+  - id: monk_m:atk0
+    length: 1.0333334
+    hit: 0.5
+    speed: 0
+  - id: monk_m:atk1
+    length: 2.1666667
+    hit: 0.96666706
+    speed: 0
+  - id: monk_m:atk2
+    length: 2.5000002
+    hit: 0.866667
+    speed: 0
+  - id: warrior_f:show
+    length: 2
+    hit: 0.96666706
+    speed: 0
+  - id: warrior_f:run
+    length: 0.70000005
+    hit: 0.4
+    speed: 2.8323221
+  - id: warrior_f:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.2445073
+  - id: warrior_m:show
+    length: 6.0000005
+    hit: 2.2333326
+    speed: 0
+  - id: warrior_m:run
+    length: 0.73333335
+    hit: 0.70000017
+    speed: 2.7337766
+  - id: warrior_m:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.4512709
+  - id: shield_f:show
+    length: 2
+    hit: 0.96666706
+    speed: 0
+  - id: shield_f:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.2445073
+  - id: shield_f:run
+    length: 0.70000005
+    hit: 0.4
+    speed: 2.8323221
+  - id: shield_m:show
+    length: 6.0000005
+    hit: 2.2333326
+    speed: 0
+  - id: shield_m:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.4512709
+  - id: shield_m:run
+    length: 0.73333335
+    hit: 0.70000017
+    speed: 2.7337766
+  - id: samurai_f:show
+    length: 2
+    hit: 0.96666706
+    speed: 0
+  - id: samurai_f:run
+    length: 0.70000005
+    hit: 0.4
+    speed: 2.8323221
+  - id: samurai_f:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.2445073
+  - id: samurai_m:show
+    length: 6.0000005
+    hit: 2.2333326
+    speed: 0
+  - id: samurai_m:run
+    length: 0.73333335
+    hit: 0.70000017
+    speed: 2.7337766
+  - id: samurai_m:walk
+    length: 1.1666667
+    hit: 0.06666667
+    speed: 1.4512709
   heroController: {fileID: 9100000, guid: b6e67bfdd24fc0b419fd032b751d92a2, type: 2}
   grassMat: {fileID: 2100000, guid: fe17b0a0e987bf140b846558ced4502a, type: 2}
   telegraphMat: {fileID: 0}

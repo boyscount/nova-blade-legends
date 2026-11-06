@@ -41,3 +41,4 @@ stylized realistic fantasy game character, clean high detail textures, game-read
 - [x] `mage.glb` เข้าเกมแล้ว
 - [x] `darkmage.glb` เข้าเกมแล้ว
 - [x] `sorceress.glb` เข้าเกมแล้ว
+- [x] `elf.glb` และ `sunpriest.glb` gen ใหม่ด้วยผิวขาว เข้าเกมแล้ว

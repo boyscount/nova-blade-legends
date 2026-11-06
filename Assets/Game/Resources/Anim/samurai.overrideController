@@ -9,8 +9,12 @@ AnimatorOverrideController:
   m_Name: samurai
   m_Controller: {fileID: 9100000, guid: b6e67bfdd24fc0b419fd032b751d92a2, type: 2}
   m_Clips:
-  - m_OriginalClip: {fileID: -203655887218126122, guid: 2329f9b9da4466e49b13b8919c3f7c1c, type: 3}
+  - m_OriginalClip: {fileID: -203655887218126122, guid: 43ff0008fa22ac9408450b838f9234f8, type: 3}
     m_OverrideClip: {fileID: 0}
+  - m_OriginalClip: {fileID: -203655887218126122, guid: f022e9e0d3be1494285438b775004704, type: 3}
+    m_OverrideClip: {fileID: 0}
+  - m_OriginalClip: {fileID: -203655887218126122, guid: 2329f9b9da4466e49b13b8919c3f7c1c, type: 3}
+    m_OverrideClip: {fileID: -203655887218126122, guid: f353141bfe7f7f9478ce73903b508190, type: 3}
   - m_OriginalClip: {fileID: -203655887218126122, guid: 42ada87b24f18d445ab0ff28cdbfbb30, type: 3}
     m_OverrideClip: {fileID: 0}
   - m_OriginalClip: {fileID: -203655887218126122, guid: 04083c024eaa66140a4dfc16781c7ac7, type: 3}
