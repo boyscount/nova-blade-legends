@@ -22,7 +22,7 @@ namespace NovaBlade
             var pgo = new GameObject("Sparks"); pgo.transform.SetParent(go.transform);
             I.sparks = pgo.AddComponent<ParticleSystem>();
             I.sparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main = I.sparks.main; main.loop = false; main.playOnAwake = false; main.maxParticles = 2000; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = 1.2f;
+            var main = I.sparks.main; main.loop = false; main.playOnAwake = false; main.maxParticles = Main.IsPhone ? 500 : 2000; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = 1.2f;
             var em = I.sparks.emission; em.enabled = false; var shp = I.sparks.shape; shp.enabled = false;
             var col = I.sparks.colorOverLifetime; col.enabled = true;
             var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) }); col.color = gr;
@@ -32,7 +32,7 @@ namespace NovaBlade
             var dgo = new GameObject("Dust"); dgo.transform.SetParent(go.transform);
             I.dust = dgo.AddComponent<ParticleSystem>();
             I.dust.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            var dm = I.dust.main; dm.loop = false; dm.playOnAwake = false; dm.maxParticles = 600; dm.simulationSpace = ParticleSystemSimulationSpace.World; dm.gravityModifier = -.05f;
+            var dm = I.dust.main; dm.loop = false; dm.playOnAwake = false; dm.maxParticles = Main.IsPhone ? 150 : 600; dm.simulationSpace = ParticleSystemSimulationSpace.World; dm.gravityModifier = -.05f;
             var dem = I.dust.emission; dem.enabled = false; var dsh = I.dust.shape; dsh.enabled = false;
             var dl = I.dust.limitVelocityOverLifetime; dl.enabled = true; dl.limit = .4f; dl.dampen = .12f;
             var dc = I.dust.colorOverLifetime; dc.enabled = true;
@@ -64,6 +64,7 @@ namespace NovaBlade
                 case "aura": case "wind": case "souls": case "poof": case "death": case "boss_death": case "fire_small": return null;
             }
             var pf = Catalog.I.Fx(id); if (!pf) return null;
+            if (Main.IsPhone) { if (Time.time < nextPrefabFx) return null; nextPrefabFx = Time.time + PhonePrefabFxGap; }   // phones: big effects cannot pile up in a crowd
             var go = Instantiate(pf, pos, rot ?? Quaternion.identity);
             go.transform.localScale *= scale;
             Destroy(go, life);
@@ -73,7 +74,7 @@ namespace NovaBlade
         // ---------- sparks ----------
         public static void Burst(Vector3 p, int n, Color c, float speed = 5, float life = .5f, float grav = 1.2f, float size = .14f, bool flat = false)
         {
-            if (!I) return;
+            if (!I) return; if (Main.IsPhone) n = Mathf.Max(1, n / 2);   // phones: half the sparks
             var ep = new ParticleSystem.EmitParams();
             for (int i = 0; i < n; i++)
             {
@@ -128,6 +129,7 @@ namespace NovaBlade
             { float s = .3f + r * Mathf.Sqrt(k); t.go.transform.localScale = new Vector3(s, 1, s); t.mat.SetColor("_Color", col * (1 - k)); });
         }
         // Slash Effects pack: spawned at p facing along face (radians, like the hero), sized by scale; tilt rolls the arc
+        const float PhonePrefabFxGap = .12f; static float nextPrefabFx;
         public static GameObject SlashFx(string id, Vector3 p, float face, float scale = 1, float tilt = 0, float life = 1.6f)
             => Spawn(id, p, scale, life, Quaternion.Euler(0, face * Mathf.Rad2Deg, tilt));
         public static void Slash(Vector3 p, float face, Color c, float r = 2, float span = 2.4f, float life = .22f)

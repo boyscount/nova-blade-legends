@@ -53,6 +53,7 @@ namespace NovaBlade
             h = rawH * baseScale; rad = d.rad;
             if (d.kind == "tower") { var tb = Bounds(go); rad = Mathf.Max(d.rad, Mathf.Max(tb.extents.x, tb.extents.z) * .8f); }   // solid footprint = the model's width
             look = new Look(go);
+            if (Main.IsPhone && !isBoss) foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;   // phones: a crowd draws once, not twice
             if (isBoss) look.Set(boss.tint, boss.glow);
             else if (team == 0) look.Set(Color.white, new Color(.02f, .08f, .25f));
             else if (anim || d.kind == "tower") look.Set(Color.white, new Color(.2f, .02f, .01f));
