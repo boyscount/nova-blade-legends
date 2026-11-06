@@ -106,7 +106,7 @@ public static class NovaBuild
         WebSlim(phone); Towers(Cat(), false);
         PlayerSettings.WebGL.template = "PROJECT:NovaBlade";
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli; PlayerSettings.WebGL.decompressionFallback = true;
-        PlayerSettings.WebGL.dataCaching = true; PlayerSettings.WebGL.memoryGrowthMode = WebGLMemoryGrowthMode.Geometric; PlayerSettings.WebGL.maximumMemorySize = 2048;
+        PlayerSettings.WebGL.dataCaching = true; PlayerSettings.WebGL.memoryGrowthMode = WebGLMemoryGrowthMode.Geometric; PlayerSettings.WebGL.maximumMemorySize = 2048; PlayerSettings.WebGL.initialMemorySize = phone ? 512 : 32;   // phones: start big, so the heap does not have to be copied to a larger one while a stage loads (iOS closes the tab if that peak is too high)
         PlayerSettings.WebGL.nameFilesAsHashes = true;
         EditorUserBuildSettings.webGLBuildSubtarget = phone ? WebGLTextureSubtarget.ASTC : WebGLTextureSubtarget.DXT;
         var dir = phone ? "Builds/WebGL" : "Builds/WebGL_PC";

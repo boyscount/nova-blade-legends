@@ -62,6 +62,7 @@
     }, { passive: true });
     // the build sets this when the data file was cut into parts (GitHub Pages: 100 MB per file)
     var dataParts = 0;
+    var blobUrl = null;   // the joined download: let go of it as soon as the game has loaded it (phones have little memory to spare)
     function fetchData() {
       if (!dataParts) return Promise.resolve();
       var done = 0, urls = [];
@@ -69,13 +70,13 @@
       return Promise.all(urls.map(function (u) {
         return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.arrayBuffer(); })
           .then(function (b) { done++; document.getElementById("fill").style.width = Math.round(done / dataParts * 80) + "%"; return b; });
-      })).then(function (bufs) { config.dataUrl = URL.createObjectURL(new Blob(bufs)); });
+      })).then(function (bufs) { blobUrl = config.dataUrl = URL.createObjectURL(new Blob(bufs)); });
     }
     var script = document.createElement("script");
     script.src = "Build/{{{ LOADER_FILENAME }}}";
     script.onload = function () {
       fetchData().then(function () { return createUnityInstance(canvas, config, function (p) { document.getElementById("fill").style.width = Math.round((dataParts ? 80 + p * 20 : p * 100)) + "%"; }); })
-        .then(function () { document.getElementById("load").style.display = "none"; })
+        .then(function () { if (blobUrl) URL.revokeObjectURL(blobUrl); document.getElementById("load").style.display = "none"; })
         .catch(function (m) { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: " + m; });
     };
     script.onerror = function () { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: ไม่พบไฟล์เกม " + script.src; };

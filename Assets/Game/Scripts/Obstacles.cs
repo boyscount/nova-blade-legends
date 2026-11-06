@@ -33,6 +33,7 @@ namespace NovaBlade
                 foreach (var k in Solid) if (n.Contains(k)) { solid = true; break; }
                 foreach (var k in Trunk) if (n.Contains(k)) trunk = true;
                 if (!solid || n.Contains("grass") || n.Contains("bush") || n.Contains("light") || n.Contains("ground") || n.Contains("bridge") || n.Contains("water")) continue;
+                if (t.GetComponentInChildren<ParticleSystem>()) continue;   // an effect is not a wall (the city's gate circle would push everyone away from itself)
                 var rs = t.GetComponentsInChildren<Renderer>(); if (rs.Length == 0) continue;
                 var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
                 if (b.size.y < .45f) continue;   // flat things (rugs, low stones, floor tiles) stay walkable

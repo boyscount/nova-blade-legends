@@ -159,6 +159,7 @@ namespace NovaBlade
             int qt = System.Array.IndexOf(args, "-questtest"); if (qt >= 0 && qt + 1 < args.Length) StartCoroutine(QuestTest(args[qt + 1]));
             int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
+            int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
             int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
             int wc = System.Array.IndexOf(args, "-weaponcards"); if (wc >= 0 && wc + 1 < args.Length) StartCoroutine(WeaponCardsTest(args[wc + 1]));
             int n5 = System.Array.IndexOf(args, "-new5test"); if (n5 >= 0 && n5 + 1 < args.Length) StartCoroutine(New5Test(args[n5 + 1]));
@@ -641,6 +642,17 @@ namespace NovaBlade
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "move.txt"), log.ToString());
             Application.Quit();
+        }
+        // Test mode (-gatewalk <dir>): walk (through the same limits as the player) up to every place in the city and the zone; can the prompt be reached?
+        System.Collections.IEnumerator GateWalk(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); StartCity(); yield return new WaitForSecondsRealtime(2);
+            float Walk(Vector3 from, Vector3 to) { var p = from; for (int i = 0; i < 2000; i++) { var d = Flat(to - p); if (d.magnitude < .05f) break; p = Clamp(p + d.normalized * .05f); } return Flat(to - p).magnitude; }
+            var gc = cityRoot.Find("GateCircle"); log.AppendLine($"gate circle found {gc != null}");
+            foreach (var (n, at) in new[] { ("gate", City.Gate), ("quest", new Vector3(-14, 0, 2)), ("shop", new Vector3(0, 0, -15.5f)), ("smith", new Vector3(14, 0, 2)) }) log.AppendLine($"city {n}: stops {Walk(City.Start, at):0.0} m away (prompt needs under 3.4)");
+            hero.transform.position = City.Gate + new Vector3(0, 0, 2); yield return new WaitForSecondsRealtime(1); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "gate_prompt.png")); yield return new WaitForSecondsRealtime(.5f);
+            StartWilds(); yield return new WaitForSecondsRealtime(1); log.AppendLine($"zone door: stops {Walk(OpenWorld.Start, wildsCtl.Door):0.0} m away; zone gate: {Walk(new Vector3(0, 0, 40), OpenWorld.Gate):0.0} m away");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "gatewalk.txt"), log.ToString()); Application.Quit();
         }
         // Test mode (-wildstest <dir>): the gate panel, the zone from several places, its edge, the way back; logs frame times.
         System.Collections.IEnumerator WildsTest(string dir)

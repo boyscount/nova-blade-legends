@@ -1582,7 +1582,7 @@ namespace NovaBlade
         void CountFps()
         {
             if (fpsL == null) { if (!System.Environment.GetCommandLineArgs().Contains("-fps") && !Application.absoluteURL.Contains("fps")) { fpsT = -1; return; } fpsL = L("", 26, Green, true); Abs(fpsL, null, 4, 8); fpsL.style.textShadow = new TextShadow { offset = new Vector2(0, 1), blurRadius = 3, color = Color.black }; root.Add(fpsL); }
-            fpsT += Time.unscaledDeltaTime; fpsN++; if (fpsT < .5f) return; float f = fpsN / fpsT; fpsL.text = $"{f:0} FPS  {1000 / f:0} ms"; fpsL.style.color = f >= 50 ? Green : f >= 28 ? Gold : Red; fpsT = 0; fpsN = 0;
+            fpsT += Time.unscaledDeltaTime; fpsN++; if (fpsT < .5f) return; float f = fpsN / fpsT; fpsL.text = $"{f:0} FPS  {1000 / f:0} ms  RAM {UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong() / 1048576} MB"; fpsL.style.color = f >= 50 ? Green : f >= 28 ? Gold : Red; fpsT = 0; fpsN = 0;
         }
         float dragX; bool dragging;
         void Update()
