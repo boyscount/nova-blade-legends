@@ -114,6 +114,7 @@ public static class NovaBuild
         Debug.Log("[NovaBuild] phone scene: zone and house left out");
     }
     public static void BuildWebPc() => BuildWeb(false);
+    public static void BuildWebPcTest() { fastCompress = true; try { BuildWeb(false); } finally { fastCompress = false; } }
     static void BuildWeb(bool phone)
     {
         WebSlim(phone); Towers(Cat(), false);
@@ -123,17 +124,17 @@ public static class NovaBuild
         PlayerSettings.WebGL.nameFilesAsHashes = true;
         EditorUserBuildSettings.webGLBuildSubtarget = phone ? WebGLTextureSubtarget.ASTC : WebGLTextureSubtarget.DXT;
         var dir = phone ? "Builds/WebGL" : "Builds/WebGL_PC";
-        // the phone build removes the code files of the PC build made before it (their hashed names can differ): keep the PC ones and put them back
-        var pcCode = phone && Directory.Exists("Builds/WebGL_PC/Build") ? Directory.GetFiles("Builds/WebGL_PC/Build").Where(f => !f.Contains(".data.")).ToDictionary(f => f, File.ReadAllBytes) : null;
+        // a web build removes the code files of the other web build made before it (their hashed names can differ): keep them and put them back
+        var otherBuild = phone ? "Builds/WebGL_PC/Build" : "Builds/WebGL/Build"; var pcCode = Directory.Exists(otherBuild) ? Directory.GetFiles(otherBuild).Where(f => !f.Contains(".data.")).ToDictionary(f => f, File.ReadAllBytes) : null;
         var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, dir, BuildTarget.WebGL, BuildOptions.None);
         Debug.Log($"[NovaBuild] webgl {(phone ? "phone" : "PC")} build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
         SplitData(dir);
         if (pcCode != null)
         {
-            foreach (var f in Directory.GetFiles("Builds/WebGL_PC/Build").Where(f => !f.Contains(".data.") && !pcCode.ContainsKey(f))) File.Delete(f);
+            foreach (var f in Directory.GetFiles(otherBuild).Where(f => !f.Contains(".data.") && !pcCode.ContainsKey(f))) File.Delete(f);
             foreach (var kv in pcCode) File.WriteAllBytes(kv.Key, kv.Value);
-            CheckPage("Builds/WebGL_PC");
+            CheckPage(phone ? "Builds/WebGL_PC" : "Builds/WebGL");
         }
         CheckPage(dir);
     }
