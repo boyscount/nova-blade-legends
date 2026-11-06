@@ -13,11 +13,14 @@ namespace NovaBlade
         static Camera cam; static RenderTexture rt; static Light key, rim;
         static readonly Vector3 Spot = new(0, -300, 0);
 
-        public static Texture2D Hero(string id) => tex.TryGetValue("hero_" + id, out var t) ? t : null;
-        public static Texture2D HeroFull(string id) => tex.TryGetValue("herofull_" + id, out var t) ? t : null;   // full-body card art
-        public static Texture2D Wing(string id) => tex.TryGetValue("wing_" + id, out var t) ? t : null;
-        public static Texture2D Pet(string id) => tex.TryGetValue("pet_" + id, out var t) ? t : null;
-        public static Texture2D Weapon(string id) => tex.TryGetValue("w_" + id, out var t) ? t : null;
+        // saved pictures (Resources/UI/Cards, made with -bakecards) load when a card shows them; pictures rendered this run are used when there is no file
+        static Texture2D Card(string key) => tex.TryGetValue(key, out var t) ? t : Resources.Load<Texture2D>("UI/Cards/" + key);
+        public static IEnumerable<KeyValuePair<string, Texture2D>> Rendered => tex.Where(kv => !kv.Key.StartsWith("stage_") && kv.Value);
+        public static Texture2D Hero(string id) => Card("hero_" + id);
+        public static Texture2D HeroFull(string id) => Card("herofull_" + id);   // full-body card art
+        public static Texture2D Wing(string id) => Card("wing_" + id);
+        public static Texture2D Pet(string id) => Card("pet_" + id);
+        public static Texture2D Weapon(string id) => Card("w_" + id);
         public static Texture2D Stage(int i) => tex.TryGetValue("stage_" + i, out var t) ? t : null;
 
         public static string Timing = "";   // how long the start-up pictures took, by kind
@@ -34,17 +37,19 @@ namespace NovaBlade
             var amb = (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe);
             var sh = new UnityEngine.Rendering.SphericalHarmonicsL2(); sh.AddAmbientLight(new Color(.32f, .32f, .36f)); sh.AddDirectionalLight(Vector3.up, new Color(.2f, .2f, .24f), 1);
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(.34f, .34f, .38f); RenderSettings.ambientProbe = sh;
-            foreach (var h in Data.Heroes)
+            var cmd = System.Environment.GetCommandLineArgs();
+            bool baked = System.Array.IndexOf(cmd, "-bakecards") < 0 && Data.Heroes.All(h => Resources.Load<Texture2D>("UI/Cards/herofull_" + h.id));   // nothing to render: start-up skips loading every model
+            if (!baked) foreach (var h in Data.Heroes)
             {
                 var pf = h.rig ? Resources.Load<GameObject>("Heroes/Hero_" + h.id) : Catalog.I.Model(h.id);
                 tex["hero_" + h.id] = h.rig ? Portrait(pf) : Shoot(pf, .5f, 1.1f, .35f, true);
                 tex["herofull_" + h.id] = FullBody(pf, h.rig, h.female);
             }
             float tHeroes = Lap();
-            foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
-            foreach (var w in Data.Wings) tex["wing_" + w.id] = Shoot(Catalog.I.Model("wing_" + w.id), .45f, 1.1f, Mathf.PI);   // seen from behind
-            foreach (var w in Data.Swords) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
-            foreach (var w in Data.Shields) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
+            if (!baked) foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
+            if (!baked) foreach (var w in Data.Wings) tex["wing_" + w.id] = Shoot(Catalog.I.Model("wing_" + w.id), .45f, 1.1f, Mathf.PI);   // seen from behind
+            if (!baked) foreach (var w in Data.Swords) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
+            if (!baked) foreach (var w in Data.Shields) tex["w_" + w.id] = Shoot(Catalog.I.Model(w.id), .5f, 1.0f, 0, weapon: true);
             Object.Destroy(key.gameObject); Object.Destroy(rim.gameObject); Object.Destroy(fill.gameObject);
             (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe) = amb;
             float tItems = Lap();

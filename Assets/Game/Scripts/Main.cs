@@ -156,6 +156,7 @@ namespace NovaBlade
             int ls = System.Array.IndexOf(args, "-skincompare"); if (ls >= 0 && ls + 2 < args.Length) StartCoroutine(SkinCompare(args[ls + 1], args[ls + 2]));
             int nh = System.Array.IndexOf(args, "-newherotest"); if (nh >= 0 && nh + 1 < args.Length) StartCoroutine(NewHeroTest(args[nh + 1]));
             if (System.Array.IndexOf(args, "-hitchtest") >= 0 || Application.absoluteURL.Contains("hitch")) StartCoroutine(HitchTest(System.Array.IndexOf(args, "-hitchtest") >= 0));
+            int bk = System.Array.IndexOf(args, "-bakecards"); if (bk >= 0 && bk + 1 < args.Length) StartCoroutine(BakeCards(args[bk + 1]));
             int shots = System.Array.IndexOf(args, "-stageshots"); if (shots >= 0 && shots + 1 < args.Length) StartCoroutine(StageShots(args[shots + 1]));
             int gt = System.Array.IndexOf(args, "-gaittest"); if (gt >= 0 && gt + 1 < args.Length) StartCoroutine(GaitTest(args[gt + 1]));
             int ct = System.Array.IndexOf(args, "-citytest"); if (ct >= 0 && ct + 1 < args.Length) StartCoroutine(CityTest(args[ct + 1]));
@@ -165,6 +166,7 @@ namespace NovaBlade
             int cw = System.Array.IndexOf(args, "-crowdtest"); if (cw >= 0 && cw + 1 < args.Length) StartCoroutine(CrowdTest(args[cw + 1]));
             int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
             int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
+            int cl = System.Array.IndexOf(args, "-classlook"); if (cl >= 0 && cl + 1 < args.Length) StartCoroutine(ClassLook(args[cl + 1]));
             int wc = System.Array.IndexOf(args, "-weaponcards"); if (wc >= 0 && wc + 1 < args.Length) StartCoroutine(WeaponCardsTest(args[wc + 1]));
             int n5 = System.Array.IndexOf(args, "-new5test"); if (n5 >= 0 && n5 + 1 < args.Length) StartCoroutine(New5Test(args[n5 + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
@@ -439,6 +441,13 @@ namespace NovaBlade
             }
             Application.Quit();
         }
+        // -bakecards <dir>: writes every card picture as a file for Resources/UI/Cards, then quits. Run it again when a hero, pet, wing or weapon changes.
+        System.Collections.IEnumerator BakeCards(string dir)
+        {
+            yield return new WaitForSecondsRealtime(3); System.IO.Directory.CreateDirectory(dir); int n = 0;
+            foreach (var kv in Studio.Rendered) { System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, kv.Key + ".png"), kv.Value.EncodeToPNG()); n++; }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "baked.txt"), n.ToString()); Application.Quit();
+        }
         // -stageshots <dir>: writes the stage cards as files for Resources/UI/Stages, then quits. Run it again when a stage's look changes.
         System.Collections.IEnumerator StageShots(string dir)
         {
@@ -697,17 +706,28 @@ namespace NovaBlade
             StartGame(1); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(5); ui.atkP = true; yield return new WaitForSecondsRealtime(.35f); ui.atkP = false; Snap("fight"); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"stage 1: wilds {wilds}, foes {foes.Count}");
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "wilds.txt"), log.ToString()); Application.Quit();
         }
+        // Test mode (-classlook <dir>): the character select stage for one hero of each class.
+        System.Collections.IEnumerator ClassLook(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); save.shield = "";
+            foreach (var h in new[] { "warrior", "samurai", "mage", "elf", "sunpriest", "monk" })
+            {
+                save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.TestFilterTop(hero.def.cls); yield return new WaitForSecondsRealtime(1.6f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, h + ".png")); yield return new WaitForSecondsRealtime(.4f);
+            }
+            Application.Quit();
+        }
         // Test mode (-weaponcards <dir>): the weapons tab for one hero of each kind, suited weapons first.
         System.Collections.IEnumerator WeaponCardsTest(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
-            foreach (var hd in Data.Heroes) if (Studio.HeroFull(hd.id) is Texture2D card) System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, "card_" + hd.id + ".png"), card.EncodeToPNG());
-            foreach (var h in new[] { "elf", "rowan", "tenzin" })
+            foreach (var hd in Data.Heroes) if (Studio.HeroFull(hd.id) is Texture2D card && card.isReadable) System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, "card_" + hd.id + ".png"), card.EncodeToPNG());
+            foreach (var h in new[] { "harpy", "tenzin" })
             {
                 save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.SetTab("hero"); yield return new WaitForSecondsRealtime(1.2f);
                 ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_" + h + ".png")); yield return new WaitForSecondsRealtime(.4f);
             }
-            save.shield = ""; foreach (var h in new[] { "elf", "rowan", "tenzin" }) { save.hero = h; save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f); hero.max = hero.hp = 999999; hero.mp = hero.mpMax; for (int i = 0; i < 3; i++) { ui.skP[i] = true; yield return new WaitForSecondsRealtime(1.1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_skill{i}.png")); yield return new WaitForSecondsRealtime(.4f); hero.mp = hero.mpMax; } ShowLobby(); yield return new WaitForSecondsRealtime(1); }
+            save.shield = ""; foreach (var h in new[] { "harpy", "tenzin" }) { save.hero = h; save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f); hero.max = hero.hp = 999999; hero.mp = hero.mpMax; for (int i = 0; i < 3; i++) { ui.skP[i] = true; yield return new WaitForSecondsRealtime(1.1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_skill{i}.png")); yield return new WaitForSecondsRealtime(.4f); hero.mp = hero.mpMax; } ShowLobby(); yield return new WaitForSecondsRealtime(1); }
             Application.Quit();
         }
         // Test mode (-new5test <dir>): the five empty-handed heroes holding chosen weapons, then the two bosses that replaced the dragon.
@@ -1028,6 +1048,7 @@ namespace NovaBlade
 
         public void ClearWorld()
         {
+            StartCoroutine(After(.3f, () => Resources.UnloadUnusedAssets()));   // what the last place used goes back, once its objects are gone
             foreach (var f in foes) if (f) Destroy(f.gameObject); foes.Clear(); boss = null;
             foreach (var s in shots) if (s) Destroy(s.gameObject); shots.Clear();
             foreach (var d in drops) { if (d.halo) Destroy(d.halo); if (d.go) Destroy(d.go); } drops.Clear();

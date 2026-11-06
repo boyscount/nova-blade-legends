@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NovaBlade
@@ -52,10 +53,10 @@ namespace NovaBlade
             var m = new Material(Catalog.I.glowMat) { mainTexture = tex }; m.SetFloat("_SrcBlend", 1); m.SetFloat("_DstBlend", additive ? 1 : 10); return m;
         }
 
-        static void Spot(Vector3 p, Color c, float intensity, float range, Vector3? at = null)
+        static Light Spot(Vector3 p, Color c, float intensity, float range, Vector3? at = null)
         {
             var l = new GameObject("Rim").AddComponent<Light>(); l.transform.SetParent(root.transform, false); l.type = LightType.Spot; l.color = c; l.intensity = intensity; l.range = range;
-            l.spotAngle = 55; l.innerSpotAngle = 25; l.shadows = LightShadows.None; l.transform.position = p; l.transform.LookAt(at ?? new Vector3(0, 1.1f, 0));
+            l.spotAngle = 55; l.innerSpotAngle = 25; l.shadows = LightShadows.None; l.transform.position = p; l.transform.LookAt(at ?? new Vector3(0, 1.1f, 0)); return l;
         }
         // glowing cherry petals drifting down through the light, turning as they fall
         public static Transform PetalsAt(Transform parent)
@@ -111,6 +112,12 @@ namespace NovaBlade
             var mat = new Material(Catalog.I.glowMat) { mainTexture = Dot() }; mat.SetFloat("_SrcBlend", 5); mat.SetFloat("_DstBlend", 10);   // alpha blended
             go.GetComponent<ParticleSystemRenderer>().sharedMaterial = mat; ps.Play();
         }
+        static Light rimA, rimB;
+        // the same neon pair and emblem for the hero cards
+        public static Texture2D ClassEmblem(string cls) => Showcase.Emblem(cls);
+        public static Color ClassAccent(string cls) => Showcase.Accent(cls);
+        public static Color ClassColor(string cls) => Showcase.For(cls);
+        public static Texture2D ClassAura(string cls) => Showcase.Aura(cls);
         static void Build()
         {
             root = new GameObject("LobbyNight"); var dot = Dot();
@@ -119,8 +126,8 @@ namespace NovaBlade
             Spot(new Vector3(.7f, 2f, 3.4f), new Color(1, .95f, .9f), 10, 8);   // a warm light on the hero alone, so skin and cloth keep their colours at night
             Point(new Vector3(.5f, 2.3f, -1.6f), new Color(.5f, .65f, 1), 6f, 6);
             // rim lights from behind both shoulders, cool moonlight and warm firelight, so the hero's edges glow off the dark
-            Spot(new Vector3(-1.5f, 2.5f, -1.9f), new Color(.55f, .72f, 1), 16, 7);
-            Spot(new Vector3(1.7f, 2.1f, -1.7f), new Color(1, .6f, .32f), 11, 7);
+            rimA = Spot(new Vector3(-1.5f, 2.5f, -1.9f), new Color(.55f, .72f, 1), 16, 7);
+            rimB = Spot(new Vector3(1.7f, 2.1f, -1.7f), new Color(1, .6f, .32f), 11, 7);
             Spot(new Vector3(-1.9f, 1.6f, -.6f), new Color(.6f, .75f, 1), 9, 5, new Vector3(-.8f, .45f, .8f));   // and one on the pet, beside the hero's feet
             Petals(); GroundMist();
             // soft contact shadows so the hero and pet stand on the ground (the night lights cast none)
@@ -231,7 +238,7 @@ namespace NovaBlade
         // both in the hero's class colour
         class Showcase : MonoBehaviour
         {
-            Transform circle; ParticleSystem motes; string cur; Material cm;
+            Transform circle, aura, emblem, floor; ParticleSystem motes; string cur; Material cm, auraM, emblemM, floorM; Color col, accent; float shown;
             static Texture2D ring;
             static Texture2D Ring()
             {   // two thin rings, rune ticks between them and a soft inner glow
@@ -247,9 +254,77 @@ namespace NovaBlade
                 }
                 ring.Apply(true); return ring;
             }
-            static Color For(string cls) => cls switch { "assassin" => new Color(.75f, .45f, 1), "mage" => new Color(.35f, .7f, 1), "archer" => new Color(.55f, 1, .45f), "cleric" => new Color(1, .85f, .4f), "monk" => new Color(1, .45f, .3f), _ => new Color(1, .62f, .25f) };
+            public static Color For(string cls) => cls switch { "assassin" => new Color(.75f, .45f, 1), "mage" => new Color(.35f, .7f, 1), "archer" => new Color(.55f, 1, .45f), "cleric" => new Color(1, .85f, .4f), "monk" => new Color(1, .45f, .3f), _ => new Color(1, .62f, .25f) };
+            // each class has its own neon pair and its own emblem of light on the wall of air behind the hero
+            public static Color Accent(string cls) => cls switch { "assassin" => new Color(1, .25f, .75f), "mage" => new Color(.2f, 1, 1), "archer" => new Color(.95f, 1, .3f), "cleric" => new Color(1, 1, .85f), "monk" => new Color(1, .75f, .2f), _ => new Color(1, .2f, .1f) };
+            static readonly Dictionary<string, Texture2D> emblems = new();
+            static float Line(float d, float w) => Mathf.Exp(-(d / w) * (d / w));
+            static float Bars(float d, float gap, float w) { float m = Mathf.Repeat(d, gap); return Line(Mathf.Min(m, gap - m), w); }
+            static float Shape(string cls, float u, float v)
+            {
+                float r = Mathf.Sqrt(u * u + v * v), ang = Mathf.Atan2(v, u);
+                switch (cls)
+                {
+                    case "assassin": return Bars(u + v * .65f, .42f, .012f) * (Mathf.Repeat(u * 2.1f - v * 1.3f, 1) < .68f ? 1 : 0);   // broken diagonal slashes
+                    case "mage": { float h = Mathf.Max(Mathf.Abs(u), Mathf.Abs(u) * .5f + Mathf.Abs(v) * .866f); return Bars(h, .3f, .009f) + Line(r - .82f, .012f); }   // hexagons in a ring
+                    case "archer": return Bars(v + 1 - Mathf.Abs(u) * 1.5f, .44f, .014f) * (Mathf.Abs(u) < .75f ? 1 : 0) + Line(u, .01f) * .7f;   // arrowheads up a shaft
+                    case "cleric": return Mathf.Pow(Mathf.Abs(Mathf.Cos(ang * 8)), 60) * Mathf.Clamp01((r - .26f) * 5) + Line(r - .25f, .012f);   // rays from a halo
+                    case "monk": { float z = Mathf.Abs(Mathf.Repeat(u * 2.4f, 1) - .5f) * .55f; return Bars(v + z, .4f, .014f); }   // zigzag bands
+                    default: return Bars(v + 1 + Mathf.Abs(u) * .9f, .46f, .018f);   // heavy chevrons
+                }
+            }
+            // hero card art: swirling arcs of light and flying sparks in the class's two colours, one picture per class
+            static readonly Dictionary<string, Texture2D> auras = new();
+            public static Texture2D Aura(string cls)
+            {
+                if (auras.TryGetValue(cls, out var t)) return t; const int N = 256; t = new Texture2D(N, N, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+                var rng = new System.Random(cls.GetHashCode() & 0xffff); float R() => (float)rng.NextDouble(); Color c1 = For(cls), c2 = Accent(cls);
+                var arcs = new (float x, float y, float r, float from, float span, float w, float mix)[9];
+                for (int i = 0; i < arcs.Length; i++) { bool left = i % 2 == 0; arcs[i] = ((left ? -.25f : .25f) + (R() - .5f) * .25f, (R() - .5f) * .7f, .45f + R() * .45f, left ? 1.6f + R() * 1.4f : -1.5f + R() * 1.4f, 1.2f + R() * 1.3f, .012f + R() * .02f, R()); }
+                var px = new Color[N * N];
+                for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+                {
+                    float u = (x + .5f) / N * 2 - 1, v = (y + .5f) / N * 2 - 1, r = Mathf.Sqrt(u * u + v * v), glow = .28f * Mathf.Clamp01(1 - r) * Mathf.Clamp01(1 - r), a = 0, mix = .3f;
+                    foreach (var q in arcs)
+                    {
+                        float dx = u - q.x, dy = v - q.y, ang = Mathf.Repeat(Mathf.Atan2(dy, dx) - q.from, Mathf.PI * 2); if (ang > q.span) continue;
+                        float k = ang / q.span, l = Line(Mathf.Sqrt(dx * dx + dy * dy) - q.r, q.w * (.4f + 1.4f * Mathf.Sin(k * Mathf.PI))) * Mathf.Sin(k * Mathf.PI);   // tapers at both ends
+                        if (l > a) { a = l; mix = q.mix; }
+                    }
+                    px[y * N + x] = new Color(Mathf.Lerp(c1.r, c2.r, mix), Mathf.Lerp(c1.g, c2.g, mix), Mathf.Lerp(c1.b, c2.b, mix), Mathf.Clamp01(a + glow));
+                }
+                for (int i = 0; i < 70; i++)
+                {   // sparks, brighter and bigger near the middle
+                    int cx = rng.Next(N), cy = rng.Next(N), s = R() < .2f ? 2 : 1; var sc = Color.Lerp(c2, Color.white, .55f); sc.a = .6f + R() * .4f;
+                    for (int dy = -s; dy <= s; dy++) for (int dx = -s; dx <= s; dx++) { int ix = cx + dx, iy = cy + dy; if (ix >= 0 && iy >= 0 && ix < N && iy < N && Mathf.Abs(dx) + Mathf.Abs(dy) <= s) px[iy * N + ix] = sc; }
+                }
+                t.SetPixels(px); t.Apply(true); return auras[cls] = t;
+            }
+            public static Texture2D Emblem(string cls)
+            {
+                if (emblems.TryGetValue(cls, out var t)) return t; const int N = 256; t = new Texture2D(N, N, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+                {
+                    float u = (x + .5f) / N * 2 - 1, v = (y + .5f) / N * 2 - 1, r = Mathf.Sqrt(u * u + v * v), fade = Mathf.Clamp01((1 - r) * 3);
+                    t.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(Shape(cls, u, v)) * fade));
+                }
+                t.Apply(true); return emblems[cls] = t;
+            }
+            static Texture2D soft;
+            static Texture2D Soft()
+            {
+                if (soft) return soft; const int N = 64; soft = new Texture2D(N, N, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < N; y++) for (int x = 0; x < N; x++) { float r = Vector2.Distance(new Vector2(x + .5f, y + .5f), new Vector2(N / 2f, N / 2f)) / (N / 2f), a = Mathf.Clamp01(1 - r); soft.SetPixel(x, y, new Color(1, 1, 1, a * a)); }
+                soft.Apply(true); return soft;
+            }
+            Transform Quad(string n, float queueOffset, Texture tex, out Material m)
+            {
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad).transform; Destroy(q.GetComponent<Collider>()); q.SetParent(transform, false); q.name = n;
+                m = new Material(Catalog.I.glowMat) { mainTexture = tex, renderQueue = 2900 + (int)queueOffset }; m.SetFloat("_SrcBlend", 1); m.SetFloat("_DstBlend", 1); m.SetFloat("_UseVC", 0); q.GetComponent<Renderer>().sharedMaterial = m; return q;
+            }
             void Start()
             {
+                aura = Quad("ClassAura", 0, Soft(), out auraM); emblem = Quad("ClassEmblem", 1, Emblem("warrior"), out emblemM); floor = Quad("ClassFloor", 2, Soft(), out floorM); floor.rotation = Quaternion.Euler(90, 0, 0);
                 circle = GameObject.CreatePrimitive(PrimitiveType.Quad).transform; Destroy(circle.GetComponent<Collider>()); circle.SetParent(transform, false); circle.name = "ShowcaseCircle";
                 circle.localRotation = Quaternion.Euler(90, 0, 0); circle.localScale = Vector3.one * 2.6f;
                 cm = new Material(Catalog.I.glowMat) { mainTexture = Ring() }; cm.SetFloat("_SrcBlend", 1); cm.SetFloat("_DstBlend", 1); cm.SetFloat("_UseVC", 0); circle.GetComponent<Renderer>().sharedMaterial = cm;
@@ -265,7 +340,13 @@ namespace NovaBlade
             void Update()
             {
                 var h = Main.G ? Main.G.hero : null; if (!h || h.def == null || !circle) return;
-                if (h.def.cls != cur) { cur = h.def.cls; var c = For(cur); cm.SetColor("_Color", c * 1.6f); var m = motes.main; m.startColor = new ParticleSystem.MinMaxGradient(c * 2.4f, Color.Lerp(c, Color.white, .5f) * 2.4f); }
+                if (h.def.cls != cur) { cur = h.def.cls; var c = For(cur); accent = Accent(cur); emblemM.mainTexture = Emblem(cur); shown = 0; cm.SetColor("_Color", c * 1.6f); var m = motes.main; m.startColor = new ParticleSystem.MinMaxGradient(c * 2.4f, Color.Lerp(c, Color.white, .5f) * 2.4f); }
+                var want = For(cur); col = Color.Lerp(col, want, Time.deltaTime * 6); shown = Mathf.MoveTowards(shown, 1, Time.deltaTime * 2.5f);   // a new class fades its emblem in
+                float beat = .82f + .18f * Mathf.Sin(Time.time * 1.7f);
+                var bp = h.transform.position; aura.position = bp + new Vector3(0, 1.3f, -3.1f); aura.rotation = Quaternion.Euler(0, 180, 0); aura.localScale = Vector3.one * 8.5f; auraM.SetColor("_Color", col * .55f * beat);
+                emblem.position = bp + new Vector3(0, 1.75f, -3f); emblem.rotation = Quaternion.Euler(0, 180, cur is "mage" or "cleric" ? Time.time * 6 : 0); emblem.localScale = Vector3.one * 6.4f; emblemM.SetColor("_Color", Color.Lerp(accent, col, .35f) * (cur == "cleric" ? .8f : cur == "monk" ? 2.1f : 1.5f) * shown * beat);
+                floor.position = bp + Vector3.up * .03f; floor.localScale = Vector3.one * 6; floorM.SetColor("_Color", col * .35f);
+                if (rimA) { rimA.color = Color.Lerp(rimA.color, want, Time.deltaTime * 6); rimB.color = Color.Lerp(rimB.color, accent, Time.deltaTime * 6); }
                 var p = h.transform.position; circle.position = p + Vector3.up * .04f; circle.rotation = Quaternion.Euler(90, Time.time * 14, 0);
                 motes.transform.position = p + Vector3.up * .05f;
                 float pulse = .85f + .15f * Mathf.Sin(Time.time * 2.2f); circle.localScale = Vector3.one * 2.6f * (.97f + .03f * pulse);

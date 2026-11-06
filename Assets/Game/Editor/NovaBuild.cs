@@ -117,7 +117,7 @@ public static class NovaBuild
     public static void BuildWebPcTest() { fastCompress = true; try { BuildWeb(false); } finally { fastCompress = false; } }
     static void BuildWeb(bool phone)
     {
-        WebSlim(phone); Towers(Cat(), false);
+        WebSlim(phone); Towers(Cat(), false); LazyCatalog();
         PlayerSettings.WebGL.template = "PROJECT:NovaBlade";
         PlayerSettings.WebGL.compressionFormat = fastCompress ? WebGLCompressionFormat.Gzip : WebGLCompressionFormat.Brotli; phoneScene = phone; PlayerSettings.WebGL.decompressionFallback = true;
         PlayerSettings.WebGL.dataCaching = true; PlayerSettings.WebGL.memoryGrowthMode = WebGLMemoryGrowthMode.Geometric; PlayerSettings.WebGL.maximumMemorySize = 2048; PlayerSettings.WebGL.initialMemorySize = phone ? 512 : 32;   // phones: start big, so the heap does not have to be copied to a larger one while a stage loads (iOS closes the tab if that peak is too high)
@@ -181,12 +181,28 @@ public static class NovaBuild
         }
         EditorUtility.SetDirty(cat); AssetDatabase.SaveAssets();
     }
+    // moves every catalog prefab out to Resources/Cat and clears the reference, so the catalog itself holds only names and loading it pulls in nothing
+    public static void LazyCatalog()
+    {
+        var cat = Cat(); const string Dir = "Assets/Game/Resources/Cat"; Directory.CreateDirectory(Dir); int n = 0;
+        void Move(List<Catalog.Entry> list, string prefix)
+        {
+            foreach (var e in list)
+            {
+                if (!e.prefab) continue;
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(e.prefab); if (!inst) inst = Object.Instantiate(e.prefab);
+                PrefabUtility.SaveAsPrefabAsset(inst, $"{Dir}/{prefix}{e.id}.prefab"); Object.DestroyImmediate(inst); e.prefab = null; n++;
+            }
+        }
+        Move(cat.models, "m_"); Move(cat.fx, "fx_");
+        EditorUtility.SetDirty(cat); AssetDatabase.SaveAssets(); Debug.Log($"[NovaBuild] lazy catalog: {n} moved");
+    }
     static Catalog Cat() => AssetDatabase.LoadAssetAtPath<Catalog>("Assets/Game/Resources/Catalog.asset");
 
     [MenuItem("Nova Blade/Build Windows exe")]
     public static void BuildWin()
     {
-        Towers(Cat(), false);   // the decimated PC towers lose their UVs (shattered look), so every build uses the hand-made mobile set
+        Towers(Cat(), false); LazyCatalog();   // the decimated PC towers lose their UVs (shattered look), so every build uses the hand-made mobile set
         var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, "Builds/Win/NovaBlade.exe", BuildTarget.StandaloneWindows64, BuildOptions.None);
         Debug.Log($"[NovaBuild] win build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);

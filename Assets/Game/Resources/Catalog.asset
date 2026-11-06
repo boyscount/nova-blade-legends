@@ -14,192 +14,192 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NovaBlade.Catalog
   models:
   - id: toybot
-    prefab: {fileID: -2295210395951047170, guid: 2a8c1dd6f68abf249b8105bf598f4513, type: 3}
+    prefab: {fileID: 0}
   - id: candle
-    prefab: {fileID: -2295210395951047170, guid: b66c9b4710670ab4ebb0b0f4661d9f86, type: 3}
+    prefab: {fileID: 0}
   - id: bat
-    prefab: {fileID: -2295210395951047170, guid: 03810b964d3bb1145b47c9810c64db86, type: 3}
+    prefab: {fileID: 0}
   - id: mushroom
-    prefab: {fileID: -2295210395951047170, guid: 29e979fa9b2a7374294d6db172fcfdd3, type: 3}
+    prefab: {fileID: 0}
   - id: scibot
-    prefab: {fileID: -2295210395951047170, guid: 3030cc056bfd18044ad0cebf60ad444f, type: 3}
+    prefab: {fileID: 0}
   - id: rat
-    prefab: {fileID: -2295210395951047170, guid: dad6b9769b74ec743a16bd77c48cd8bd, type: 3}
+    prefab: {fileID: 0}
   - id: spider
-    prefab: {fileID: -2295210395951047170, guid: 5b63a3b3227a805469a915b53c09cced, type: 3}
+    prefab: {fileID: 0}
   - id: wick
-    prefab: {fileID: -2295210395951047170, guid: 0c7bff9a14c3fb9419e1f5306b259b40, type: 3}
+    prefab: {fileID: 0}
   - id: cat
-    prefab: {fileID: -2295210395951047170, guid: b4e4cda79fd67b041b70aba6dc32856f, type: 3}
+    prefab: {fileID: 0}
   - id: wing_angel
-    prefab: {fileID: 1363998043475716531, guid: 5917b360aa4e7aa41885bb518c177bb5, type: 3}
+    prefab: {fileID: 0}
   - id: wing_fire
-    prefab: {fileID: 7321478480035680532, guid: 1ddb79b9eb1d54f459f6817227a3a34c, type: 3}
+    prefab: {fileID: 0}
   - id: wing_storm
-    prefab: {fileID: 7088141888114251741, guid: 179da9cc7d60ea4459e9126084e5ed19, type: 3}
+    prefab: {fileID: 0}
   - id: wing_death
-    prefab: {fileID: 7941184907188084250, guid: 318993090455c4a46bf6951a85310445, type: 3}
+    prefab: {fileID: 0}
   - id: reaper
-    prefab: {fileID: -2295210395951047170, guid: 8fdf35a323e92b0449d0d2d200f10f2d, type: 3}
+    prefab: {fileID: 0}
   - id: captain
-    prefab: {fileID: -2295210395951047170, guid: d0a1d6c3b621f8a4d831da21b68d30d6, type: 3}
+    prefab: {fileID: 0}
   - id: w_lava
-    prefab: {fileID: -2295210395951047170, guid: 19a4b06051897f745897cf44f3178789, type: 3}
+    prefab: {fileID: 0}
   - id: w_fantasy
-    prefab: {fileID: -2295210395951047170, guid: 1f52d5ca32102ca41883ca4866362b04, type: 3}
+    prefab: {fileID: 0}
   - id: w_plague
-    prefab: {fileID: -2295210395951047170, guid: b86c95b753361a74382539e6c5247260, type: 3}
+    prefab: {fileID: 0}
   - id: w_fiery
-    prefab: {fileID: -2295210395951047170, guid: 6cae7495d8ce2414398a9cb61e3db7d5, type: 3}
+    prefab: {fileID: 0}
   - id: w_daggers
-    prefab: {fileID: -2295210395951047170, guid: abb0398d193db0b40a784e378870aa2d, type: 3}
+    prefab: {fileID: 0}
   - id: w_winged
-    prefab: {fileID: -2295210395951047170, guid: 9b269ac0ce27a3c458e170620664605f, type: 3}
+    prefab: {fileID: 0}
   - id: w_gold1
-    prefab: {fileID: -2295210395951047170, guid: 13d4f0b7317184646bfa4c3928f88e86, type: 3}
+    prefab: {fileID: 0}
   - id: w_gold2
-    prefab: {fileID: -2295210395951047170, guid: a4ffd4e6aac0a8546a53e36f91f2c06d, type: 3}
+    prefab: {fileID: 0}
   - id: w_greataxe
-    prefab: {fileID: -2295210395951047170, guid: 3bd3e53c28570e448aa92a085412262e, type: 3}
+    prefab: {fileID: 0}
   - id: w_katana
-    prefab: {fileID: -2295210395951047170, guid: 0dab0bad0fd52cd438b4ed6a6bb4e3d2, type: 3}
+    prefab: {fileID: 0}
   - id: w_kunai
-    prefab: {fileID: -2295210395951047170, guid: 9174cb3c1c28f4a40bf6f6259ca871df, type: 3}
+    prefab: {fileID: 0}
   - id: w_mace
-    prefab: {fileID: -2295210395951047170, guid: 45927b6de395bdb43b95a4d1f78072dc, type: 3}
+    prefab: {fileID: 0}
   - id: w_arcanestaff
-    prefab: {fileID: -2295210395951047170, guid: 32920b971bb420e45b4ed9337a1e3dd6, type: 3}
+    prefab: {fileID: 0}
   - id: w_holystaff
-    prefab: {fileID: -2295210395951047170, guid: 886a0b705b1f33e4285e178e4e5d026f, type: 3}
+    prefab: {fileID: 0}
   - id: w_longbow
-    prefab: {fileID: -2295210395951047170, guid: 51f80ac6b7359d14ab5cf4f4d10da7ae, type: 3}
+    prefab: {fileID: 0}
   - id: w_crossbow
-    prefab: {fileID: -2295210395951047170, guid: cee0390d4c99e324f8ec33f3640ee870, type: 3}
+    prefab: {fileID: 0}
   - id: w_gauntlet
-    prefab: {fileID: -2295210395951047170, guid: cf78e2cccbc1fd84caf419c9a540c9bf, type: 3}
+    prefab: {fileID: 0}
   - id: w_claws
-    prefab: {fileID: -2295210395951047170, guid: 3f815b9b931dfb748a42b82c5afc74c2, type: 3}
+    prefab: {fileID: 0}
   - id: w_orb
-    prefab: {fileID: -2295210395951047170, guid: f15a799aa63a1544ab7f41a6bd76c592, type: 3}
+    prefab: {fileID: 0}
   - id: sh_knight
-    prefab: {fileID: -2295210395951047170, guid: a7a0328c7f59bf94cb9f4118f9120da0, type: 3}
+    prefab: {fileID: 0}
   - id: q_ghost
-    prefab: {fileID: 2242888416370347441, guid: 8ee8ae02d724e654093c459babe09204, type: 3}
+    prefab: {fileID: 0}
   - id: q_dragon
-    prefab: {fileID: 2242888416370347441, guid: a68813f8eb29b0c48b24eecf6ab40fa4, type: 3}
+    prefab: {fileID: 0}
   - id: column
-    prefab: {fileID: 1559262965466976, guid: 127dec628923b2348b8fe712130aac25, type: 3}
+    prefab: {fileID: 0}
   - id: fire_pit
-    prefab: {fileID: -4214782735267518701, guid: b07f436555421a74a8b83e114d0f01f5, type: 3}
+    prefab: {fileID: 0}
   - id: tower_p1
-    prefab: {fileID: -1947148309536009720, guid: d40893e085e2b1541976b9e02a7a78ee, type: 3}
+    prefab: {fileID: 0}
   - id: tower_p2
-    prefab: {fileID: -7549004942061177581, guid: 12440e765e3bb3f419b2775d78d9d362, type: 3}
+    prefab: {fileID: 0}
   - id: tower_p3
-    prefab: {fileID: -5299486271241892296, guid: 5dfa1aefe182ac0478c4ed2ce7e978a4, type: 3}
+    prefab: {fileID: 0}
   - id: tower_f1
-    prefab: {fileID: -7168983576315783635, guid: 9012ad68e06600c4daee44a874403d9c, type: 3}
+    prefab: {fileID: 0}
   - id: tower_f2
-    prefab: {fileID: -2555660227342212416, guid: b6b64209d3a4d1c49bfb1d43186e648c, type: 3}
+    prefab: {fileID: 0}
   - id: tower_f3
-    prefab: {fileID: 1907332437143893668, guid: 52818f96589816142bee5bb788557579, type: 3}
+    prefab: {fileID: 0}
   fx:
   - id: hit_red
-    prefab: {fileID: 4021103657954561961, guid: 5c755f9bc5253ea418e919994537dcc7, type: 3}
+    prefab: {fileID: 0}
   - id: hit_yellow
-    prefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
+    prefab: {fileID: 0}
   - id: ground_hit
-    prefab: {fileID: 3432958286849152088, guid: 87ee7299dd44ed747af24dbb91bcd33b, type: 3}
+    prefab: {fileID: 0}
   - id: death
-    prefab: {fileID: 7226888052703040409, guid: 7ec363c8df426644ea85f8d6d570561c, type: 3}
+    prefab: {fileID: 0}
   - id: boss_death
-    prefab: {fileID: 4593184484909914552, guid: 2e1e9506f5904a64b81744324fb7cd50, type: 3}
+    prefab: {fileID: 0}
   - id: poof
-    prefab: {fileID: 9157105887711914197, guid: c4f829cb7dd4b864caf8832ec5b1ee55, type: 3}
+    prefab: {fileID: 0}
   - id: aura
-    prefab: {fileID: 3280519133390621005, guid: a71be3e7990efb040a07565c43cbb198, type: 3}
+    prefab: {fileID: 0}
   - id: electric
-    prefab: {fileID: 9027514048236820045, guid: effb650189dc5714e9e9801b1cfb3991, type: 3}
+    prefab: {fileID: 0}
   - id: explosion
-    prefab: {fileID: 8194992990867289339, guid: 99bc28c0d45f51c4fbac01080b73edc7, type: 3}
+    prefab: {fileID: 0}
   - id: fire_small
-    prefab: {fileID: 6294508013172393196, guid: 043176b6a68be2b43b073aaaa4782c7d, type: 3}
+    prefab: {fileID: 0}
   - id: souls
-    prefab: {fileID: 5642766282230003982, guid: b5c8ca7ed10b61e499cce8ec3b6e2e4c, type: 3}
+    prefab: {fileID: 0}
   - id: wind
-    prefab: {fileID: 3696007233179127096, guid: c248f95ffea8b8543bc7ad0fffe0216d, type: 3}
+    prefab: {fileID: 0}
   - id: glows
-    prefab: {fileID: 4364354964670000192, guid: 3801a320e9ae1bf44a14efa194c86c3f, type: 3}
+    prefab: {fileID: 0}
   - id: trail_fire
-    prefab: {fileID: 2360655870356088562, guid: 57a776ff377f3c44e8403e2067a4d41f, type: 3}
+    prefab: {fileID: 0}
   - id: trail_ice
-    prefab: {fileID: 5318118474938795680, guid: 69d8f05fda8421849a84b27b8c0d773d, type: 3}
+    prefab: {fileID: 0}
   - id: trail_plain
-    prefab: {fileID: 6710139492206580332, guid: 95b8d3d65b5d7f1409c4ed1723887826, type: 3}
+    prefab: {fileID: 0}
   - id: vx_fire
-    prefab: {fileID: 2613462060424995206, guid: 101a8868c1adc5b40bdaf7526f47b7b5, type: 3}
+    prefab: {fileID: 0}
   - id: vx_void
-    prefab: {fileID: 1367619002952535313, guid: 664c64bbb000f5e428ca3b8f7e0ea923, type: 3}
+    prefab: {fileID: 0}
   - id: vx_cosmos
-    prefab: {fileID: 2653153344604433488, guid: f6bbcfa7e746d0340bd78dd22f35b3b3, type: 3}
+    prefab: {fileID: 0}
   - id: vx_nature
-    prefab: {fileID: 2393817908272368249, guid: 26169785b8e30c944a512729256a05cd, type: 3}
+    prefab: {fileID: 0}
   - id: vx_ice
-    prefab: {fileID: 1864572845640764174, guid: a64a37f3dcfb87f44a8c6236b5d49b20, type: 3}
+    prefab: {fileID: 0}
   - id: vx_electric
-    prefab: {fileID: 5818205763518135594, guid: 395d5ec7f996d364f94e11cfb40736d3, type: 3}
+    prefab: {fileID: 0}
   - id: vx_water
-    prefab: {fileID: 1826059589380599827, guid: 07a0367c119e4ca408ec23af0e377799, type: 3}
+    prefab: {fileID: 0}
   - id: vx_dark
-    prefab: {fileID: 8597731318025692521, guid: ae6bdf3417a5d6047a559654858dac31, type: 3}
+    prefab: {fileID: 0}
   - id: mx_heal_circle
-    prefab: {fileID: 7986504087968017091, guid: 12a56ee4630040c4eb17ae9707ed4cef, type: 3}
+    prefab: {fileID: 0}
   - id: mx_healing
-    prefab: {fileID: 9017484664307500583, guid: 1245b8d2997d5b34fb1637be70a7eb05, type: 3}
+    prefab: {fileID: 0}
   - id: mx_buff
-    prefab: {fileID: 7155335147208632822, guid: 97c43495f80a3244fad1301dfafbe252, type: 3}
+    prefab: {fileID: 0}
   - id: mx_shield
-    prefab: {fileID: 1289543790355709915, guid: b99922c2f59b1a542bdd06ae8bee47ae, type: 3}
+    prefab: {fileID: 0}
   - id: mx_shield_gold
-    prefab: {fileID: 6424583148328831481, guid: d2ffbc8b168cdf74a9dbb7c6c1cfdf2f, type: 3}
+    prefab: {fileID: 0}
   - id: mx_ground
-    prefab: {fileID: 4994997792314849709, guid: 3dd50886582244645be87adb42aa8528, type: 3}
+    prefab: {fileID: 0}
   - id: mx_holy_hit
-    prefab: {fileID: 2944396702758532163, guid: e190bf97c041e58448af6b043116cba0, type: 3}
+    prefab: {fileID: 0}
   - id: mx_electro_hit
-    prefab: {fileID: 2965222256817593503, guid: a164e676dbbd6e54587237e619372c98, type: 3}
+    prefab: {fileID: 0}
   - id: mx_magic_circle
-    prefab: {fileID: 3744133877081091469, guid: a2a060732547fe64581bb0cb3c2bdf1d, type: 3}
+    prefab: {fileID: 0}
   - id: sx_basic
-    prefab: {fileID: 5503505460791601945, guid: 74c549d1b06b6b140a1fd9536eea637f, type: 3}
+    prefab: {fileID: 0}
   - id: sx_double
-    prefab: {fileID: 3600389243222657682, guid: 3fee2e03e4bdc854bb38f7bcbca7c75d, type: 3}
+    prefab: {fileID: 0}
   - id: sx_explode
-    prefab: {fileID: 1205478487176026167, guid: 8436419d5cd706242bb810378b8a8835, type: 3}
+    prefab: {fileID: 0}
   - id: sx_multi
-    prefab: {fileID: 1400255665468144947, guid: 6c21e7a6e514dd9499418cbbb66211cf, type: 3}
+    prefab: {fileID: 0}
   - id: sx_shiny
-    prefab: {fileID: 158789456559184324, guid: 87167b19fb4a32a4e8e4f2c5f40a40b3, type: 3}
+    prefab: {fileID: 0}
   - id: sx_mesh
-    prefab: {fileID: 539289997039638868, guid: 844eb5aef40a0214f81a15775e5293e1, type: 3}
+    prefab: {fileID: 0}
   - id: mx_meteors
-    prefab: {fileID: 7957833072274404953, guid: 3355f6bfa6db8b24281b827de929694c, type: 3}
+    prefab: {fileID: 0}
   - id: mx_snow
-    prefab: {fileID: 161766660727748596, guid: 05ce920d629922a4eb4795ef7494ce5c, type: 3}
+    prefab: {fileID: 0}
   - id: mx_dust
-    prefab: {fileID: 8230022441722461589, guid: 41494896fc96c9748b81d3356632794e, type: 3}
+    prefab: {fileID: 0}
   - id: mx_charge
-    prefab: {fileID: 8145502431507700120, guid: 000832214335ffd4782827d2a4510f4a, type: 3}
+    prefab: {fileID: 0}
   - id: mx_spark_y
-    prefab: {fileID: 496913248247719083, guid: c483142edbf33dc4d9014c13724a0175, type: 3}
+    prefab: {fileID: 0}
   - id: mx_spark_w
-    prefab: {fileID: 8500920156052182585, guid: 830e92a3f95c4b04caf8edd648aed9bd, type: 3}
+    prefab: {fileID: 0}
   - id: aoe_orange
-    prefab: {fileID: 689667626583958020, guid: 1336648bc1d8baf46a4515860950c9d4, type: 3}
+    prefab: {fileID: 0}
   - id: aoe_blue
-    prefab: {fileID: 7647375919561907788, guid: 035ce8c9cfc34104991ce416daf8aebe, type: 3}
+    prefab: {fileID: 0}
   - id: aoe_green
-    prefab: {fileID: 8915312667134092580, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
+    prefab: {fileID: 0}
   clips:
   - id: idle
     length: 7.55

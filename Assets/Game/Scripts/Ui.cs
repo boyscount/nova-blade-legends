@@ -102,6 +102,7 @@ namespace NovaBlade
         // ---------- lobby ----------
         // lobby view: drag to turn the hero (or the pet on the pet tab), wheel / pinch / +- to zoom
         public void SetTab(string id) { tab = id; RenderCards(); }
+        public void TestFilterTop(string cls) { cardScroll.scrollOffset = Vector2.zero; clsFilter = cls; tab = "hero"; RenderCards(); }   // autopilot: one class at the top of the list
         public void TestFilter(string cls) { if (cls != "all") cardScroll.scrollOffset = new Vector2(0, 400); clsFilter = cls; RenderCards(); }   // autopilot: scrolled list, then filter
         VisualElement classRow; string clsFilter = "all";
         public float heroYaw, petYaw, lobbyZoom; float yawVel; public bool FocusPet => tab == "pet";
@@ -368,7 +369,7 @@ namespace NovaBlade
             }
             if (tab == "hero")
             {
-                foreach (var d in Data.Heroes.Where(d => clsFilter == "all" || d.cls == clsFilter)) { var dd = d; Card(d.name, Studio.HeroFull(d.id) ?? Studio.Hero(d.id), null, s.hero == d.id, () => { s.hero = dd.id; Pick(); }, false, null, (Loc.En ? Data.Class(d.cls).en : $"{Data.Class(d.cls).th} ({Data.Class(d.cls).en})"), Data.Class(d.cls).c); }
+                foreach (var d in Data.Heroes.Where(d => clsFilter == "all" || d.cls == clsFilter)) { var dd = d; Card(d.name, Studio.HeroFull(d.id) ?? Studio.Hero(d.id), null, s.hero == d.id, () => { s.hero = dd.id; Pick(); }, false, null, (Loc.En ? Data.Class(d.cls).en : $"{Data.Class(d.cls).th} ({Data.Class(d.cls).en})"), Data.Class(d.cls).c, null, d.cls); }
                 var k = Data.Class(h.cls); detail.text = Loc.S($"{h.name} · คลาส{k.th} ({k.en}) · {h.desc}", $"{h.name} · {k.en} · {h.desc}");
             }
             else if (tab == "skin")
@@ -433,7 +434,7 @@ namespace NovaBlade
                 Card(s.petWings ? Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: เปิด", "Pet wears wings: ON") : Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: ปิด", "Pet wears wings: OFF"), Studio.Pet(s.pet), null, s.petWings, () => { s.petWings = !s.petWings; Pick(); }, true);
                 var wd = Data.Wing(shown);
                 Offer(ItemKind.Wings, wd?.id, wd?.name, wd == null ? Loc.S("ไม่ใส่ปีก", "No wings") : Loc.S($"{wd.name} · {wd.desc} · เป็นของแต่งอย่างเดียว ไม่เปลี่ยนค่าพลัง", $"{wd.name} · {wd.desc} · Looks only, no stat change"));
-                if (wd != null && G.hero.def.id == "harpy") detail.text += Loc.S("\nแอริสมีปีกของตัวเองอยู่แล้ว ปีกนี้จะใส่ให้สัตว์เลี้ยง", "\nAeris has wings of her own: this pair is worn by the pet");
+                if (wd != null && G.hero.def.id == "harpy") detail.text += Loc.S("\nแอริสไม่ใส่ปีก ปีกนี้จะใส่ให้สัตว์เลี้ยง", "\nAeris wears no wings: this pair is worn by the pet");
             }
             else if (tab == "pet") { foreach (var p in Data.Pets) Card(p.name, Studio.Pet(p.id), null, s.pet == p.id, () => { s.pet = p.id; Pick(); }); detail.text = $"{G.pet.def.name} · {G.pet.def.desc}"; }
             else
@@ -1013,15 +1014,23 @@ namespace NovaBlade
             buyBtn.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             if (show) { buyBtn.text = Loc.S($"ลองใส่อยู่ · ซื้อ {name} ({Shop.PriceText(k, id)})", $"Trying on · Buy {name} ({Shop.PriceText(k, id)})"); detail.text += Loc.S("\nกำลังลองใส่: เอาเข้าไปเล่นได้หลังซื้อ", "\nTrying on: buy it to take it into battle"); }
         }
-        void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null, Color? glowBg = null, string tag = null)
+        void Card(string label, Texture2D img, (string n, Color tint, Color glow)? swatch, bool on, System.Action click, bool wide = false, string badge = null, string sub = null, Color? glowBg = null, string tag = null, string heroCls = null)
         {
             var c = Box(on ? new Color(.22f, .16f, .06f, .78f) : new Color(.07f, .09f, .12f, .66f), 14); Border(c, on ? new Color(1, .84f, .42f) : new Color(1, 1, 1, .12f), on ? 2.5f : 1); Pad(c, 5);
             c.style.width = Length.Percent(wide ? 48 : 31.3f); c.style.marginRight = Length.Percent(1.6f); c.style.marginBottom = 12; c.pickingMode = PickingMode.Position;
             var pic = Box(new Color(.12f, .14f, .17f), 10); pic.style.width = Length.Percent(100); pic.style.height = wide ? 150 : glowBg.HasValue ? (touchUi ? 340 : 300) : 176;   // hero cards are tall (full body)
+            Color? corners = null;
             if (glowBg.HasValue)
             {   // portrait over a soft glow in the class colour, fading to dark at the bottom
                 var g = glowBg.Value; pic.style.backgroundImage = new StyleBackground(Grad(new Color(g.r * .55f, g.g * .55f, g.b * .55f), new Color(.05f, .06f, .08f), true));
-                if (img) { var face = Box(); Abs(face, 0, 0, 0, 0); face.style.backgroundImage = new StyleBackground(img); face.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); pic.Add(face); }
+                if (heroCls != null)
+                {   // collector-card look: swirling aura and sparks in the class colours behind the hero, a double metal rim with bright corners
+                    var neon = LobbyNight.ClassAccent(heroCls); var cc = LobbyNight.ClassColor(heroCls); pic.style.backgroundImage = new StyleBackground(Grad(new Color(cc.r * .3f, cc.g * .3f, cc.b * .3f), new Color(.02f, .02f, .04f), true));
+                    var em = Box(); Abs(em, 0, 0, 0, 0); em.pickingMode = PickingMode.Ignore; em.style.backgroundImage = new StyleBackground(LobbyNight.ClassAura(heroCls)); em.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover); pic.Add(em);
+                    Border(pic, new Color(.85f, .88f, .95f, .55f), 1.5f); Border(c, on ? new Color(1, .84f, .42f) : new Color(neon.r, neon.g, neon.b, .9f), on ? 3 : 2);
+                    corners = new Color(Mathf.Lerp(neon.r, 1, .5f), Mathf.Lerp(neon.g, 1, .5f), Mathf.Lerp(neon.b, 1, .5f));
+                }
+                if (img) { var face = Box(); Abs(face, 0, 0, 0, 0); face.style.backgroundImage = new StyleBackground(img); face.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); face.pickingMode = PickingMode.Ignore; if (heroCls != null) { face.style.scale = new Scale(Vector3.one * 1.16f); face.style.translate = new Translate(0, 8); } pic.Add(face); }
             }
             else if (img) { pic.style.backgroundImage = new StyleBackground(img); pic.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover); }
             if (swatch.HasValue) { var sw = Box(swatch.Value.tint, 60); sw.style.width = sw.style.height = 100; sw.style.alignSelf = Align.Center; sw.style.marginTop = 18; Border(sw, swatch.Value.glow.maxColorComponent > 0 ? swatch.Value.glow * 4 : new Color(.4f, .4f, .4f), 10); pic.Add(sw); }
@@ -1031,7 +1040,17 @@ namespace NovaBlade
                 bg.Add(L(badge, 16, owned ? Green : Gold, true)); pic.Add(bg);
             }
             if (tag != null) { var tg = Box(new Color(.04f, .36f, .32f, .94f), 8); tg.style.position = Position.Absolute; tg.style.left = 4; tg.style.right = 4; tg.style.bottom = 4; Pad(tg, 3); Border(tg, new Color(.45f, 1, .85f, .7f), 1); var tl = L(tag, touchUi ? 19 : 15, new Color(.72f, 1, .92f), true); tl.style.unityTextAlign = TextAnchor.MiddleCenter; tg.Add(tl); pic.Add(tg); }
-            c.Add(pic); var l = L(label, touchUi ? 27 : 21, on ? new Color(1, .88f, .58f) : Ink, true); l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.whiteSpace = WhiteSpace.Normal; l.style.marginTop = 5; l.style.marginBottom = 2; Shadow(l, 4, .7f); c.Add(l);
+            if (corners.HasValue)
+            {   // bright corners on the rim, and the name large over the foot of the picture
+                foreach (var (top, left) in new[] { (true, true), (true, false), (false, true), (false, false) })
+                {
+                    var cn = Box(); cn.style.position = Position.Absolute; cn.style.width = cn.style.height = 18; cn.pickingMode = PickingMode.Ignore; if (top) cn.style.top = 0; else cn.style.bottom = 0; if (left) cn.style.left = 0; else cn.style.right = 0;
+                    var col = corners.Value; if (top) cn.style.borderTopWidth = 3; else cn.style.borderBottomWidth = 3; if (left) cn.style.borderLeftWidth = 3; else cn.style.borderRightWidth = 3;
+                    cn.style.borderTopColor = cn.style.borderBottomColor = cn.style.borderLeftColor = cn.style.borderRightColor = col; pic.Add(cn);
+                }
+                var big = L(label.ToUpperInvariant(), touchUi ? 40 : 31, Color.white, true); big.style.position = Position.Absolute; big.style.left = big.style.right = 0; big.style.bottom = 4; big.style.unityTextAlign = TextAnchor.MiddleCenter; big.style.unityFontStyleAndWeight = FontStyle.BoldAndItalic; big.style.unityTextOutlineWidth = 1; big.style.unityTextOutlineColor = new Color(.05f, .06f, .12f); big.style.letterSpacing = 1.5f; big.pickingMode = PickingMode.Ignore; Shadow(big, 8, 1); pic.Add(big);
+            }
+            c.Add(pic); var l = L(label, touchUi ? 27 : 21, on ? new Color(1, .88f, .58f) : Ink, true); if (corners.HasValue) l.style.display = DisplayStyle.None; l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.whiteSpace = WhiteSpace.Normal; l.style.marginTop = 5; l.style.marginBottom = 2; Shadow(l, 4, .7f); c.Add(l);
             if (sub != null) { var sl = L(sub, touchUi ? 19 : 15, on ? new Color(1, .85f, .6f, .9f) : Muted); sl.style.unityTextAlign = TextAnchor.MiddleCenter; sl.style.marginTop = -2; sl.style.marginBottom = 3; c.Add(sl); }
             if (on) Sparkle(c);
             if (click == null) c.style.opacity = .45f; else c.RegisterCallback<ClickEvent>(_ => click());

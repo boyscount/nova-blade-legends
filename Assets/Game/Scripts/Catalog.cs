@@ -17,8 +17,15 @@ namespace NovaBlade
 
         static Catalog inst;
         public static Catalog I => inst ? inst : inst = Resources.Load<Catalog>("Catalog");
-        public GameObject Model(string id) { foreach (var e in models) if (e.id == id) return e.prefab; return null; }
-        public GameObject Fx(string id) { foreach (var e in fx) if (e.id == id) return e.prefab; return null; }
+        // the catalog holds names, not the things themselves: a direct reference would keep every weapon, wing and effect in memory for the whole game.
+        // The prefabs sit in Resources/Cat (NovaBuild.LazyCatalog) and load the first time they are needed.
+        public GameObject Model(string id) => Find(models, id, "m_");
+        public GameObject Fx(string id) => Find(fx, id, "fx_");
+        static GameObject Find(List<Entry> list, string id, string prefix)
+        {
+            foreach (var e in list) if (e.id == id) return e.prefab ? e.prefab : Resources.Load<GameObject>("Cat/" + prefix + id);
+            return null;
+        }
         public ClipInfo Clip(string set, string id) { if (set != null) foreach (var c in clips) if (c.id == set + ":" + id) return c; return Clip(id); }
         public ClipInfo Clip(string id) { foreach (var c in clips) if (c.id == id) return c; return new ClipInfo { id = id, length = .7f, hit = .35f }; }
     }
