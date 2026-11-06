@@ -37,7 +37,7 @@ namespace NovaBlade
         const int NightLayer = 1; const float FarScenery = 24;
         static void Cull(bool lobby)
         {
-            var c = Camera.main; if (!c) return; var d = new float[32]; if (lobby) d[0] = FarScenery; c.layerCullSpherical = true; c.layerCullDistances = d;
+            var c = Camera.main; if (!c) return; var d = new float[32]; if (lobby) d[0] = FarScenery; c.layerCullDistances = d;
             if (!lobby) return;
             foreach (var g in new[] { root, set }) if (g) foreach (var t in g.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = NightLayer;
         }
@@ -58,6 +58,16 @@ namespace NovaBlade
             l.spotAngle = 55; l.innerSpotAngle = 25; l.shadows = LightShadows.None; l.transform.position = p; l.transform.LookAt(at ?? new Vector3(0, 1.1f, 0));
         }
         // glowing cherry petals drifting down through the light, turning as they fall
+        public static Transform PetalsAt(Transform parent)
+        {   // the same falling petals for any other place
+            var keep = root; var holder = new GameObject("PetalsHolder"); holder.transform.SetParent(parent, false); root = holder; Petals(); root = keep;
+            var ps = holder.GetComponentInChildren<ParticleSystem>(); var sh = ps.shape; sh.scale = new Vector3(30, .5f, 24);
+            var m = ps.main; m.maxParticles = 420; m.startSizeX = new ParticleSystem.MinMaxCurve(.24f, .38f); m.startSizeY = new ParticleSystem.MinMaxCurve(.24f, .38f); m.startColor = new ParticleSystem.MinMaxGradient(new Color(1, .88f, .93f, 1), Color.white);
+            var em = ps.emission; em.rateOverTime = 52;
+            var sheet = Resources.Load<Texture2D>("UI/City/petal_sheet");
+            if (sheet) { var tsa = ps.textureSheetAnimation; tsa.enabled = true; tsa.numTilesX = 2; tsa.numTilesY = 2; tsa.animation = ParticleSystemAnimationType.WholeSheet; tsa.frameOverTime = new ParticleSystem.MinMaxCurve(0, 0); tsa.startFrame = new ParticleSystem.MinMaxCurve(0, 1); ps.GetComponent<ParticleSystemRenderer>().sharedMaterial.mainTexture = sheet; }
+            ps.Clear(); ps.Play(); return ps.transform;
+        }
         static void Petals()
         {
             var go = new GameObject("Petals"); go.transform.SetParent(root.transform, false); go.transform.position = new Vector3(0, 3.6f, .2f);

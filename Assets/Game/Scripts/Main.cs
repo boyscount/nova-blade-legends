@@ -12,6 +12,18 @@ namespace NovaBlade
         public enum Mode { Load, Lobby, Game, Result }
         public Mode mode = Mode.Load;
         public bool paused;
+        public bool city, cameFromCity; public Transform cityRoot; City cityCtl; readonly List<GameObject> autumnTrees = new();   // the walkable main city
+        public void StartCity()
+        {
+            ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview(); BankGold(); kills = 0; gold = 0; time = 0; banked = 0;
+            var square = System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_kingdom"); SetTheme(square); city = true; cameFromCity = true; cityRoot.gameObject.SetActive(true); Obstacles.Add(cityRoot);
+            autumnTrees.Clear(); foreach (Transform t in stageRoots[square]) if (t.gameObject.activeSelf && (t.name.StartsWith("SmallTreeRound") || t.name.StartsWith("SM_Env_Tree"))) { t.gameObject.SetActive(false); autumnTrees.Add(t.gameObject); }
+            if (!cityCtl) cityCtl = gameObject.AddComponent<City>(); cityCtl.Enter();
+            hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); hero.transform.position = City.Start; pet.transform.position = City.Start + new Vector3(1.2f, 0, 1); camPos = City.Start + new Vector3(0, 9, 12);
+            ui.ShowHud();
+        }
+        // leaving a stage or the pause menu: back where the player came from
+        public void LeaveStage() { if (city) { cameFromCity = false; ShowLobby(); } else if (cameFromCity) StartCity(); else ShowLobby(); }
         public bool lane; public int laneSize = 3; float minionT;
         public bool soul;   // Soulslike mode (third-person, lock-on, block/parry/stamina) — see SoulController   // lane battle mode (see Lane.cs)
         public int stage = 1, wave, kills, gold, banked;
@@ -111,9 +123,11 @@ namespace NovaBlade
             if (System.Array.IndexOf(args, "-hitchtest") >= 0 || Application.absoluteURL.Contains("hitch")) StartCoroutine(HitchTest(System.Array.IndexOf(args, "-hitchtest") >= 0));
             int shots = System.Array.IndexOf(args, "-stageshots"); if (shots >= 0 && shots + 1 < args.Length) StartCoroutine(StageShots(args[shots + 1]));
             int gt = System.Array.IndexOf(args, "-gaittest"); if (gt >= 0 && gt + 1 < args.Length) StartCoroutine(GaitTest(args[gt + 1]));
+            int ct = System.Array.IndexOf(args, "-citytest"); if (ct >= 0 && ct + 1 < args.Length) StartCoroutine(CityTest(args[ct + 1]));
             int qt = System.Array.IndexOf(args, "-questtest"); if (qt >= 0 && qt + 1 < args.Length) StartCoroutine(QuestTest(args[qt + 1]));
             int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
+            int n5 = System.Array.IndexOf(args, "-new5test"); if (n5 >= 0 && n5 + 1 < args.Length) StartCoroutine(New5Test(args[n5 + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
         }
 
@@ -402,7 +416,7 @@ namespace NovaBlade
                 var ms = new List<float>(); yield return new WaitForSecondsRealtime(25); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; }
                 ms.Sort(); Debug.Log($"[Hitch] settled lobby level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms");
                 save.hero = "warrior"; StartGame(1); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(20); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); hero.hp = hero.max; yield return null; }
-                ms.Sort(); Debug.Log($"[Hitch] settled fight level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); Debug.Log("[Hitch] done"); yield break;
+                ms.Sort(); Debug.Log($"[Hitch] settled fight level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); StartCity(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled city level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); Debug.Log("[Hitch] done"); yield break;
             }
             AutoQuality.Paused = true;
             {   // the lobby piece by piece: what the frame time drops to with each part off
@@ -451,6 +465,27 @@ namespace NovaBlade
                 log.AppendLine($"{d.id,-10} {d.name,-8} speed {d.spd:0.00} set {Data.AnimSet(d.id) ?? "base",-8} clip rate {(n > 0 ? rate / n : 0):0.00}  lowest foot idle {idle:0.000} run {run:0.000} highest {top:0.000}");
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "gait.txt"), log.ToString()); Application.Quit();
+        }
+        // Test mode (-citytest <dir>): walk the city, open each NPC's panel, go through the gate and come back, with pictures of each
+        System.Collections.IEnumerator CityTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.hero = "samurai"; hero.Equip(); hero.PlaceLobby();
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            ui.ShowLobby(); yield return new WaitForSecondsRealtime(1); Snap("lobby"); yield return new WaitForSecondsRealtime(.5f);
+            StartCity(); yield return new WaitForSecondsRealtime(2); Snap("start"); yield return new WaitForSecondsRealtime(.5f);
+            log.AppendLine($"city {city} mode {mode} foes {foes.Count} hero {hero.Pos} plate ok");
+            foreach (var (name, at, panel) in new[] { ("quest", new Vector3(-11.5f, 0, 3), "quest"), ("shop", new Vector3(0, 0, -12.5f), "shop"), ("smith", new Vector3(11.5f, 0, 3), "bag"), ("gate", new Vector3(-7, 0, -12), "gate") })
+            {
+                hero.transform.position = at; yield return new WaitForSecondsRealtime(1.4f); Snap("near_" + name); yield return new WaitForSecondsRealtime(.4f); log.AppendLine($"{name}: prompt shown {ui.CityPromptShown}");
+                ui.OpenCityPanel(panel); yield return new WaitForSecondsRealtime(1); Snap("panel_" + name); yield return new WaitForSecondsRealtime(.4f); log.AppendLine($"{name}: panel open {ui.CityPanelOpen}");
+                ui.CloseCityPanel(); yield return new WaitForSecondsRealtime(.4f); log.AppendLine($"{name}: closed {!ui.CityPanelOpen} hud ok");
+            }
+            foreach (var (name, at) in new[] { ("tree1", new Vector3(11, 0, -3.5f)), ("tree2", new Vector3(-15, 0, -7)), ("tree3", new Vector3(5, 0, -16)) }) { hero.transform.position = at; yield return new WaitForSecondsRealtime(1); Snap(name); yield return new WaitForSecondsRealtime(.4f); }
+            ui.atkP = true; yield return null; yield return null; log.AppendLine($"attack in city blocked: state {hero.state}");
+            StartGame(1); cameFromCity = true; yield return new WaitForSecondsRealtime(3); log.AppendLine($"stage: city {city} foes {foes.Count}"); Snap("stage");
+            yield return new WaitForSecondsRealtime(.4f); LeaveStage(); yield return new WaitForSecondsRealtime(2); log.AppendLine($"back: city {city} foes {foes.Count} hero {hero.Pos}"); Snap("back");
+            yield return new WaitForSecondsRealtime(.4f); LeaveStage(); yield return new WaitForSecondsRealtime(1); log.AppendLine($"leave city: mode {mode} city {city}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "city.txt"), log.ToString()); Application.Quit();
         }
         // Test mode (-questtest <dir>): counters, claiming once only, a finished quest in a real fight, and the quest panel on screen.
         System.Collections.IEnumerator QuestTest(string dir)
@@ -571,6 +606,29 @@ namespace NovaBlade
                 ShowLobby(); yield return new WaitForSecondsRealtime(.8f);
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "move.txt"), log.ToString());
+            Application.Quit();
+        }
+        // Test mode (-new5test <dir>): the five empty-handed heroes holding chosen weapons, then the two bosses that replaced the dragon.
+        System.Collections.IEnumerator New5Test(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            foreach (var (h, w, sh) in new[] { ("warrior", "w_greataxe", ""), ("samurai", "w_katana", ""), ("hood", "w_daggers", ""), ("ninja", "w_kunai", ""), ("spartan", "w_lava", "sh_knight") })
+            {
+                save.hero = h; save.sword = w; save.owned.Add(Shop.Key(ItemKind.Weapon, w)); save.shield = sh; if (sh != "") save.owned.Add(Shop.Key(ItemKind.Shield, sh)); save.wings = "";
+                hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.heroYaw = 0; yield return new WaitForSecondsRealtime(1.6f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_lobby.png")); yield return new WaitForSecondsRealtime(.4f);
+                save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f);
+                ui.atkP = true; yield return new WaitForSecondsRealtime(.35f); ui.atkP = false;
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_fight.png")); yield return new WaitForSecondsRealtime(.8f);
+                ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            }
+            foreach (var id in new[] { "river", "valley" })
+            {
+                int st = System.Array.FindIndex(Data.Themes, x => x.id == id) + 1; save.hero = "warrior"; save.best = 9; StartGame(st); yield return null;
+                hero.max = hero.hp = 999999; foreach (var f in foes) if (f) Destroy(f.gameObject); foes.Clear(); wave = Theme.waves.Length; SpawnBoss();
+                for (int i = 0; i < 3; i++) { yield return new WaitForSecondsRealtime(2.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"boss_{id}_{i}.png")); }
+                ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            }
             Application.Quit();
         }
         // Test mode (-weapontest <dir>): each class weapon on a hero of its class, in the lobby (three-quarter) and mid-attack, then quit.
@@ -789,7 +847,7 @@ namespace NovaBlade
         // ---------- stages ----------
         public void SetTheme(int i)
         {
-            LobbyNight.Set(false);
+            LobbyNight.Set(false); city = false; if (cityRoot) cityRoot.gameObject.SetActive(false); foreach (var t in autumnTrees) if (t) t.SetActive(true); autumnTrees.Clear();
             for (int k = 0; k < stageRoots.Length; k++) if (stageRoots[k]) stageRoots[k].gameObject.SetActive(k == i);
             River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river"; River.Valley = stageRoots[i] && stageRoots[i].name == "Stage_valley";
             var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null; stageLook = look;
@@ -799,6 +857,7 @@ namespace NovaBlade
 
         public void ShowLobby()
         {
+            cameFromCity = false;
             ClearWorld(); mode = Mode.Lobby; paused = false; Time.timeScale = 1; lane = false; soul = false; if (hero && hero.soul) hero.soul.End();
             stage = Mathf.Clamp(save.stage, 1, MaxStage);
             SetTheme(Data.ThemeOf(1)); LobbyNight.Set(true);   // lobby backdrop: the forest at night, whatever stage is picked
@@ -1036,7 +1095,7 @@ namespace NovaBlade
             // hit stop: a few frames of near-freeze on heavy hits (animators and particles slow down too)
             if (hitStop > 0) hitStop -= dt;
             Time.timeScale = hitStop > 0 ? .06f : 1;
-            if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else UpdWaves(dt); UpdDrops(dt); }
+            if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city) UpdWaves(dt); UpdDrops(dt); }
             for (int i = foes.Count - 1; i >= 0; i--) if (!foes[i]) foes.RemoveAt(i);
         }
 

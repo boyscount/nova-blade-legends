@@ -19,6 +19,11 @@ namespace NovaBlade
             if (!cache.TryGetValue(stage, out var list)) cache[stage] = list = Build(stage);
             Current = list;
         }
+        public static void Add(Transform extra)
+        {   // scenery shown on top of the current stage
+            if (!cache.TryGetValue(extra, out var list)) cache[extra] = list = Build(extra);
+            Current = new List<Vector3>(Current); Current.AddRange(list);
+        }
         static List<Vector3> Build(Transform stage)
         {
             var list = new List<Vector3>();

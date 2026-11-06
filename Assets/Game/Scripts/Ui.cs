@@ -196,7 +196,8 @@ namespace NovaBlade
             bagB.style.paddingTop = bagB.style.paddingBottom = touchUi ? 10 : 6; bagB.style.paddingLeft = bagB.style.paddingRight = 20; Round(bagB, 18); bagB.pickingMode = PickingMode.Position; BagIcon(bagB, touchUi ? 34 : 28);
             questB = Btn(Loc.S("เควสต์", "Quests"), () => ShowQuests(true)); questB.style.fontSize = touchUi ? 24 : 18; questB.style.marginTop = 10; questB.style.marginLeft = 10;
             questB.style.paddingTop = questB.style.paddingBottom = touchUi ? 10 : 6; questB.style.paddingLeft = questB.style.paddingRight = 20; Round(questB, 18); questB.pickingMode = PickingMode.Position;
-            var brow = Box(); brow.style.flexDirection = FlexDirection.Row; brow.style.alignItems = Align.Center; brow.Add(sk); brow.Add(bagB); brow.Add(questB); info.Add(brow);
+            var brow = Box(); brow.style.flexDirection = FlexDirection.Row; brow.style.alignItems = Align.Center; brow.Add(sk); brow.Add(bagB); brow.Add(questB); info.Add(brow); brow.style.flexWrap = Wrap.Wrap;
+            var cityB = Btn(Loc.S("เข้าเมือง", "ENTER CITY"), () => G.StartCity()); cityB.style.fontSize = touchUi ? 32 : 26; cityB.style.flexShrink = 0; cityB.style.paddingTop = cityB.style.paddingBottom = touchUi ? 18 : 14; cityB.style.paddingLeft = cityB.style.paddingRight = touchUi ? 26 : 22; cityB.style.marginLeft = 2; lobbyCityB = cityB;
             var st = Box(); st.style.marginTop = 12; info.Add(st); stats = new VisualElement[4];
             string[] names = { Loc.S("พลังชีวิต", "Health"), Loc.S("โจมตี", "Attack"), Loc.S("ความเร็ว", "Speed"), Loc.S("ระยะ", "Range") };
             for (int i = 0; i < 4; i++)
@@ -277,11 +278,11 @@ namespace NovaBlade
             var cur = Box(new Color(0, 0, 0, .5f), 24); Border(cur, new Color(1, .82f, .5f, .5f), 2); cur.style.paddingLeft = cur.style.paddingRight = 16; cur.style.paddingTop = cur.style.paddingBottom = 10; cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center;
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
-            gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); bottom.Add(cur);
+            gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); cur.style.alignSelf = Align.FlexStart; cur.style.marginTop = touchUi ? 10 : 42; logo.Add(cur);   // the money sits under the logo, clear of the two big buttons
             var play = Btn(Loc.S("เริ่มต่อสู้", "START BATTLE"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
             if (Resources.Load<Texture2D>("UI/Lobby/btn_play_frame_new") is Texture2D pf)
             {   // painted frame at its own proportions (1200 x 360): the diamonds top and bottom must not stretch
-                float pw = touchUi ? 600 : 470; play.style.flexGrow = 0; play.style.width = pw; play.style.height = pw * .3f; play.style.marginLeft = Length.Auto(); play.style.marginRight = Length.Auto();
+                float pw = touchUi ? 560 : 440; play.style.flexGrow = 0; play.style.width = pw; play.style.height = pw * .3f; play.style.marginLeft = Length.Auto(); play.style.marginRight = Length.Auto();
                 play.style.backgroundImage = new StyleBackground(pf); play.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; play.style.backgroundColor = Color.clear; Border(play, Color.clear, 0);
                 play.style.paddingLeft = play.style.paddingRight = play.style.paddingTop = play.style.paddingBottom = 0; play.style.fontSize = Loc.En ? (touchUi ? 38 : 30) : (touchUi ? 46 : 36);
                 play.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .08f, 0, .95f) }; play.style.color = new Color(1, .96f, .82f);
@@ -296,7 +297,7 @@ namespace NovaBlade
             // fire round the button: the painted flames twice (one mirrored and out of step, so they seem to move), and sparks that rise from it
             VisualElement Flames()
             {
-                var v = new VisualElement { pickingMode = PickingMode.Ignore }; v.style.position = Position.Absolute; v.style.left = v.style.right = Length.Percent(-19); v.style.top = v.style.bottom = Length.Percent(-27);
+                var v = new VisualElement { pickingMode = PickingMode.Ignore }; v.style.position = Position.Absolute; v.style.left = v.style.right = Length.Percent(1); v.style.top = v.style.bottom = Length.Percent(-6);
                 if (FrameArt("btn_battle_fire") is Texture2D t) { v.style.backgroundImage = new StyleBackground(t); v.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; }
                 return v;
             }
@@ -311,7 +312,11 @@ namespace NovaBlade
                     float fade = Mathf.Sin(u * Mathf.PI); p.fillColor = new Color(1, .55f + .35f * (1 - u), .18f, fade * .9f); p.BeginPath(); p.Arc(new Vector2(x, y), 1.5f + 2.2f * Mathf.Repeat(seed * 1.3f, 1) * (1 - u * .5f), 0, 360); p.Fill();
                 }
             };
-            playBox.Add(halo); playBox.Add(fireB); playBox.Add(fireA); playBox.Add(play); playBox.Add(embers); bottom.Add(playBox);
+            lobbyPlayBox = bottom; bottom.style.alignItems = Align.Stretch; bottom.style.justifyContent = Justify.SpaceBetween;
+            // two clearly framed buttons, 70 / 30: the battle fire stays inside its own frame and never touches the emerald city button
+            playBox.style.width = Length.Percent(69); playBox.style.marginLeft = playBox.style.marginRight = 0; playBox.style.overflow = Overflow.Hidden; playBox.style.backgroundColor = new Color(.05f, .03f, .03f, .85f); Border(playBox, Gold, 2.5f); Round(playBox, 14); playBox.style.paddingTop = playBox.style.paddingBottom = 6; playBox.style.alignItems = Align.Center; playBox.style.justifyContent = Justify.Center;
+            StyleGold(lobbyCityB, false); lobbyCityB.style.width = Length.Percent(29); lobbyCityB.style.whiteSpace = WhiteSpace.Normal; lobbyCityB.style.unityTextAlign = TextAnchor.MiddleCenter; lobbyCityB.style.paddingLeft = lobbyCityB.style.paddingRight = 10; lobbyCityB.style.paddingTop = lobbyCityB.style.paddingBottom = 0; lobbyCityB.style.marginLeft = 0; lobbyCityB.style.color = new Color(.92f, 1, .95f); lobbyCityB.style.fontSize = touchUi ? 34 : 28;
+            playBox.Add(halo); playBox.Add(fireB); playBox.Add(fireA); playBox.Add(play); playBox.Add(embers); bottom.Add(playBox); bottom.Add(lobbyCityB);
             FrameOrnaments(panel);
             playBox.schedule.Execute(() =>
             {
@@ -548,6 +553,7 @@ namespace NovaBlade
             bagOv.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             if (lobbyPanel != null) lobbyPanel.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
             if (lobbyInfo != null && touchUi) lobbyInfo.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;   // phones: the arc needs the height the hero card takes
+            if (!on && G.city) { if (CityPanelOpen) CloseCityPanel(); return; }
             if (on) { bagMsg.text = ""; bagConfirm = null; RenderBag(); } else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderInfo(); RenderCards(); }
         }
         // ---------- Quests ----------
@@ -557,6 +563,7 @@ namespace NovaBlade
             if (questOv == null) BuildQuests();
             questOv.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             if (lobbyPanel != null) lobbyPanel.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
+            if (!on && G.city) { if (CityPanelOpen) CloseCityPanel(); return; }
             if (on) RenderQuests(); else if (G.mode == Main.Mode.Lobby) { G.Persist(); RenderInfo(); RenderCards(); }
         }
         void BuildQuests()
@@ -1058,12 +1065,71 @@ namespace NovaBlade
             }).Every(33);
         }
         public void TestPick() => Pick();   // autopilot
+        // ---------- the city: walking prompt, NPC panels and the stage list at the gate ----------
+        VisualElement hudBtns, lobbyPlayBox, gateOv; Button lobbyCityB; Button cityTalk, cityClose; System.Action cityAct; public bool CityPanelOpen { get; private set; } public bool CityPromptShown => cityTalk != null && cityTalk.style.display == DisplayStyle.Flex;
+        public void SetPlate(string a, string b, string c) { waveT.text = a; waveT2.text = b; waveT3.text = c; }
+        public void SetCityPrompt(string text, System.Action act)
+        {
+            if (cityTalk == null)
+            {
+                cityTalk = Btn("", () => cityAct?.Invoke()); cityTalk.style.position = Position.Absolute; cityTalk.style.bottom = touchUi ? 300 : 120; cityTalk.style.left = Length.Percent(50); cityTalk.style.translate = new Translate(Length.Percent(-50), 0); cityTalk.style.fontSize = touchUi ? 42 : 32; hud.Add(cityTalk);
+            }
+            cityAct = act; cityTalk.text = text ?? ""; cityTalk.style.display = text != null ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+        void ApplyCityHud()
+        {
+            bool c = G.city; if (pcBar != null) pcBar.style.display = c ? DisplayStyle.None : DisplayStyle.Flex; else if (hudBtns != null) hudBtns.style.display = c ? DisplayStyle.None : DisplayStyle.Flex;
+            if (!c) SetCityPrompt(null, null);
+        }
+        public void OpenCityPanel(string panel)
+        {
+            if (CityPanelOpen) return; CityPanelOpen = true; SetCityPrompt(null, null);
+            if (panel == "gate") { ShowGate(); return; }
+            hud.style.display = DisplayStyle.None; lobby.style.display = DisplayStyle.Flex; if (lobbyInfo != null) lobbyInfo.style.display = DisplayStyle.None; RenderInfo();
+            if (panel == "quest") ShowQuests(true);
+            else if (panel == "bag") ShowBag(true);
+            else
+            {   // the merchant: the lobby's own panel on weapons, without its battle button
+                if (lobbyPanel != null) lobbyPanel.style.display = DisplayStyle.Flex; if (lobbyPlayBox != null) lobbyPlayBox.style.display = DisplayStyle.None; tab = "sword"; RenderCards();
+                if (cityClose == null) { cityClose = Btn(Loc.S("ปิด", "CLOSE"), CloseCityPanel, false); StyleGold(cityClose, false); cityClose.style.position = Position.Absolute; cityClose.style.left = 60; cityClose.style.bottom = 60; cityClose.style.fontSize = touchUi ? 32 : 26; lobby.Add(cityClose); }
+                cityClose.style.display = DisplayStyle.Flex;
+            }
+        }
+        public void CloseCityPanel()
+        {
+            if (!CityPanelOpen) return; CityPanelOpen = false;
+            if (gateOv != null) gateOv.style.display = DisplayStyle.None;
+            if (questOv != null) questOv.style.display = DisplayStyle.None; if (bagOv != null) bagOv.style.display = DisplayStyle.None; if (cityClose != null) cityClose.style.display = DisplayStyle.None;
+            if (lobbyInfo != null) lobbyInfo.style.display = DisplayStyle.Flex; if (lobbyPlayBox != null) lobbyPlayBox.style.display = DisplayStyle.Flex; if (lobbyPanel != null) lobbyPanel.style.display = DisplayStyle.Flex;
+            G.Persist(); tab = "hero"; lobby.style.display = DisplayStyle.None; hud.style.display = DisplayStyle.Flex; G.hero.RefreshGear();
+        }
+        void ShowGate()
+        {
+            float big = touchUi ? 1.25f : 1;
+            if (gateOv == null)
+            {
+                gateOv = Box(new Color(0, 0, 0, .35f)); Abs(gateOv, 0, 0, 0, 0); gateOv.pickingMode = PickingMode.Position; gateOv.style.alignItems = Align.Center; gateOv.style.justifyContent = Justify.Center; hud.Add(gateOv);
+                var pn = Box(new Color(.045f, .085f, .125f, .95f), 12); Border(pn, Gold, 2.5f); Pad(pn, 36); pn.style.width = Length.Percent(62); pn.pickingMode = PickingMode.Position; gateOv.Add(pn);
+                var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
+                var tl = L(Loc.S("เลือกด่าน", "CHOOSE A STAGE"), 38 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; top.Add(tl);
+                var x = new Button(CloseCityPanel) { text = "" }; DrawX(x); x.style.width = x.style.height = 48 * big; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); top.Add(x);
+                var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.marginTop = 16; pn.Add(row);
+                for (int i = 0; i < Data.Themes.Length; i++)
+                {
+                    int st = i + 1; var card = new Button(() => { CloseCityPanel(); G.StartGame(st); }) { text = "" }; card.style.width = Length.Percent(31); card.style.marginRight = Length.Percent(2); card.style.marginBottom = 12; card.style.paddingLeft = card.style.paddingRight = card.style.paddingTop = card.style.paddingBottom = 4; card.style.backgroundColor = new Color(0, 0, 0, .35f); Border(card, new Color(1, .84f, .55f, .45f), 1.5f); Round(card, 10);
+                    var pic = Box(); pic.style.height = 130 * big; pic.style.backgroundImage = new StyleBackground(Studio.Stage(i)); pic.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop; card.Add(pic);
+                    var name = L(Loc.En ? $"{st}. {Data.Themes[i].name}" : $"{st}. {Data.Themes[i].name}", 22 * big, Ink, true); name.style.marginTop = 6; name.style.unityTextAlign = TextAnchor.MiddleCenter; card.Add(name); row.Add(card);
+                }
+                FrameOrnaments(pn);
+            }
+            gateOv.style.display = DisplayStyle.Flex;
+        }
         public void TestRenderInfo() => RenderInfo(); public void TestRenderCards() => RenderCards();   // autopilot: timed one at a time
         void Pick()
         {
             G.Persist(); G.stage = G.save.stage;
-            G.hero.Equip(); G.pet.Equip(); G.hero.PlaceLobby(); G.pet.PlaceLobby();
-            Fx.Burst(Vector3.up, 24, tab == "sword" ? G.hero.sword.color : Gold, 3, 1.2f, .1f);
+            G.hero.Equip(); G.pet.Equip(); if (G.mode == Main.Mode.Lobby) { G.hero.PlaceLobby(); G.pet.PlaceLobby(); }
+            Fx.Burst(G.hero.Pos + Vector3.up, 24, tab == "sword" ? G.hero.sword.color : Gold, 3, 1.2f, .1f);
             RenderInfo(); RenderCards();
         }
 
@@ -1162,7 +1228,7 @@ namespace NovaBlade
             // skill buttons (bottom-right)
             // thumb cluster: big attack button in the corner, the three skills on an arc around it, dodge further left
             // (panel units are 1/1080 of the screen height: on a 6.5" phone held sideways 330 is about 2.1 cm and 215 about 1.4 cm)
-            var btns = Box(); Abs(btns, null, null, 0, 0); btns.style.width = 980; btns.style.height = 820; hud.Add(btns);
+            var btns = Box(); Abs(btns, null, null, 0, 0); btns.style.width = 980; btns.style.height = 820; hud.Add(btns); hudBtns = btns;
             float mainS = touchUi ? 330 : 220, skS = touchUi ? 215 : 140, dgS = touchUi ? 185 : 124, arc = mainS / 2 + skS / 2 + (touchUi ? 30 : 26);
             var mc = new Vector2(44 + mainS / 2, 40 + mainS / 2);   // attack centre, measured from the bottom-right corner
             var at = new (Vector2 c, float s)[5];
@@ -1393,8 +1459,11 @@ namespace NovaBlade
             p.fillColor = new Color(.37f, .96f, 1, .22f); p.BeginPath(); p.Arc(hp, 22, 0, 360); p.Fill(); p.strokeColor = new Color(0, 0, 0, .8f); p.lineWidth = 3; p.lineJoin = LineJoin.Round; p.BeginPath(); p.MoveTo(R(0, 15)); p.LineTo(R(-10, -9)); p.LineTo(R(10, -9)); p.ClosePath(); p.Stroke(); p.fillColor = Cyan; p.Fill();
         }
 
+        Button resultBack, pauseBack;
         public void ShowHud()
         {
+            ApplyCityHud();
+            string back = G.cameFromCity && !G.city ? Loc.S("กลับเมือง", "Back to City") : Loc.S("กลับล็อบบี้", "Back to Lobby"); if (pauseBack != null) pauseBack.text = back; if (resultBack != null) resultBack.text = G.cameFromCity ? Loc.S("เมือง", "City") : Loc.S("ล็อบบี้", "Lobby");
             lobby.style.display = DisplayStyle.None; hud.style.display = DisplayStyle.Flex; resultOv.style.display = pauseOv.style.display = DisplayStyle.None; bossW.style.display = DisplayStyle.None;
             var h = G.hero.def; hudName.text = h.name; petN.text = G.pet.def.name;
             porImg.style.backgroundImage = new StyleBackground(Studio.Hero(h.id)); petImg.style.backgroundImage = new StyleBackground(Studio.Pet(G.pet.def.id));
@@ -1410,7 +1479,7 @@ namespace NovaBlade
             ((SkBtn)sk[0].userData).c = G.hero.sword.color; ((SkBtn)sk[4].userData).c = new Color(.62f, .9f, 1);
             Joy = Vector2.zero; ConsumeInputs(); JoyHome();
         }
-        public void ShowBoss(string name) { bossW.style.display = DisplayStyle.Flex; bossN.text = name; }
+        public void ShowBoss(string name) { bossW.style.display = G.soul ? DisplayStyle.Flex : DisplayStyle.None; bossN.text = name; }   // the wide top bar only in the duel, which also shows poise; elsewhere the bar sits over the boss's head
         public void HideBoss() { bossW.style.display = DisplayStyle.None; }
         float bannerT;
         public void Banner(string a, string b = "") { bannerA.text = a; bannerB.text = b; bannerT = 2.4f; }
@@ -1438,7 +1507,7 @@ namespace NovaBlade
             pb.Add(L(Loc.S("หยุดเกม", "Paused"), 56, Ink, true)); var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.marginTop = 20; pb.Add(row);
             var resume = Btn(Loc.S("เล่นต่อ", "Resume"), TogglePause); StyleGold(resume, true); row.Add(resume);
             pauseBagBtn = Btn("", () => OpenFieldBag(), false); StyleGold(pauseBagBtn, false); pauseBagBtn.style.marginLeft = 14; pauseBagText = BagIcon(pauseBagBtn, 40); row.Add(pauseBagBtn);
-            var q = Btn(Loc.S("กลับล็อบบี้", "Back to Lobby"), () => { G.BankGold(); TogglePause(); G.ShowLobby(); }, false); StyleGold(q, false); q.style.marginLeft = 14; row.Add(q); FrameOrnaments(pb, 120, -20);
+            var q = Btn(Loc.S("กลับล็อบบี้", "Back to Lobby"), () => { G.BankGold(); TogglePause(); G.LeaveStage(); }, false); pauseBack = q; StyleGold(q, false); q.style.marginLeft = 14; row.Add(q); FrameOrnaments(pb, 120, -20);
             confirmOv = Box(new Color(0, 0, 0, .7f)); Abs(confirmOv, 0, 0, 0, 0); confirmOv.style.alignItems = Align.Center; confirmOv.style.justifyContent = Justify.Center; confirmOv.pickingMode = PickingMode.Position; root.Add(confirmOv);
             var cb = Box(); GoldPanel(cb); cb.style.alignItems = Align.Center; cb.style.width = 700; confirmOv.Add(cb);
             cb.Add(L(Loc.S("ยืนยันการซื้อ", "Confirm Purchase"), 44, Ink, true)); confirmT = L("", 24, Muted); confirmT.style.whiteSpace = WhiteSpace.Normal; confirmT.style.unityTextAlign = TextAnchor.MiddleCenter; confirmT.style.marginTop = 10; cb.Add(confirmT);
@@ -1457,7 +1526,7 @@ namespace NovaBlade
             foreach (var (lbl, set) in new (string, System.Action<Label>)[] { (Loc.S("กำจัด", "Kills"), l => resK = l), (Loc.S("ทอง", "Gold"), l => resG = l), ("EXP", l => resX = l), (Loc.S("เวลา", "Time"), l => resT = l) })
             { var cell = Box(new Color(1, 1, 1, .05f), 10); Pad(cell, 12); cell.style.width = 160; cell.style.marginLeft = cell.style.marginRight = 6; cell.style.alignItems = Align.Center; var v = L("0", 40, Ink, true); set(v); cell.Add(v); cell.Add(L(lbl, 20, Muted)); grid.Add(cell); }
             var r2 = Box(); r2.style.flexDirection = FlexDirection.Row; r2.style.marginTop = 22; rb.Add(r2);
-            again = Btn("", () => { }); StyleGold(again, true); r2.Add(again); var tl = Btn(Loc.S("ล็อบบี้", "Lobby"), () => G.ShowLobby(), false); StyleGold(tl, false); tl.style.marginLeft = 14; r2.Add(tl); FrameOrnaments(rb, 120, -20);
+            again = Btn("", () => { }); StyleGold(again, true); r2.Add(again); var tl = Btn(Loc.S("ล็อบบี้", "Lobby"), () => G.LeaveStage(), false); resultBack = tl; StyleGold(tl, false); tl.style.marginLeft = 14; r2.Add(tl); FrameOrnaments(rb, 120, -20);
             pauseOv.style.display = resultOv.style.display = DisplayStyle.None;
         }
         System.Action againAct;
@@ -1517,7 +1586,7 @@ namespace NovaBlade
         {
             if (fpsT >= 0) CountFps();
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
-            if (bagOv != null && G && G.mode != Main.Mode.Lobby && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
+            if (bagOv != null && G && G.mode != Main.Mode.Lobby && !G.city && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
             if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }
             if (G == null || G.hero == null) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) { if (FieldBagOpen) CloseFieldBag(); else TogglePause(); }
@@ -1541,7 +1610,8 @@ namespace NovaBlade
             mpFill.style.width = Length.Percent(Mathf.Clamp01(h.mp / h.mpMax) * 100); mpT.text = $"{Mathf.FloorToInt(h.mp)} / {h.mpMax:0}"; goldH.text = G.gold.ToString();
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;
-            if (G.lane)
+            if (G.city) SetPlate(Loc.S("สวนซากุระ", "SAKURA GARDEN"), Loc.S("เมืองหลัก", "MAIN CITY"), "");   // once here: writing it from two places each frame locked the game up
+            else if (G.lane)
             {
                 waveT.text = Loc.En ? $"BATTLE {G.laneSize} VS {G.laneSize}" : $"สนามรบ {G.laneSize} vs {G.laneSize}"; waveT2.text = Loc.En ? $"WAVE {G.wave}" : $"ระลอก {G.wave}";
                 waveT3.text = Loc.En ? $"TOWERS: {G.TowersLeft(0)} VS {G.TowersLeft(1)}" : $"ป้อมเรา {G.TowersLeft(0)} · ป้อมศัตรู {G.TowersLeft(1)}";
@@ -1580,22 +1650,23 @@ namespace NovaBlade
             }
             // overhead bars: HP (+ power for heroes); towers and heroes always, other units once hurt
             int k2 = 0;
-            void Bar(Vector3 at, float hpK, float mpK, int team, bool big, bool me)
+            void Bar(Vector3 at, float hpK, float mpK, int team, bool big, bool me, bool isBoss = false)
             {
                 if (k2 >= barPool.Count)
                 {
                     var b = Box(new Color(0, 0, 0, .7f), 4); b.style.position = Position.Absolute; Border(b, new Color(0, 0, 0, .8f), 1.5f);
                     var fi = Box(Red, 3); fi.style.height = 9; b.Add(fi); var mpb = Box(new Color(.3f, .6f, 1), 2); mpb.style.height = 4; mpb.style.marginTop = 1; b.Add(mpb); bars.Add(b); barPool.Add(b);
                 }
-                var bar = barPool[k2++]; var bp = ToPanel(at); float w = big ? 120 : 76;
-                bar.style.display = DisplayStyle.Flex; bar.style.width = w; bar.style.left = bp.x - w / 2; bar.style.top = bp.y; bar[0].style.height = big ? 13 : 9;
+                var bar = barPool[k2++]; var bp = ToPanel(at); float w = isBoss ? 190 : big ? 120 : 76;
+                bar.style.display = DisplayStyle.Flex; bar.style.width = w; bar.style.left = bp.x - w / 2; bar.style.top = bp.y; bar[0].style.height = isBoss ? 14 : big ? 13 : 9;
+                if (isBoss) { float pw = root.resolvedStyle.width, ph = root.resolvedStyle.height; bar.style.left = Mathf.Clamp(bp.x - w / 2, 10, Mathf.Max(10, pw - w - 10)); bar.style.top = Mathf.Clamp(bp.y, ph * .17f, ph * .7f); }   // stays on screen and clear of the stage plate when the boss is close to the camera
                 bar[0].style.width = Length.Percent(Mathf.Clamp01(hpK) * 100);
-                bar[0].style.backgroundColor = me ? new Color(.3f, .9f, .4f) : team == 0 ? new Color(.35f, .7f, 1) : Red;
+                bar[0].style.backgroundColor = isBoss ? new Color(.6f, .2f, 1) : me ? new Color(.3f, .9f, .4f) : team == 0 ? new Color(.35f, .7f, 1) : Red;
                 bar[1].style.display = mpK >= 0 ? DisplayStyle.Flex : DisplayStyle.None; if (mpK >= 0) bar[1].style.width = Length.Percent(Mathf.Clamp01(mpK) * 100);
             }
             foreach (var f in G.foes)
             {
-                if (!f || !f.alive || f.isBoss) continue; bool tower = f.d.kind == "tower", champ = f.d.kind == "champ";
+                if (!f || !f.alive || (f.isBoss && G.soul)) continue; if (f.isBoss) { Bar(f.Pos + Vector3.up * (f.h + .45f), f.hp / f.maxHp, -1, f.team, false, false, true); continue; } bool tower = f.d.kind == "tower", champ = f.d.kind == "champ";
                 if (!tower && !champ && f.hp >= f.maxHp) continue;
                 Bar(f.Pos + Vector3.up * (tower ? Lane.TopY + 1.2f : f.h + .45f), f.hp / f.maxHp, champ ? f.PowerK : -1, f.team, tower, false);
             }

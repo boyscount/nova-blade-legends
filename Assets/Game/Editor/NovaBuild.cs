@@ -47,7 +47,7 @@ public static class NovaBuild
     // experiment: one hero's skins imported at full size for the Windows player (-executeMethod NovaBuild.Skin2048AndWin)
     public static void Skin2048AndWin() { HdSkins(); BuildWin(); }
     // heroes regenerated with 2048 skins keep them on PC (web PC build and Windows); the phone build caps them through WebSlim
-    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy", "elf" };
+    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy", "elf", "ninja", "spartan" };
     static void HdSkins()
     {
         foreach (var id in HdHeroes) foreach (var guid in AssetDatabase.FindAssets(id + "_tex t:Texture2D", new[] { "Assets/Game/Models/Heroes" }))
@@ -228,7 +228,6 @@ public static class NovaBuild
         foreach (var w in Data.Swords) M(w.id, $"Assets/Game/Models/Weapons/{w.id}.glb");
         foreach (var w in Data.Shields) M(w.id, $"Assets/Game/Models/Weapons/{w.id}.glb");
         foreach (var f in Data.Foes.Where(f => f.model.StartsWith("q_"))) M(f.model, $"Assets/Game/Models/Foes/{f.model}.glb");
-        M("q_dragon", "Assets/Game/Models/Foes/q_dragon.glb");
         M("column", "Assets/ThirdParty/PrisonCell/Prefabs/Walls/Column.prefab"); Towers(cat, false); M("fire_pit", "Assets/Game/Models/Props/stone_fire_pit/stone_fire_pit_1k.gltf");
         cat.fx.Clear();
         const string F = "Assets/ThirdParty/CartoonFX/CFXR Prefabs/";
@@ -391,8 +390,10 @@ public static class NovaBuild
         vol.sharedProfile = prof;
         // game
         var mainGo = new GameObject("Game"); var main = mainGo.AddComponent<Main>(); main.cam = cam;
+        main.cityRoot = null;
         main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage() };   // 360° photo stages (PlazaStage, MirrorStage, ValleyCliff) are kept but out of the game   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
         foreach (var sr in main.stageRoots) NoCartoonFx(sr);
+        main.cityRoot = CityStage(main); main.cityRoot.gameObject.SetActive(false);
         for (int i = 1; i < main.stageRoots.Length; i++) main.stageRoots[i].gameObject.SetActive(false);
         LobbySet(mainGo.transform);
         main.stageRoots[0].GetComponent<StageLook>().Apply();
@@ -942,6 +943,75 @@ public static class NovaBuild
     // bright cartoon-green meadow, a winding river with two wooden bridges, pines and fruit trees round the edge;
     // the middle stays open for fights (the river crosses it, shallow and walkable)
     static float ValleyRiver(float x) => -3 + Mathf.Sin(x * .09f) * 4.5f;
+    // The Sakura Garden city, added to the saved scene without rebuilding the stages
+    public static void AddCityAndWin()
+    {
+        NovaSetup.BuildNpcs(); rnd = new System.Random(23);
+        var scene = EditorSceneManager.OpenScene("Assets/Game/Scenes/Main.unity"); var main = Object.FindAnyObjectByType<Main>();
+        foreach (var old in scene.GetRootGameObjects().Where(g => g.name == "Stage_city")) Object.DestroyImmediate(old);
+        var active = main.stageRoots.FirstOrDefault(r => r && r.gameObject.activeSelf); main.cityRoot = CityStage(main); main.cityRoot.gameObject.SetActive(false);
+        if (active) active.GetComponent<StageLook>().Apply(); EditorUtility.SetDirty(main); EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene);
+        BuildWin();
+    }
+    // a copy of the prefab's materials using the pink textures from Generated/Sakura
+    static GameObject Blossom(GameObject go)
+    {
+        if (!go) return go;
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+        {
+            var mats = r.sharedMaterials; bool changed = false;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                var m = mats[i]; if (!m) continue; var path = $"{Gen}/Sakura/{m.name}_sakura.mat"; var copy = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (!copy)
+                {
+                    copy = new Material(m); bool any = false;
+                    foreach (var prop in m.GetTexturePropertyNames())
+                    {
+                        var t = m.GetTexture(prop); if (!t) continue; var pink = AssetDatabase.LoadAssetAtPath<Texture2D>($"{Gen}/Sakura/{t.name}.png"); if (pink) { copy.SetTexture(prop, pink); any = true; }
+                    }
+                    if (!any) continue;
+                    AssetDatabase.CreateAsset(copy, path);
+                }
+                mats[i] = copy; changed = true;
+            }
+            if (changed) r.sharedMaterials = mats;
+        }
+        return go;
+    }
+    // the main city is stage 3 (Kingdom Square) in blossom: this root only holds what is added to it; Main hides the square's autumn trees while it is shown
+    static Transform CityStage(Main main)
+    {
+        root = new GameObject("Stage_city").transform;
+        const string K = "Assets/Art/Prefabs/Foliage/Trees and Bushes/";
+        var trees = new[] { K + "SmallTreeRound_01.prefab", K + "SmallTreeRound_02.prefab" };
+        void Tree(float x, float y, float z, float h) { Blossom(Fit(Load(trees[rnd.Next(2)]), new Vector3(x, y, z), R(0, 360), h)); }
+        foreach (var (x, z) in new[] { (11f, -8f), (-11f, -8f) }) Tree(x, .5f, z, 5.5f);   // on the far planters; none on the camera side, where they would hide the player
+        foreach (var (x, z, h) in new[] { (19f, -19f, 11f), (-19f, -19f, 11f), (17.5f, -9f, 8f), (-17.5f, -9f, 8f), (6f, -19f, 8f), (-6f, -19f, 8f), (10f, -21f, 9f), (-10f, -21f, 9f), (24f, -12f, 10f), (-24f, -12f, 10f), (26f, 8f, 9f), (-26f, 8f, 9f) })
+            Tree(x, 0, z, h);
+        // the way out: the magic pack's tech circle with its rising beams (Laser AOE), looping in blossom pink; no flash or smoke, they would strobe and turn black
+        var tp = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Hovl Studio/Magic effects pack/Prefabs/AoE effects/Laser AOE.prefab");
+        if (tp)
+        {
+            var t = (GameObject)PrefabUtility.InstantiatePrefab(tp, root); t.name = "GateCircle"; t.transform.position = new Vector3(-8.5f, .08f, -14.5f); t.transform.localScale *= .68f;
+            foreach (var ps in t.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                if (ps.name is "Flash" or "Smoke") { ps.gameObject.SetActive(false); continue; }
+                var m = ps.main; m.loop = true; m.prewarm = true; m.playOnAwake = true; m.stopAction = ParticleSystemStopAction.None; m.startDelay = 0; m.duration = Mathf.Max(.5f, m.startLifetime.constantMax * .8f);   // the next one starts before the last has gone, so the circle never disappears
+                m.scalingMode = ParticleSystemScalingMode.Hierarchy; m.startColor = new ParticleSystem.MinMaxGradient(new Color(1, .42f, .72f, 1), new Color(1, .7f, .88f, 1));
+            }
+            foreach (var l in t.GetComponentsInChildren<Light>(true)) l.gameObject.SetActive(false);
+        }
+        else Debug.LogError("[NovaBuild] missing Laser AOE effect");
+        // cherry trees balance the gate across the square
+        foreach (var (x, z, h) in new[] { (8.5f, -14f, 10f), (13f, -12f, 8f) }) Tree(x, 0, z, h);
+        PointLight(new Vector3(-8.5f, 2.5f, -14.5f), new Color(1, .45f, .72f), 9, 11);
+        // a proper fire in the middle of the square, lighting the stones round it
+        var fireFx = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
+        if (fireFx) { var f = (GameObject)PrefabUtility.InstantiatePrefab(fireFx, root); f.name = "SquareFire"; f.transform.position = new Vector3(0, .65f, 0); f.transform.localScale *= 1.1f; foreach (var ps in f.GetComponentsInChildren<ParticleSystem>(true)) if (ps.name == "Smoke") ps.gameObject.SetActive(false); else { var fm = ps.main; fm.startColor = new ParticleSystem.MinMaxGradient(new Color(1, .5f, .16f, 1), new Color(1, .72f, .3f, 1)); } }
+        PointLight(new Vector3(0, 2.2f, 0), new Color(1, .58f, .26f), 16, 17);
+        return root;
+    }
     static Transform ValleyStage()
     {
         NewRoot("Stage_valley", new Color(.34f, .38f, .34f), .009f, new Color(.5f, .58f, .66f), new Color(.3f, .36f, .24f), new Color(.1f, .12f, .06f));

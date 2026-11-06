@@ -34,6 +34,6 @@ matte skin, soft natural skin, smooth clean surfaces, no cracked or faceted text
 
 ## รายการติดตาม
 
-- [x] `npc_quest.glb` ทำโครงกระดูกแล้ว รอเข้าเกมตอนทำเมือง (เท้าเปล่า เพราะ prompt ไม่ได้ระบุรองเท้า)
-- [x] `npc_merchant.glb` ทำโครงกระดูกแล้ว รอเข้าเกมตอนทำเมือง
-- [x] `npc_smith.glb` ทำโครงกระดูกแล้ว รอเข้าเกมตอนทำเมือง
+- [x] `npc_quest.glb` ใส่ในเมืองแล้ว (เท้าเปล่า เพราะ prompt ไม่ได้ระบุรองเท้า)
+- [x] `npc_merchant.glb` ใส่ในเมืองแล้ว
+- [x] `npc_smith.glb` ใส่ในเมืองแล้ว

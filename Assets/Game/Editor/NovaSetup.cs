@@ -138,6 +138,12 @@ public static class NovaSetup
         Debug.Log("[NovaSetup] new heroes done");
     }
 
+    public static readonly string[] Npcs = { "npc_quest", "npc_merchant", "npc_smith" };
+    public static void BuildNpcs()
+    {
+        AssetDatabase.ImportAsset(Heroes, ImportAssetOptions.ImportRecursive);
+        var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath); foreach (var h in Npcs) BuildHero(h, ctrl); AssetDatabase.SaveAssets();
+    }
     public static readonly string[] Monsters = { "e_skeleton", "e_goblin", "e_orc", "e_zombie", "e_cultist", "e_ghoul", "m_blue", "m_red", "b_lich", "b_treant" };
     public static void Enemies()
     {

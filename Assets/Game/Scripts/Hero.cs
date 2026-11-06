@@ -177,6 +177,7 @@ namespace NovaBlade
         Vector3? clickGoal; ITarget clickFoe;   // web on a PC: right-click destination / target
         Vector2 Move()
         {
+            if (G.city && G.ui.CityPanelOpen) return Vector2.zero;
             var j = G.ui.Joy; var kb = Keyboard.current;
             if (G.ui.WebPc)
             {   // arrow keys still steer; otherwise walk to the clicked spot or into range of the clicked enemy
@@ -393,6 +394,7 @@ namespace NovaBlade
                 float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); continue; }
                 mp -= cost; CastSkill(i);
             }
+            if (G.city) { ui.atkP = ui.dodgeP = false; for (int i = 0; i < ui.skP.Length; i++) ui.skP[i] = false; }   // nobody fights in the city
             if (ui.atkP) { buf = .3f; ui.atkP = false; }
             if (AtkHeld) buf = Mathf.Max(buf, .12f); buf -= dt;
 

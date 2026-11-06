@@ -90,13 +90,17 @@ namespace NovaBlade
         static Texture2D FullBody(GameObject pf, bool rig)
         {
             if (!pf) return null; const int W = 384, H = 576;
-            var inst = Object.Instantiate(pf, Spot, Quaternion.Euler(0, .45f * Mathf.Rad2Deg, 0));
+            var inst = Object.Instantiate(pf, Spot, Quaternion.identity);
             foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
             var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false;
             var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
             // a model built in T-pose (much wider than a standing figure) takes its lobby stance for the card; the framing still comes from its height
             bool tPose = an && b.size.x > b.size.y * .7f;
             if (tPose) { an.enabled = true; an.Rebind(); an.Play("show", 0, .15f); an.Update(0); an.enabled = false; }
+            if (an && an.isHuman && an.GetBoneTransform(HumanBodyBones.LeftUpperArm) is Transform la && an.GetBoneTransform(HumanBodyBones.RightUpperArm) is Transform ra)
+            {   // every card faces straight ahead: undo whatever turn the stance has, going by the shoulders
+                var fwd = Vector3.Cross(ra.position - la.position, Vector3.up); if (fwd.sqrMagnitude > .001f) inst.transform.Rotate(0, -Vector3.SignedAngle(Vector3.forward, fwd, Vector3.up), 0, Space.World);
+            }
             float hgt = tPose ? b.size.y : Mathf.Max(b.size.y, b.size.x * H / W * .8f), fov = cam.fieldOfView;
             float dist = hgt * 1.1f * .5f / Mathf.Tan(fov * .5f * Mathf.Deg2Rad);
             var look = new Vector3(b.center.x, b.min.y + b.size.y * .5f, b.center.z);
