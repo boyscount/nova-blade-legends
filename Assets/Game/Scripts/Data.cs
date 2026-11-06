@@ -21,7 +21,7 @@ namespace NovaBlade
     public static class Data
     {
         // per-class movement and attack clips (AnimatorOverrideController in Resources/Anim/<set>); null = the shared Great Sword set
-        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" or "lyra" => "mage", "elf" or "hood" or "harpy" => "bow", "ninja" => "ninja", "monk" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
+        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" or "lyra" => "mage", "elf" or "hood" or "harpy" or "rowan" => "bow", "ninja" => "ninja", "monk" or "tenzin" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
         static Color C(int hex) => new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f);
         static Color G(int hex, float k) => C(hex) * k;
 
@@ -42,6 +42,9 @@ namespace NovaBlade
             new HeroDef { id = "elf", female = true, name = Loc.S("เอลวีน", "Elwyn"), title = Loc.S("พรานธนูแห่งพงไพร", "Forest Ranger"), desc = Loc.S("สายธนู ยิงไกล ปล่อยห่าลูกศร แล้วกระโดดถอยตั้งหลัก", "Archer: long range, arrow volleys, leaps back to reposition"), cls = "archer", hp = 900, spd = 4.29f, atk = 1.05f, rig = true, ranged = true, blade = false,
                 skills = new[] { "feather", "dive", "gale" }, stats = new[] { 0.5f, 0.75f, 0.8f, 1f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("ใบไม้ผลิ", "Spring Leaf"), C(0xc8ffc0), G(0x5fff7a, .22f)), (Loc.S("หิมะเงิน", "Silver Snow"), C(0xdff2ff), G(0x7fd8ff, .22f)), (Loc.S("ใบไม้ร่วง", "Autumn Leaf"), C(0xffc89a), G(0xff7a1a, .22f)) } },
+            new HeroDef { id = "rowan", name = Loc.S("โรวัน", "Rowan"), title = Loc.S("พรานธนูเงาพงไพร", "Greenwood Hunter"), desc = Loc.S("สายธนู ยิงไกล ปล่อยห่าลูกศร แล้วกระโดดถอยตั้งหลัก", "Archer: long range, arrow volleys, leaps back to reposition"), cls = "archer", hp = 900, spd = 4.29f, atk = 1.05f, rig = true, ranged = true, blade = false,
+                skills = new[] { "feather", "dive", "gale" }, stats = new[] { 0.5f, 0.75f, 0.8f, 1f },
+                skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("ใบไม้ผลิ", "Spring Leaf"), C(0xc8ffc0), G(0x5fff7a, .22f)), (Loc.S("หิมะเงิน", "Silver Snow"), C(0xdff2ff), G(0x7fd8ff, .22f)), (Loc.S("ใบไม้ร่วง", "Autumn Leaf"), C(0xffc89a), G(0xff7a1a, .22f)) } },
             new HeroDef { id = "ninja", name = Loc.S("คาเงะ", "Kage"), title = Loc.S("นินจาเงาราตรี", "Night Shadow Ninja"), desc = Loc.S("สายนักฆ่า พุ่งฟันทะลุศัตรู เร็วที่สุดในบรรดาฮีโร่", "Assassin: dashes through foes, the fastest hero"), cls = "assassin", hp = 950, spd = 4.68f, atk = 1.1f, rig = true,
                 skills = new[] { "iaido", "petal", "dance" }, stats = new[] { 0.5f, 0.85f, 1f, 0.55f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("เงาแดง", "Crimson Shade"), C(0xffb0b0), G(0xff3a3a, .22f)), (Loc.S("เงาคราม", "Indigo Shade"), C(0xb0c8ff), G(0x3a6aff, .22f)), (Loc.S("เงาทอง", "Golden Shade"), C(0xffe8a8), G(0xffc02e, .22f)) } },
@@ -55,6 +58,9 @@ namespace NovaBlade
                 skills = new[] { "heal", "shield", "cry" }, stats = new[] { 0.7f, 0.6f, 0.6f, 0.85f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("แสงเงิน", "Silverlight"), C(0xd8e4ff), G(0x8aa8ff, .22f)), (Loc.S("กุหลาบ", "Rose"), C(0xffd0dc), G(0xff5a8a, .2f)) } },
             new HeroDef { id = "monk", name = Loc.S("หมิง", "Ming"), title = Loc.S("จอมยุทธ์หมัดเพลิงทอง", "Golden Flame Fist"), desc = Loc.S("สายหมัด เตะลอยฟ้า บู๊มือเปล่า ทุบพื้น ปั่นตัวเป็นพายุหมัด", "Fighter: flying kicks, bare-handed brawling, ground slams and fist storms"), cls = "monk", hp = 1250, spd = 4.13f, atk = 1.1f, rig = true, blade = false,
+                skills = new[] { "slam", "whirl", "cry" }, stats = new[] { 0.85f, 0.8f, 0.7f, 0.5f },
+                skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("จีวรแดง", "Crimson Robe"), C(0xffb0a0), G(0xff4a2a, .22f)), (Loc.S("ภูเขาหิมะ", "Snow Peak"), C(0xe0f0ff), G(0x8ad8ff, .22f)), (Loc.S("มังกรทอง", "Golden Dragon"), C(0xffe2a2), G(0xffb52e, .22f)) } },
+            new HeroDef { id = "tenzin", name = Loc.S("เทนซิน", "Tenzin"), title = Loc.S("พระนักสู้แขนเหล็ก", "Iron-Armed Monk"), desc = Loc.S("สายหมัด บู๊มือเปล่า ทุบพื้น ปั่นตัวเป็นพายุหมัด", "Fighter: bare-handed brawling, ground slams and fist storms"), cls = "monk", hp = 1250, spd = 4.13f, atk = 1.1f, rig = true, blade = false,
                 skills = new[] { "slam", "whirl", "cry" }, stats = new[] { 0.85f, 0.8f, 0.7f, 0.5f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("จีวรแดง", "Crimson Robe"), C(0xffb0a0), G(0xff4a2a, .22f)), (Loc.S("ภูเขาหิมะ", "Snow Peak"), C(0xe0f0ff), G(0x8ad8ff, .22f)), (Loc.S("มังกรทอง", "Golden Dragon"), C(0xffe2a2), G(0xffb52e, .22f)) } },
             new HeroDef { id = "mage", name = Loc.S("อัลดริค", "Aldric"), title = Loc.S("จอมเวทผ้าคลุมคราม", "Azure-Cloak Archmage"), desc = Loc.S("สายเวท ยิงลำแสงเวท ปล่อยลูกไฟไล่ล่า และกางบาเรีย", "Mage: arcane beams, homing fireballs and a barrier"), cls = "mage", hp = 850, spd = 3.9f, atk = 1.15f, rig = true, ranged = true, blade = false,
@@ -164,6 +170,12 @@ namespace NovaBlade
             ["spartan:whirl"] = (Loc.S("โล่หมุนพายุ", "Shield Storm"), C(0xffa63d)),
             ["spartan:slam"] = (Loc.S("โล่ทุบปฐพี", "Shield Slam"), C(0xffd36b)),
             ["spartan:cry"] = (Loc.S("ปลุกใจสปาร์ตา", "Spartan Rally"), C(0xff5a45)),
+            ["rowan:feather"] = (Loc.S("ห่าศรเงาไม้", "Greenwood Volley"), C(0x7ee86a)),
+            ["rowan:dive"] = (Loc.S("ฝนธนู", "Arrow Rain"), C(0x9fe86a)),
+            ["rowan:gale"] = (Loc.S("ศรทะลวง", "Piercing Shot"), C(0x3fe0a0)),
+            ["tenzin:slam"] = (Loc.S("ฝ่ามือเหล็ก", "Iron Palm"), C(0xffb13d)),
+            ["tenzin:whirl"] = (Loc.S("พายุหมัดเหล็ก", "Iron Fist Storm"), C(0xff7043)),
+            ["tenzin:cry"] = (Loc.S("ลมปราณ", "Inner Qi"), C(0x4fdcc0)),
             ["elf:feather"] = (Loc.S("ห่าศรพงไพร", "Forest Volley"), C(0x7ee86a)),
             ["elf:dive"] = (Loc.S("ฝนธนู", "Arrow Rain"), C(0x9fe86a)),
             ["elf:gale"] = (Loc.S("ศรทะลวง", "Piercing Shot"), C(0x3fe0a0)),

@@ -52,6 +52,7 @@ namespace NovaBlade
             bool fresh = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-stageshots") >= 0;
             for (int i = 0; i < Data.Themes.Length; i++) { var saved = fresh ? null : Resources.Load<Texture2D>("UI/Stages/stage_" + i); tex["stage_" + i] = saved ? saved : StageShot(i); }
             Object.Destroy(go); rt.Release();
+            Resources.UnloadUnusedAssets();   // every hero's model and skins were only needed for the pictures: give that memory back (phones crash without it)
             Timing = $"studio heroes {tHeroes:0} ms, pets wings weapons {tItems:0} ms, stages {Lap():0} ms"; Debug.Log("[Hitch] " + Timing);
         }
 
@@ -89,7 +90,7 @@ namespace NovaBlade
         // select-screen card: the whole hero standing tall, seen from a little below (heroic), 384 x 576, 4x anti-aliased
         static Texture2D FullBody(GameObject pf, bool rig, bool female)
         {
-            if (!pf) return null; const int W = 384, H = 576;
+            if (!pf) return null; int W = Main.IsPhone ? 256 : 384, H = Main.IsPhone ? 384 : 576;
             var inst = Object.Instantiate(pf, Spot, Quaternion.identity);
             foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
             var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false;

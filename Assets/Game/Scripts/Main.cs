@@ -455,7 +455,7 @@ namespace NovaBlade
                 var ms = new List<float>(); yield return new WaitForSecondsRealtime(25); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; }
                 ms.Sort(); Debug.Log($"[Hitch] settled lobby level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms");
                 save.hero = "warrior"; StartGame(1); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(20); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); hero.hp = hero.max; yield return null; }
-                ms.Sort(); Debug.Log($"[Hitch] settled fight level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); yield return CrowdMeasure(); StartCity(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled city level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); StartWilds(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled wilds level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); Debug.Log("[Hitch] done"); yield break;
+                ms.Sort(); Debug.Log($"[Hitch] settled fight level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); yield return CrowdMeasure(); StartCity(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled city level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); if (!Stage("Stage_wilds")) yield break; StartWilds(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled wilds level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); Debug.Log("[Hitch] done"); yield break;
             }
             AutoQuality.Paused = true;
             {   // the lobby piece by piece: what the frame time drops to with each part off
@@ -702,13 +702,12 @@ namespace NovaBlade
         {
             System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
             foreach (var hd in Data.Heroes) if (Studio.HeroFull(hd.id) is Texture2D card) System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, "card_" + hd.id + ".png"), card.EncodeToPNG());
-            foreach (var h in new[] { "sunpriest", "lyra" })
+            foreach (var h in new[] { "elf", "rowan", "tenzin" })
             {
                 save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.SetTab("hero"); yield return new WaitForSecondsRealtime(1.2f);
                 ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_" + h + ".png")); yield return new WaitForSecondsRealtime(.4f);
             }
-            save.hero = "sunpriest"; save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f); hero.mp = hero.mpMax;
-            for (int i = 0; i < 3; i++) { ui.skP[i] = true; yield return new WaitForSecondsRealtime(1.1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"solia_skill{i}.png")); yield return new WaitForSecondsRealtime(.4f); hero.mp = hero.mpMax; }
+            save.shield = ""; foreach (var h in new[] { "elf", "rowan", "tenzin" }) { save.hero = h; save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f); hero.max = hero.hp = 999999; hero.mp = hero.mpMax; for (int i = 0; i < 3; i++) { ui.skP[i] = true; yield return new WaitForSecondsRealtime(1.1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_skill{i}.png")); yield return new WaitForSecondsRealtime(.4f); hero.mp = hero.mpMax; } ShowLobby(); yield return new WaitForSecondsRealtime(1); }
             Application.Quit();
         }
         // Test mode (-new5test <dir>): the five empty-handed heroes holding chosen weapons, then the two bosses that replaced the dragon.

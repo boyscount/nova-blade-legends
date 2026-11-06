@@ -47,7 +47,7 @@ public static class NovaBuild
     // experiment: one hero's skins imported at full size for the Windows player (-executeMethod NovaBuild.Skin2048AndWin)
     public static void Skin2048AndWin() { HdSkins(); BuildWin(); }
     // heroes regenerated with 2048 skins keep them on PC (web PC build and Windows); the phone build caps them through WebSlim
-    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy", "elf", "ninja", "spartan", "lyra" };
+    public static readonly string[] HdHeroes = { "warrior", "samurai", "sunpriest", "sorceress", "darkmage", "mage", "hood", "harpy", "elf", "ninja", "spartan", "lyra", "rowan", "tenzin" };
     static void HdSkins()
     {
         foreach (var id in HdHeroes) foreach (var guid in AssetDatabase.FindAssets(id + "_tex t:Texture2D", new[] { "Assets/Game/Models/Heroes" }))
@@ -100,12 +100,25 @@ public static class NovaBuild
         BuildWeb(false); BuildWeb(true);
     }
     public static void BuildWebPhone() => BuildWeb(true);
+    // a test round for phones: new heroes picked up, faster Gzip instead of Brotli (see CHARACTER-PERF-RULES.md)
+    public static void BuildWebPhoneTest() { NovaSetup.NewHeroes(); HdSkins(); fastCompress = true; try { BuildWeb(true); } finally { fastCompress = false; } }
+    static bool fastCompress, phoneScene;
+    // phones cannot hold every stage in memory: the Open World zone and its house stay out of the phone build until the zone is lighter
+    [UnityEditor.Callbacks.PostProcessScene(0)]
+    static void StripForPhone()
+    {
+        if (!BuildPipeline.isBuildingPlayer || !phoneScene) return;
+        var main = Object.FindAnyObjectByType<Main>(); if (!main) return;
+        foreach (var r in main.stageRoots.Where(r => r && r.name is "Stage_wilds" or "Stage_house").ToArray()) Object.DestroyImmediate(r.gameObject);
+        main.stageRoots = main.stageRoots.Where(r => r).ToArray();
+        Debug.Log("[NovaBuild] phone scene: zone and house left out");
+    }
     public static void BuildWebPc() => BuildWeb(false);
     static void BuildWeb(bool phone)
     {
         WebSlim(phone); Towers(Cat(), false);
         PlayerSettings.WebGL.template = "PROJECT:NovaBlade";
-        PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli; PlayerSettings.WebGL.decompressionFallback = true;
+        PlayerSettings.WebGL.compressionFormat = fastCompress ? WebGLCompressionFormat.Gzip : WebGLCompressionFormat.Brotli; phoneScene = phone; PlayerSettings.WebGL.decompressionFallback = true;
         PlayerSettings.WebGL.dataCaching = true; PlayerSettings.WebGL.memoryGrowthMode = WebGLMemoryGrowthMode.Geometric; PlayerSettings.WebGL.maximumMemorySize = 2048; PlayerSettings.WebGL.initialMemorySize = phone ? 512 : 32;   // phones: start big, so the heap does not have to be copied to a larger one while a stage loads (iOS closes the tab if that peak is too high)
         PlayerSettings.WebGL.nameFilesAsHashes = true;
         EditorUserBuildSettings.webGLBuildSubtarget = phone ? WebGLTextureSubtarget.ASTC : WebGLTextureSubtarget.DXT;

@@ -1114,7 +1114,7 @@ namespace NovaBlade
                 var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
                 var tl = L(Loc.S("เลือกด่าน", "CHOOSE A STAGE"), 38 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; top.Add(tl);
                 var x = new Button(CloseCityPanel) { text = "" }; DrawX(x); x.style.width = x.style.height = 48 * big; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); top.Add(x);
-                var wildsB = Btn(Loc.S("เข้าสู่ป่าจันทร์พลัดกลีบ (Open World ทดลอง)", "Enter Driftpetal Wilds (Open World preview)"), () => { CloseCityPanel(); G.StartWilds(); }); wildsB.style.fontSize = 26 * big; wildsB.style.marginTop = 14; wildsB.style.paddingTop = wildsB.style.paddingBottom = 12 * big; pn.Add(wildsB);
+                var wildsB = Btn(Loc.S("เข้าสู่ป่าจันทร์พลัดกลีบ (Open World ทดลอง)", "Enter Driftpetal Wilds (Open World preview)"), () => { CloseCityPanel(); G.StartWilds(); }); wildsB.style.fontSize = 26 * big; wildsB.style.marginTop = 14; wildsB.style.paddingTop = wildsB.style.paddingBottom = 12 * big; if (G.Stage("Stage_wilds")) pn.Add(wildsB);   // the phone build leaves the zone out for now
                 var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.marginTop = 16; pn.Add(row);
                 for (int i = 0; i < Data.Themes.Length; i++)
                 {

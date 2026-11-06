@@ -110,7 +110,7 @@ namespace NovaBlade
             if (swordGo) Destroy(swordGo); if (offGo) Destroy(offGo);
             // the weapon's stats stay "sword"; a weapon skin only swaps the model that is shown
             ModelId = lobby && G.pvWeaponSkin != null ? G.pvWeaponSkin : Shop.ModelFor(sword);
-            if (def.id == "elf" && Data.Swords.First(w => w.id == ModelId).type is not ("bow" or "crossbow")) ModelId = "w_longbow";   // the ranger always shows a bow: her model has none of its own
+            if (def.id is "elf" or "rowan" && Data.Swords.First(w => w.id == ModelId).type is not ("bow" or "crossbow")) ModelId = "w_longbow";   // the ranger always shows a bow: her model has none of its own
             var mdef = Data.Swords.First(w => w.id == ModelId);
             // sword: weapon models run along the glTF X axis from the grip (mirrored by glTFast); find which way the blade points
             swordGo = Instantiate(Catalog.I.Model(ModelId), socket ? socket : model.transform);
