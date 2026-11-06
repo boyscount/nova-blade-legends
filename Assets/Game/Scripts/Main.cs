@@ -22,6 +22,38 @@ namespace NovaBlade
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); hero.transform.position = City.Start; pet.transform.position = City.Start + new Vector3(1.2f, 0, 1); camPos = City.Start + new Vector3(0, 9, 12);
             ui.ShowHud();
         }
+        // Open World zone 1: free walking in a wider area, no waves; reached from the city gate
+        public bool wilds; OpenWorld wildsCtl;
+        public bool house; public bool HouseFought => house && !foes.Any(f => f && f.alive);   // inside the zone's house; its monsters are gone
+        public float ArenaRadius => house ? OpenWorld.RoomHalf + 1 : wilds ? OpenWorld.Radius : Data.ArenaR;
+        public Transform Stage(string name) => System.Array.Find(stageRoots, r => r && r.name == name);
+        public void StartWilds()
+        {
+            ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview(); BankGold(); kills = 0; gold = 0; time = 0; banked = 0; stage = 1;
+            SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_wilds")); wilds = true; cameFromCity = true;
+            if (!wildsCtl) wildsCtl = gameObject.AddComponent<OpenWorld>(); wildsCtl.Enter();
+            hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); hero.transform.position = OpenWorld.Start; pet.transform.position = OpenWorld.Start + new Vector3(1.2f, 0, 1); camPos = OpenWorld.Start + new Vector3(0, 9, 12);
+            ui.ShowHud();
+        }
+        void MoveTo(Vector3 at) { hero.transform.position = at; pet.transform.position = at + new Vector3(1.2f, 0, 1); camPos = at + new Vector3(0, 9, 12); }
+        static readonly string[] HouseFoes = { "orc", "orc", "goblin", "goblin", "goblin", "skeleton" };
+        // the zone's house: a room of its own, with its monsters until the chest has been opened on this visit
+        public void EnterHouse()
+        {
+            ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_house")); house = true; MoveTo(OpenWorld.RoomStart);
+            if (wildsCtl.HouseCleared) return;
+            for (int i = 0; i < HouseFoes.Length; i++) { float a = (i + .5f) / HouseFoes.Length * Mathf.PI, r = Random.Range(4f, 6.5f); SpawnFoe(HouseFoes[i], new Vector3(Mathf.Cos(a) * r, 0, -Mathf.Sin(a) * r - 1)); }
+            ui.Banner(Loc.S("บ้านร้าง", "Abandoned House"), Loc.S("ปราบให้หมดแล้วเปิดหีบ", "Defeat them all, then open the chest"));
+        }
+        public void LeaveHouse() => BackToZone(wildsCtl.Door + new Vector3(0, 0, 1.5f));
+        void BackToZone(Vector3 at) { ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_wilds")); wilds = true; MoveTo(at); }
+        // fallen in the zone: wake at its gate, a fifth of this trip's gold lost
+        public void FallInZone()
+        {
+            int lost = Mathf.RoundToInt(gold * .2f); gold -= lost; banked = Mathf.Min(banked, gold);
+            hero.ResetForGame(); pet.ResetForGame(); BackToZone(OpenWorld.Start);
+            ui.Banner(Loc.S("พ่ายแพ้", "You fell"), lost > 0 ? Loc.S($"เสียทอง {lost}", $"Lost {lost} gold") : "");
+        }
         // leaving a stage or the pause menu: back where the player came from
         public void LeaveStage() { if (city) { cameFromCity = false; ShowLobby(); } else if (cameFromCity) StartCity(); else ShowLobby(); }
         public bool lane; public int laneSize = 3; float minionT;
@@ -37,9 +69,9 @@ namespace NovaBlade
         public Camera cam; Vector3 camPos, camLook; float gameZoom = 1;   // battle camera distance, mouse wheel
         public Ui ui;
         public Transform[] stageRoots; StageLook stageLook;
-        public static int CamStyle = -1;   // battle camera: -1 = the player's choice (saved), 0 high, 1 mid, 2 low (test flag -camstyle n)
+        public static int CamStyle = -1;   // battle camera: -1 = the player's choice (saved), 0 high, 1 mid, 2 low, 3 close behind the shoulder (test flag -camstyle n)
         public int ViewStyle => CamStyle >= 0 ? CamStyle : PlayerPrefs.GetInt("novaCam", ui && ui.touchUi ? 2 : 0);   // phones start low
-        public void CycleView() { PlayerPrefs.SetInt("novaCam", (ViewStyle + 1) % 3); PlayerPrefs.Save(); CamStyle = -1; }
+        public void CycleView() { PlayerPrefs.SetInt("novaCam", (ViewStyle + 1) % 4); PlayerPrefs.Save(); CamStyle = -1; }
         public void ZoomBy(float d) => gameZoom = Mathf.Clamp(gameZoom + d, .6f, 1.8f);
         public ThemeDef Theme => Data.Themes[Data.ThemeOf(stage)];
 
@@ -127,6 +159,7 @@ namespace NovaBlade
             int qt = System.Array.IndexOf(args, "-questtest"); if (qt >= 0 && qt + 1 < args.Length) StartCoroutine(QuestTest(args[qt + 1]));
             int bt = System.Array.IndexOf(args, "-bagtest"); if (bt >= 0 && bt + 1 < args.Length) StartCoroutine(BagTest(args[bt + 1]));
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
+            int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
             int wc = System.Array.IndexOf(args, "-weaponcards"); if (wc >= 0 && wc + 1 < args.Length) StartCoroutine(WeaponCardsTest(args[wc + 1]));
             int n5 = System.Array.IndexOf(args, "-new5test"); if (n5 >= 0 && n5 + 1 < args.Length) StartCoroutine(New5Test(args[n5 + 1]));
             int wt = System.Array.IndexOf(args, "-weapontest"); if (wt >= 0 && wt + 1 < args.Length) StartCoroutine(WeaponTest(args[wt + 1]));
@@ -417,7 +450,7 @@ namespace NovaBlade
                 var ms = new List<float>(); yield return new WaitForSecondsRealtime(25); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; }
                 ms.Sort(); Debug.Log($"[Hitch] settled lobby level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms");
                 save.hero = "warrior"; StartGame(1); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(20); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); hero.hp = hero.max; yield return null; }
-                ms.Sort(); Debug.Log($"[Hitch] settled fight level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); StartCity(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled city level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); Debug.Log("[Hitch] done"); yield break;
+                ms.Sort(); Debug.Log($"[Hitch] settled fight level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); StartCity(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled city level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); StartWilds(); yield return new WaitForSecondsRealtime(8); ms.Clear(); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] settled wilds level {AutoQuality.Level} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); Debug.Log("[Hitch] done"); yield break;
             }
             AutoQuality.Paused = true;
             {   // the lobby piece by piece: what the frame time drops to with each part off
@@ -608,6 +641,30 @@ namespace NovaBlade
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "move.txt"), log.ToString());
             Application.Quit();
+        }
+        // Test mode (-wildstest <dir>): the gate panel, the zone from several places, its edge, the way back; logs frame times.
+        System.Collections.IEnumerator WildsTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.hero = "warrior"; hero.Equip();
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            StartCity(); yield return new WaitForSecondsRealtime(2); ui.OpenCityPanel("gate"); yield return new WaitForSecondsRealtime(1); Snap("gate"); yield return new WaitForSecondsRealtime(.5f); ui.CloseCityPanel();
+            float t0 = Time.realtimeSinceStartup; StartWilds(); yield return null; log.AppendLine($"enter frame {(Time.realtimeSinceStartup - t0) * 1000:0} ms");
+            yield return new WaitForSecondsRealtime(2); Snap("start"); yield return new WaitForSecondsRealtime(.5f);
+            foreach (var (n, at) in new[] { ("middle", new Vector3(0, 0, 8)), ("stream", new Vector3(-16, 0, WildsMap.StreamZ(-16))), ("bridge", new Vector3(1.5f, 0, WildsMap.StreamZ(1.5f))), ("hillside", new Vector3(18, 0, -28)), ("hilltop", new Vector3(WildsMap.Hill.x, 0, WildsMap.Hill.y)), ("rise", new Vector3(WildsMap.Rise.x, 0, WildsMap.Rise.y)) })
+            {
+                hero.transform.position = at; yield return new WaitForSecondsRealtime(2.5f); Snap(n); log.AppendLine($"{n}: ground {River.Ground(at.x, at.z):0.00} hero y {hero.Pos.y:0.00} in water {River.InWater(at.x, at.z)}"); var ms = new List<float>(); for (float t = 0; t < 3; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); log.AppendLine($"{n}: median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms");
+            }
+            hero.transform.position = wildsCtl.Door + new Vector3(0, 0, 1); yield return new WaitForSecondsRealtime(1.5f); Snap("house_door"); yield return new WaitForSecondsRealtime(.5f);
+            EnterHouse(); yield return new WaitForSecondsRealtime(2); Snap("house_in"); log.AppendLine($"house: foes {foes.Count(x => x && x.alive)} chest ready {HouseFought} edge {Clamp(new Vector3(500, 0, 500)):0.0}"); yield return new WaitForSecondsRealtime(.5f);
+            hero.max = hero.hp = 999999; ui.atkP = true; yield return new WaitForSecondsRealtime(.35f); ui.atkP = false; Snap("house_fight"); yield return new WaitForSecondsRealtime(.5f);
+            foreach (var x in foes.ToArray()) if (x && x.alive) x.Damage(1e7f, x.Pos); yield return new WaitForSecondsRealtime(1); hero.transform.position = OpenWorld.Chest + new Vector3(0, 0, 2.2f); yield return new WaitForSecondsRealtime(1); Snap("house_chest"); log.AppendLine($"house: all down, chest ready {HouseFought}"); yield return new WaitForSecondsRealtime(.5f);
+            int dr = drops.Count; wildsCtl.OpenChest(); log.AppendLine($"chest: drops {dr} -> {drops.Count}, cleared {wildsCtl.HouseCleared}"); yield return new WaitForSecondsRealtime(1.2f); Snap("house_loot"); yield return new WaitForSecondsRealtime(.5f);
+            LeaveHouse(); yield return new WaitForSecondsRealtime(1); log.AppendLine($"left: wilds {wilds} house {house} at door {Vector3.Distance(hero.Pos, wildsCtl.Door):0.0} m"); EnterHouse(); yield return new WaitForSecondsRealtime(1); log.AppendLine($"second visit: foes {foes.Count(x => x && x.alive)}"); gold = 100; hero.inv = 0; hero.Hurt(1e8f, hero.Pos + Vector3.forward); yield return new WaitForSecondsRealtime(4); log.AppendLine($"fell: gold {gold} (was 100) dead {hero.dead} wilds {wilds} house {house} at {hero.Pos} mode {mode}"); Snap("fell"); yield return new WaitForSecondsRealtime(.5f);
+            log.AppendLine($"edge: 500 m east is limited to {Clamp(new Vector3(500, 0, 0)).x:0.0} (zone radius {OpenWorld.Radius})");
+            hero.transform.position = OpenWorld.Gate + new Vector3(1.5f, 0, -1); yield return new WaitForSecondsRealtime(1.5f); Snap("gate_back"); yield return new WaitForSecondsRealtime(.5f);
+            log.AppendLine($"foes in zone: {foes.Count}, wilds {wilds}"); StartCity(); yield return new WaitForSecondsRealtime(2); log.AppendLine($"back: city {city}, wilds {wilds}, edge {Clamp(new Vector3(500, 0, 0)).x:0.0}"); Snap("back_city"); yield return new WaitForSecondsRealtime(.5f);
+            StartGame(1); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(5); ui.atkP = true; yield return new WaitForSecondsRealtime(.35f); ui.atkP = false; Snap("fight"); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"stage 1: wilds {wilds}, foes {foes.Count}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "wilds.txt"), log.ToString()); Application.Quit();
         }
         // Test mode (-weaponcards <dir>): the weapons tab for one hero of each kind, suited weapons first.
         System.Collections.IEnumerator WeaponCardsTest(string dir)
@@ -862,9 +919,9 @@ namespace NovaBlade
         // ---------- stages ----------
         public void SetTheme(int i)
         {
-            LobbyNight.Set(false); city = false; if (cityRoot) cityRoot.gameObject.SetActive(false); foreach (var t in autumnTrees) if (t) t.SetActive(true); autumnTrees.Clear();
+            LobbyNight.Set(false); city = false; wilds = false; house = false; if (cityRoot) cityRoot.gameObject.SetActive(false); foreach (var t in autumnTrees) if (t) t.SetActive(true); autumnTrees.Clear();
             for (int k = 0; k < stageRoots.Length; k++) if (stageRoots[k]) stageRoots[k].gameObject.SetActive(k == i);
-            River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river"; River.Valley = stageRoots[i] && stageRoots[i].name == "Stage_valley";
+            River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river"; River.Valley = stageRoots[i] && stageRoots[i].name == "Stage_valley"; River.Wilds = stageRoots[i] && stageRoots[i].name == "Stage_wilds";
             var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null; stageLook = look;
             if (look) look.Apply();
             Obstacles.Use(stageRoots[i]);
@@ -1110,7 +1167,7 @@ namespace NovaBlade
             // hit stop: a few frames of near-freeze on heavy hits (animators and particles slow down too)
             if (hitStop > 0) hitStop -= dt;
             Time.timeScale = hitStop > 0 ? .06f : 1;
-            if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city) UpdWaves(dt); UpdDrops(dt); }
+            if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city && !wilds && !house) UpdWaves(dt); UpdDrops(dt); }
             for (int i = foes.Count - 1; i >= 0; i--) if (!foes[i]) foes.RemoveAt(i);
         }
 
@@ -1146,11 +1203,11 @@ namespace NovaBlade
                 float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom * (lane ? 1.35f : 1);   // lanes: higher and further back so whole towers fit
                 if (hero.dead) far *= .42f;   // death: close in on the fallen hero
                 // camera height: high (top-down), mid, or low (three-quarter: the top of the screen shows the skyline)
-                int style = lane ? 0 : stageLook && stageLook.lowCam ? 2 : ViewStyle;
-                var off = style == 2 ? new Vector3(0, 4.1f, 9.6f) : style == 1 ? new Vector3(0, 6.2f, 8.8f) : new Vector3(0, 8.6f, 7.4f);
+                int style = lane ? 0 : ViewStyle == 3 ? 3 : stageLook && stageLook.lowCam ? 2 : ViewStyle;
+                var off = style == 3 ? new Vector3(0, 2.6f, 5.6f) : style == 2 ? new Vector3(0, 4.1f, 9.6f) : style == 1 ? new Vector3(0, 6.2f, 8.8f) : new Vector3(0, 8.6f, 7.4f);
                 var focus = ui.Pan ?? hero.Pos; var want = focus + off * far;
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * (hero.dead ? 2.2f : 6)));
-                camLook = new Vector3(camPos.x, hero.dead ? .5f : lane ? 1.6f : style == 2 ? 1.3f : style == 1 ? 1.1f : .9f, camPos.z - off.z * far);
+                camLook = new Vector3(camPos.x, (wilds ? camPos.y - off.y * far : 0) + (hero.dead ? .5f : lane ? 1.6f : style == 3 ? 1.5f : style == 2 ? 1.3f : style == 1 ? 1.1f : .9f), camPos.z - off.z * far - (style == 3 ? 1.6f : 0));   // on the zone's hills the view climbs with the hero
             }
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, soul && mode != Mode.Lobby ? 55 : 40, 1 - Mathf.Exp(-dt * 6));
             shake = Mathf.Max(0, shake - dt);
@@ -1187,7 +1244,8 @@ namespace NovaBlade
                 }
                 return Obstacles.Push(p);
             }
-            var f = Flat(p); float r = f.magnitude, R = Data.ArenaR + margin; if (r > R) { f *= R / r; p.x = f.x; p.z = f.z; }
+            if (house) { float hw = OpenWorld.RoomHalf + margin; p.x = Mathf.Clamp(p.x, -hw, hw); p.z = Mathf.Clamp(p.z, -hw, hw); return Obstacles.Push(p); }
+            var f = Flat(p); float r = f.magnitude, R = ArenaRadius + margin; if (r > R) { f *= R / r; p.x = f.x; p.z = f.z; }
             return Obstacles.Push(p);
         }
 

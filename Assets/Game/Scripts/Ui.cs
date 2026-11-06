@@ -1114,6 +1114,7 @@ namespace NovaBlade
                 var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
                 var tl = L(Loc.S("เลือกด่าน", "CHOOSE A STAGE"), 38 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; top.Add(tl);
                 var x = new Button(CloseCityPanel) { text = "" }; DrawX(x); x.style.width = x.style.height = 48 * big; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); top.Add(x);
+                var wildsB = Btn(Loc.S("เข้าสู่ป่าจันทร์พลัดกลีบ (Open World ทดลอง)", "Enter Driftpetal Wilds (Open World preview)"), () => { CloseCityPanel(); G.StartWilds(); }); wildsB.style.fontSize = 26 * big; wildsB.style.marginTop = 14; wildsB.style.paddingTop = wildsB.style.paddingBottom = 12 * big; pn.Add(wildsB);
                 var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.marginTop = 16; pn.Add(row);
                 for (int i = 0; i < Data.Themes.Length; i++)
                 {
@@ -1195,7 +1196,7 @@ namespace NovaBlade
             var mapNt = L("N", 18, Gold, true); mapN.Add(mapNt); mapBox.Add(mapN);
             // hold / drag on the minimap: the camera looks at that spot (scout the lanes); let go and it returns to the hero
             mini.pickingMode = PickingMode.Position; int mpid = -1;
-            void PanTo(Vector2 lp) { float W = mini.resolvedStyle.width; if (float.IsNaN(W) || G == null) return; float S = W / 2 / ((G.lane ? Lane.HalfL : Data.ArenaR) + 3); Pan = new Vector3(-(lp.x - W / 2) / S, 0, (lp.y - W / 2) / S); }
+            void PanTo(Vector2 lp) { float W = mini.resolvedStyle.width; if (float.IsNaN(W) || G == null) return; float S = W / 2 / ((G.lane ? Lane.HalfL : G.ArenaRadius) + 3); Pan = new Vector3(-(lp.x - W / 2) / S, 0, (lp.y - W / 2) / S); }
             mini.RegisterCallback<PointerDownEvent>(e => { mpid = e.pointerId; mini.CapturePointer(mpid); PanTo(e.localPosition); e.StopPropagation(); });
             mini.RegisterCallback<PointerMoveEvent>(e => { if (e.pointerId == mpid) PanTo(e.localPosition); });
             System.Action<IPointerEvent> mup = e => { if (e.pointerId != mpid) return; if (mini.HasPointerCapture(mpid)) mini.ReleasePointer(mpid); mpid = -1; Pan = null; };
@@ -1441,7 +1442,7 @@ namespace NovaBlade
         }
         void DrawMini(MeshGenerationContext ctx)
         {
-            if (G == null || G.hero == null) return; var p = ctx.painter2D; float W = mini.resolvedStyle.width; if (float.IsNaN(W)) return; float S = W / 2 / ((G.lane ? Lane.HalfL : Data.ArenaR) + 3); var c = new Vector2(W / 2, W / 2);
+            if (G == null || G.hero == null) return; var p = ctx.painter2D; float W = mini.resolvedStyle.width; if (float.IsNaN(W)) return; float S = W / 2 / ((G.lane ? Lane.HalfL : G.ArenaRadius) + 3); var c = new Vector2(W / 2, W / 2);
             Vector2 M(Vector3 w) => c + new Vector2(-w.x, w.z) * S;   // screen-right is world -X
             void Dot(Vector2 at, float r, Color col) { p.fillColor = new Color(0, 0, 0, .75f); p.BeginPath(); p.Arc(at, r + 2, 0, 360); p.Fill(); p.fillColor = col; p.BeginPath(); p.Arc(at, r, 0, 360); p.Fill(); }
             p.fillColor = new Color(.1f, .22f, .17f, .9f); p.BeginPath(); p.Arc(c, W * .47f, 0, 360); p.Fill();
@@ -1453,8 +1454,9 @@ namespace NovaBlade
                 p.strokeColor = new Color(.3f, .6f, .9f, .5f); p.lineWidth = 3 * S; p.BeginPath(); p.MoveTo(M(new Vector3(-Lane.HalfW, 0, 0))); p.LineTo(M(new Vector3(Lane.HalfW, 0, 0))); p.Stroke();
             }
             else if (G.lane) { p.fillColor = new Color(.6f, .45f, .28f, .35f); p.BeginPath(); var a0 = M(new Vector3(Lane.HalfW, 0, -Lane.HalfL)); var a1 = M(new Vector3(-Lane.HalfW, 0, Lane.HalfL)); p.MoveTo(a0); p.LineTo(new Vector2(a1.x, a0.y)); p.LineTo(a1); p.LineTo(new Vector2(a0.x, a1.y)); p.ClosePath(); p.Fill(); }
-            else { p.strokeColor = new Color(.85f, .68f, .4f, .8f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
+            else if (!G.house) { p.strokeColor = new Color(.85f, .68f, .4f, .8f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
             foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower"; Dot(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5.5f, f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : Red); }
+            if (G.wilds) Dot(M(OpenWorld.Gate), 6, new Color(1, .55f, .8f));   // the way back to the city
             Dot(M(G.pet.Pos), 4, new Color(1, .88f, .54f));
             var hp = M(G.hero.Pos); float a = G.hero.face; Vector2 R(float x, float y) => hp + new Vector2(-(x * Mathf.Cos(a) + y * Mathf.Sin(a)), -x * Mathf.Sin(a) + y * Mathf.Cos(a));
             p.fillColor = new Color(.37f, .96f, 1, .22f); p.BeginPath(); p.Arc(hp, 22, 0, 360); p.Fill(); p.strokeColor = new Color(0, 0, 0, .8f); p.lineWidth = 3; p.lineJoin = LineJoin.Round; p.BeginPath(); p.MoveTo(R(0, 15)); p.LineTo(R(-10, -9)); p.LineTo(R(10, -9)); p.ClosePath(); p.Stroke(); p.fillColor = Cyan; p.Fill();
@@ -1612,6 +1614,8 @@ namespace NovaBlade
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;
             if (G.city) SetPlate(Loc.S("สวนซากุระ", "SAKURA GARDEN"), Loc.S("เมืองหลัก", "MAIN CITY"), "");   // once here: writing it from two places each frame locked the game up
+            else if (G.house) SetPlate(Loc.S("บ้านร้าง", "ABANDONED HOUSE"), Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), left > 0 ? (Loc.En ? $"ENEMIES: {left}" : $"ศัตรู: {left}") : "");
+            else if (G.wilds) SetPlate(Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), Loc.S("พื้นที่สำรวจ", "OPEN WORLD"), "");
             else if (G.lane)
             {
                 waveT.text = Loc.En ? $"BATTLE {G.laneSize} VS {G.laneSize}" : $"สนามรบ {G.laneSize} vs {G.laneSize}"; waveT2.text = Loc.En ? $"WAVE {G.wave}" : $"ระลอก {G.wave}";

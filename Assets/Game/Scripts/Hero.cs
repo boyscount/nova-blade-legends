@@ -312,7 +312,7 @@ namespace NovaBlade
             Play("death", .1f, 1.1f, 1.4f); Fx.Dust(Pos, .9f, 12);
             if (G.lane) Invoke(nameof(Respawn), 6f); else Invoke(nameof(Lose), 2.6f);
         }
-        void Lose() { if (G.mode == Main.Mode.Game) G.Finish(false); }
+        void Lose() { if (G.mode != Main.Mode.Game) return; if (G.wilds || G.house) G.FallInZone(); else G.Finish(false); }
         // lane mode: back at our base after a short wait
         void Respawn()
         {

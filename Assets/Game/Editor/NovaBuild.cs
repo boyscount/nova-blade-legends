@@ -391,7 +391,7 @@ public static class NovaBuild
         // game
         var mainGo = new GameObject("Game"); var main = mainGo.AddComponent<Main>(); main.cam = cam;
         main.cityRoot = null;
-        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage() };   // 360° photo stages (PlazaStage, MirrorStage, ValleyCliff) are kept but out of the game   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
+        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage(), WildsStage(), HouseStage() };   // 360° photo stages (PlazaStage, MirrorStage, ValleyCliff) are kept but out of the game   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
         foreach (var sr in main.stageRoots) NoCartoonFx(sr);
         main.cityRoot = CityStage(main); main.cityRoot.gameObject.SetActive(false);
         for (int i = 1; i < main.stageRoots.Length; i++) main.stageRoots[i].gameObject.SetActive(false);
@@ -944,6 +944,18 @@ public static class NovaBuild
     // the middle stays open for fights (the river crosses it, shallow and walkable)
     static float ValleyRiver(float x) => -3 + Mathf.Sin(x * .09f) * 4.5f;
     // The Sakura Garden city, added to the saved scene without rebuilding the stages
+    // puts the Open World zone into the saved scene without rebuilding the rest, then the Windows player
+    public static void AddWildsAndWin()
+    {
+        rnd = new System.Random(31);
+        var scene = EditorSceneManager.OpenScene("Assets/Game/Scenes/Main.unity"); var main = Object.FindAnyObjectByType<Main>();
+        foreach (var old in scene.GetRootGameObjects().Where(g => g.name is "Stage_wilds" or "Stage_house")) Object.DestroyImmediate(old);
+        var active = main.stageRoots.FirstOrDefault(r => r && r.gameObject.activeSelf);
+        var w = WildsStage(); NoCartoonFx(w); w.gameObject.SetActive(false); var hs = HouseStage(); NoCartoonFx(hs); hs.gameObject.SetActive(false);
+        main.stageRoots = main.stageRoots.Where(r => r && r.name is not ("Stage_wilds" or "Stage_house")).Append(w).Append(hs).ToArray();
+        if (active) active.GetComponent<StageLook>().Apply(); EditorUtility.SetDirty(main); EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene);
+        BuildWin();
+    }
     public static void AddCityAndWin()
     {
         NovaSetup.BuildNpcs(); rnd = new System.Random(23);
@@ -1010,6 +1022,77 @@ public static class NovaBuild
         var fireFx = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
         if (fireFx) { var f = (GameObject)PrefabUtility.InstantiatePrefab(fireFx, root); f.name = "SquareFire"; f.transform.position = new Vector3(0, .65f, 0); f.transform.localScale *= 1.1f; foreach (var ps in f.GetComponentsInChildren<ParticleSystem>(true)) if (ps.name == "Smoke") ps.gameObject.SetActive(false); else { var fm = ps.main; fm.startColor = new ParticleSystem.MinMaxGradient(new Color(1, .5f, .16f, 1), new Color(1, .72f, .3f, 1)); } }
         PointLight(new Vector3(0, 2.2f, 0), new Color(1, .58f, .26f), 16, 17);
+        return root;
+    }
+    // Open World zone 1 (OPEN-WORLD-ZONE1.md), step 1: flat walkable ground, radius 60, hills and thick forest around it, a dirt path through the middle
+    static Transform WildsStage()
+    {
+        NewRoot("Stage_wilds", new Color(.34f, .38f, .34f), .007f, new Color(.5f, .58f, .66f), new Color(.3f, .36f, .24f), new Color(.1f, .12f, .06f));
+        var sun = Sun(new Color(1f, .78f, .52f), 2f, new Vector3(30, 125, 0)); root.GetComponent<StageLook>().sun = sun; root.GetComponent<StageLook>().lowCam = true;
+        const float Edge = 62, RH = WildsMap.StreamHalf;
+        Ground("WildsGround", new[] { ("leafy_grass", 3.5f), ("forest_ground_05", 4f), ("grass_path_3", 3f), ("brown_mud_02", 3f) }, (x, z, i) =>
+        {
+            float d = Mathf.Abs(z - WildsMap.StreamZ(x)), bank = 1 - Smooth(RH, RH + 1.6f, d); if (i == 3) return bank;
+            float path = Mathf.Max(PathMask(x, z), 1 - Smooth(.8f, 2.2f, WildsMap.TrailDistance(x, z))) * (1 - bank), rest = 1 - bank, r = Mathf.Sqrt(x * x + z * z), patch = Mathf.PerlinNoise(x * .05f + 5, z * .05f + 2), edge = Mathf.SmoothStep(0, 1, (r - 72) / 6), wild = Mathf.Max(edge, Mathf.SmoothStep(.55f, .75f, patch));
+            return i == 2 ? path * (r < Edge ? 1 : 0) : i == 1 ? (rest - path) * wild : (rest - path) * (1 - wild);
+        }, 0, (x, z) => WildsMap.Height(x, z) + Mathf.SmoothStep(0, 1, (Mathf.Sqrt(x * x + z * z) - 84) / 14) * 4 * (.5f + Mathf.PerlinNoise(x * .05f + 3, z * .05f + 7)), WildsMap.StreamDepth);
+        Grass(new Color(.05f, .12f, .05f), new Color(.15f, .32f, .12f), new Color(.4f, .56f, .3f), .45f, .42f, 70).wilds = true;
+        // the stream: strips of the pack's water following the curve, and two wooden bridges
+        var wmat = AssetDatabase.LoadAssetAtPath<Material>($"{Gen}/Water.mat");
+        for (float x = -92; x < 92; x += 4)
+        {
+            var w = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(w.GetComponent<Collider>()); w.name = "Water"; w.transform.SetParent(root);
+            float z0 = WildsMap.StreamZ(x), z1 = WildsMap.StreamZ(x + 4); w.transform.position = new Vector3(x + 2, -.22f, (z0 + z1) / 2);
+            w.transform.rotation = Quaternion.Euler(90, -Mathf.Atan2(z1 - z0, 4) * Mathf.Rad2Deg, 0); w.transform.localScale = new Vector3(4.6f, RH * 2 + 1.2f, 1);
+            if (wmat) w.GetComponent<Renderer>().sharedMaterial = wmat;
+        }
+        var bridge = Load("Assets/Polytope Studio/Lowpoly_Village/Prefabs/Modular/Bridge/PT_Wooden_Bridge_02.prefab");
+        foreach (float bx in new[] { 1.5f, -30f }) Deck(Fit(bridge, new Vector3(bx, -.1f, WildsMap.StreamZ(bx)), 90 - Mathf.Atan(WildsMap.StreamSlope(bx)) * Mathf.Rad2Deg, 2.2f));
+        Vector3 On(Vector2 p, float sink = 0) => new(p.x, WildsMap.Height(p.x, p.y) - sink, p.y);
+        bool Free(Vector2 p, float pad) => WildsMap.Dry(p.x, p.y, pad) && WildsMap.TrailDistance(p.x, p.y) > 2.5f && Vector2.Distance(p, WildsMap.House) > 11;
+        // the house you can go into: faces the camera side; the marker is where its door is
+        var hg = Fit(Load("Assets/Art/Prefabs/Houses/Preset_House_01_A.prefab"), new Vector3(WildsMap.House.x, 0, WildsMap.House.y), 0, 9); var hb = Bounds(hg);
+        var doorMark = new GameObject("HouseDoor").transform; doorMark.SetParent(root); doorMark.position = new Vector3(hb.center.x, 0, hb.max.z + 1.2f);
+        PointLight(doorMark.position + Vector3.up * 2.4f, new Color(1, .7f, .4f), 7, 9);
+        string N(string n) => $"Assets/Game/Models/Nature/{n}.glb";
+        var trees = new[] { (N("island_tree_01"), 1.4f, 2.0f), (N("island_tree_02"), 1.6f, 2.3f), (N("searsia_lucida"), 1.6f, 2.1f), (N("jacaranda_tree"), .32f, .42f) };
+        void Tr(Vector2 p) { var t = trees[rnd.Next(trees.Length)]; Place(Load(t.Item1), On(p), R(0, 360), R(t.Item2, t.Item3)); }
+        foreach (var p in Ring(120, 62, 82)) if (Free(p, 1)) Tr(p);          // the wall of forest round the zone
+        foreach (var p in Ring(34, 16, 58, 3, .2f)) if (Free(p, 1)) Tr(p);  // trees to walk among
+        foreach (var p in Ring(16, 14, 58, 2.5f, .2f)) if (Free(p, 0)) Place(Load(N(rnd.Next(2) == 0 ? "boulder_01" : "namaqualand_boulder_03")), On(p, .1f), R(0, 360), R(.45f, .8f));
+        foreach (var p in Ring(40, 12, 60, 2, .2f)) if (Free(p, 0)) Place(Load(N(rnd.Next(3) == 0 ? "shrub_02" : "fern_02")), On(p), R(0, 360), rnd.Next(3) == 0 ? R(.35f, .5f) : R(1, 1.5f));
+        // rocks along the banks, and a ring of boulders on the hilltop: something to climb up to
+        for (float x = -58; x < 58; x += R(4, 8)) { var p = new Vector2(x, WildsMap.StreamZ(x) + (rnd.Next(2) * 2 - 1) * (RH + R(.4f, 1.4f))); if (Mathf.Abs(x - 1.5f) > 4 && Mathf.Abs(x + 30) > 4) Place(Load(N("boulder_01")), On(p, .1f), R(0, 360), R(.2f, .35f)); }
+        for (int i = 0; i < 7; i++) { float a = i / 7f * Mathf.PI * 2; if (i != 5) Place(Load(N("boulder_01")), On(WildsMap.Hill + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 5.2f, .1f), R(0, 360), R(.4f, .6f)); }
+        return root;
+    }
+    // the room inside the zone's house: stone floor and walls, the near side low with a gap for the way out, torches, clutter along the walls, a chest at the far end
+    static Transform HouseStage()
+    {
+        NewRoot("Stage_house", new Color(.05f, .05f, .07f), .012f, new Color(.5f, .52f, .66f), new Color(.34f, .3f, .28f), new Color(.13f, .1f, .09f));
+        var sun = Sun(new Color(.75f, .8f, 1f), 1.2f, new Vector3(62, 165, 0)); root.GetComponent<StageLook>().sun = sun;
+        const string D = "Assets/ThirdParty/Dungeon/Prefabs/"; const float W = 8.79f, Step = 5.86f;
+        Underlay();
+        var fl = new GameObject("Floor").transform; fl.SetParent(root); var floor = Load(D + "Floors/Floor_A.prefab");
+        for (int ix = -2; ix <= 2; ix++) for (int iz = -2; iz <= 2; iz++) Place(floor, new Vector3(ix * 5.8f, 0, iz * 5.8f), 90 * rnd.Next(4), 1, true, fl);
+        var walls = new[] { Load(D + "Walls/Wall_A.prefab"), Load(D + "Walls/Wall_B.prefab"), Load(D + "Walls/Wall_C.prefab") };
+        for (int i = -1; i <= 1; i++)
+        {
+            Place(walls[rnd.Next(walls.Length)], new Vector3(-W, 0, i * Step), 0);
+            Place(walls[rnd.Next(walls.Length)], new Vector3(W, 0, i * Step), 180);
+            Place(walls[rnd.Next(walls.Length)], new Vector3(i * Step, 0, -W), 90);
+            if (i != 0) { var w = Place(walls[rnd.Next(walls.Length)], new Vector3(i * Step, 0, W), -90); var sc = w.transform.localScale; w.transform.localScale = new Vector3(sc.x, sc.y * .3f, sc.z); }
+        }
+        var pillar = Load(D + "Pillars/Pillar_A.prefab"); var torch = Load("Assets/ThirdParty/PrisonCell/Prefabs/Props/Torch.prefab"); var fire = Load("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
+        foreach (var (x, z) in new[] { (-7.4f, -7.4f), (7.4f, -7.4f), (-7.4f, 2f), (7.4f, 2f) })
+        {
+            Place(pillar, new Vector3(x, 0, z), 0, 1);
+            var tp = new Vector3(x + (x < 0 ? .75f : -.75f), 2.6f, z); Place(torch, tp, x < 0 ? 90 : -90, 1.6f); Place(fire, tp + Vector3.up * .6f, 0, .35f);
+            PointLight(tp + Vector3.up * .3f, new Color(1, .55f, .22f), 12, 13);
+        }
+        foreach (var (n, x, z, yaw) in new[] { ("Barrel", -6.6f, -5f, 0f), ("Barrel", -6f, -6.2f, 40f), ("Crate_A", 6.5f, -5.4f, 20f), ("Crate_B", 6.2f, 4.8f, 70f), ("Table_A", -6.4f, 5f, 90f), ("Stool_A_Broken", -4.6f, 4f, 30f), ("Candles", -3f, -7.2f, 0f), ("Candles", 3f, -7.2f, 0f) })
+            Place(Load(D + "Props/" + n + ".prefab"), new Vector3(x, 0, z), yaw, 1);
+        Place(Load("Assets/Game/Models/Props/treasure_chest/treasure_chest_1k.gltf"), OpenWorld.Chest, 0, 1.6f);
         return root;
     }
     static Transform ValleyStage()
