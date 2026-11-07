@@ -26,7 +26,7 @@ namespace NovaBlade
         }
         void Update()
         {
-            if (Paused || Level >= MaxLevel) return;
+            if (Paused || Level >= MaxLevel || (Main.G && Main.G.wilds)) return;   // the level is kept for every stage: one heavy zone must not blur the rest of the game
             float dt = Time.unscaledDeltaTime * 1000;
             if (settle > 0) { settle -= Time.unscaledDeltaTime; return; }   // the first seconds after loading are not typical
             ms[n++] = dt; if (n < Window) return; n = 0;

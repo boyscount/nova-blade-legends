@@ -459,6 +459,17 @@ namespace NovaBlade
         System.Collections.IEnumerator HitchTest(bool quit)
         {
             hitchLog = false; Debug.Log($"[Hitch] first frames at {Time.realtimeSinceStartup:0.0}s"); yield return new WaitForSecondsRealtime(8); Debug.Log("[Hitch] " + Studio.Timing);
+            if (Application.absoluteURL.Contains("wildsparts"))
+            {   // ?wildsparts: what the zone costs part by part, at the quality the web starts at
+                AutoQuality.Paused = true; save.hero = "warrior"; StartWilds(); hero.transform.position = new Vector3(0, 0, 8); yield return new WaitForSecondsRealtime(6); var zone = Stage("Stage_wilds"); var rp = UnityEngine.Rendering.Universal.UniversalRenderPipeline.asset;
+                System.Collections.IEnumerator M(string label) { var ms = new List<float>(); yield return new WaitForSecondsRealtime(1.5f); for (float t = 0; t < 4; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; } ms.Sort(); Debug.Log($"[Hitch] part {label} median {ms[ms.Count / 2]:0.0} ms worst5% {ms[(int)(ms.Count * .95f)]:0.0} ms"); }
+                yield return M("everything");
+                var grass = zone.GetComponentInChildren<GrassField>(); grass.enabled = false; yield return M("no grass"); grass.enabled = true;
+                var trees = zone.GetComponentsInChildren<Renderer>().Where(r => r.name.ToLower().Contains("tree") || r.transform.root != r.transform && r.transform.parent.name.ToLower().Contains("tree")).ToArray(); foreach (var r in trees) r.enabled = false; yield return M($"no trees ({trees.Length})"); foreach (var r in trees) r.enabled = true;
+                float sd = rp.shadowDistance; rp.shadowDistance = 0; yield return M("no shadows"); rp.shadowDistance = sd;
+                var ter = zone.GetComponentInChildren<Terrain>(); if (ter) { ter.drawHeightmap = false; yield return M("no terrain"); ter.drawHeightmap = true; }
+                Debug.Log("[Hitch] parts done"); yield break;
+            }
             if (Application.absoluteURL.Contains("hitchsettle"))
             {   // ?hitchsettle: what the lobby and a fight run at once the automatic quality has settled
                 var ms = new List<float>(); yield return new WaitForSecondsRealtime(25); for (float t = 0; t < 6; t += Time.unscaledDeltaTime) { ms.Add(Time.unscaledDeltaTime * 1000); yield return null; }

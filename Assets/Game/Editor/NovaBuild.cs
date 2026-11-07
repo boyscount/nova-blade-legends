@@ -1063,10 +1063,10 @@ public static class NovaBuild
         Ground("WildsGround", new[] { ("leafy_grass", 3.5f), ("forest_ground_05", 4f), ("grass_path_3", 3f), ("brown_mud_02", 3f) }, (x, z, i) =>
         {
             float d = Mathf.Abs(z - WildsMap.StreamZ(x)), bank = 1 - Smooth(RH, RH + 1.6f, d); if (i == 3) return bank;
-            float path = Mathf.Max(PathMask(x, z), 1 - Smooth(.8f, 2.2f, WildsMap.TrailDistance(x, z))) * (1 - bank), rest = 1 - bank, r = Mathf.Sqrt(x * x + z * z), patch = Mathf.PerlinNoise(x * .05f + 5, z * .05f + 2), edge = Mathf.SmoothStep(0, 1, (r - 72) / 6), wild = Mathf.Max(edge, Mathf.SmoothStep(.55f, .75f, patch));
+            float path = Mathf.Max(PathMask(x, z), 1 - Smooth(.8f, 2.2f, WildsMap.TrailDistance(x, z))) * (1 - bank), rest = 1 - bank, r = Mathf.Sqrt(x * x + z * z), patch = Mathf.PerlinNoise(x * .05f + 5, z * .05f + 2), edge = Mathf.SmoothStep(0, 1, (r - 86) / 8), wild = Mathf.Max(edge, Mathf.SmoothStep(.7f, .88f, patch));   // green under the grass, so the ground past it still reads as meadow
             return i == 2 ? path * (r < Edge ? 1 : 0) : i == 1 ? (rest - path) * wild : (rest - path) * (1 - wild);
         }, 0, (x, z) => WildsMap.Height(x, z) + Mathf.SmoothStep(0, 1, (Mathf.Sqrt(x * x + z * z) - 84) / 14) * 4 * (.5f + Mathf.PerlinNoise(x * .05f + 3, z * .05f + 7)), WildsMap.StreamDepth);
-        Grass(new Color(.05f, .12f, .05f), new Color(.15f, .32f, .12f), new Color(.4f, .56f, .3f), .45f, .42f, 70).wilds = true;
+        var meadow = Grass(new Color(.07f, .2f, .06f), new Color(.2f, .46f, .13f), new Color(.5f, .74f, .28f), .24f, .3f, 62); meadow.wilds = true; meadow.meadow = true; root.GetComponentInChildren<GrassField>().maxDistance = 34;
         // the stream: strips of the pack's water following the curve, and two wooden bridges
         var wmat = AssetDatabase.LoadAssetAtPath<Material>($"{Gen}/Water.mat");
         for (float x = -92; x < 92; x += 4)
@@ -1085,15 +1085,16 @@ public static class NovaBuild
         var doorMark = new GameObject("HouseDoor").transform; doorMark.SetParent(root); doorMark.position = new Vector3(hb.center.x, 0, hb.max.z + 1.2f);
         PointLight(doorMark.position + Vector3.up * 2.4f, new Color(1, .7f, .4f), 7, 9);
         string N(string n) => $"Assets/Game/Models/Nature/{n}.glb";
-        var trees = new[] { (N("island_tree_01"), 1.4f, 2.0f), (N("island_tree_02"), 1.6f, 2.3f), (N("searsia_lucida"), 1.6f, 2.1f), (N("jacaranda_tree"), .32f, .42f) };
-        void Tr(Vector2 p) { var t = trees[rnd.Next(trees.Length)]; Place(Load(t.Item1), On(p), R(0, 360), R(t.Item2, t.Item3)); }
-        foreach (var p in Ring(120, 62, 82)) if (Free(p, 1)) Tr(p);          // the wall of forest round the zone
-        foreach (var p in Ring(34, 16, 58, 3, .2f)) if (Free(p, 1)) Tr(p);  // trees to walk among
-        foreach (var p in Ring(16, 14, 58, 2.5f, .2f)) if (Free(p, 0)) Place(Load(N(rnd.Next(2) == 0 ? "boulder_01" : "namaqualand_boulder_03")), On(p, .1f), R(0, 360), R(.45f, .8f));
-        foreach (var p in Ring(40, 12, 60, 2, .2f)) if (Free(p, 0)) Place(Load(N(rnd.Next(3) == 0 ? "shrub_02" : "fern_02")), On(p), R(0, 360), rnd.Next(3) == 0 ? R(.35f, .5f) : R(1, 1.5f));
+        // the low-poly pack: the photo-scanned trees of the small arenas run to 100,000 triangles each, far too many for a whole forest
+        const string PT = "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/";
+        var pines = new[] { PT + "Trees/PT_Pine_Tree_03_green.prefab", PT + "Trees/PT_Pine_Tree_03_green_cut.prefab" }; var fruit = new[] { PT + "Trees/PT_Fruit_Tree_01_green.prefab", PT + "Trees/PT_Fruit_Tree_01_apples.prefab", PT + "Trees/PT_Fruit_Tree_01_plums.prefab" };
+        foreach (var p in Ring(90, 63, 84)) if (Free(p, 1)) Fit(Load(pines[rnd.Next(2)]), On(p), R(0, 360), R(10, 15));   // the wall of forest round the zone
+        foreach (var p in Ring(34, 16, 58, 3, .2f)) if (Free(p, 1)) Fit(Load(fruit[rnd.Next(3)]), On(p), R(0, 360), R(5.5f, 8));   // trees to walk among
+        foreach (var p in Ring(16, 14, 58, 2.5f, .2f)) if (Free(p, 0)) Place(Load(N("namaqualand_boulder_03")), On(p, .1f), R(0, 360), R(.45f, .8f));
+        foreach (var p in Ring(26, 12, 60, 2, .2f)) if (Free(p, 0)) Fit(Load(PT + "Shrubs/PT_Generic_Shrub_01_green.prefab"), On(p), R(0, 360), R(1.2f, 2));
         // rocks along the banks, and a ring of boulders on the hilltop: something to climb up to
-        for (float x = -58; x < 58; x += R(4, 8)) { var p = new Vector2(x, WildsMap.StreamZ(x) + (rnd.Next(2) * 2 - 1) * (RH + R(.4f, 1.4f))); if (Mathf.Abs(x - 1.5f) > 4 && Mathf.Abs(x + 30) > 4) Place(Load(N("boulder_01")), On(p, .1f), R(0, 360), R(.2f, .35f)); }
-        for (int i = 0; i < 7; i++) { float a = i / 7f * Mathf.PI * 2; if (i != 5) Place(Load(N("boulder_01")), On(WildsMap.Hill + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 5.2f, .1f), R(0, 360), R(.4f, .6f)); }
+        for (float x = -58; x < 58; x += R(4, 8)) { var p = new Vector2(x, WildsMap.StreamZ(x) + (rnd.Next(2) * 2 - 1) * (RH + R(.4f, 1.4f))); if (Mathf.Abs(x - 1.5f) > 4 && Mathf.Abs(x + 30) > 4) Place(Load(N("namaqualand_boulder_03")), On(p, .1f), R(0, 360), R(.2f, .35f)); }
+        for (int i = 0; i < 7; i++) { float a = i / 7f * Mathf.PI * 2; if (i != 5) Place(Load(N("namaqualand_boulder_03")), On(WildsMap.Hill + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 5.2f, .1f), R(0, 360), R(.4f, .6f)); }
         return root;
     }
     // the room inside the zone's house: stone floor and walls, the near side low with a gap for the way out, torches, clutter along the walls, a chest at the far end
