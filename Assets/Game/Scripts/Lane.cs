@@ -9,14 +9,15 @@ namespace NovaBlade
     // Each lane has two towers per side; both layouts share one core per side. Team 0 (the player's) holds the near end (+Z).
     public static class Lane
     {
-        public static int Lanes = 1;                                   // 1 or 3, set when a match starts
-        public static float HalfW => Lanes == 3 ? 30f : 7.2f;
+        public static int Lanes = 1;                                   // 1 or 3, set when a match starts; 2 = the floating Sky Lanes map (SkyLanes)
+        public static float HalfW => Lanes == 3 ? 30f : Lanes == 2 ? 42f : 7.2f;
         public const float HalfL = 44f;
         public static readonly float[] LaneX3 = { -22, 0, 22 };
         public static float LaneX(int lane) => Lanes == 3 ? LaneX3[Mathf.Clamp(lane, 0, 2)] : 0;
         // where a lane unit heads when it has nothing to fight: along its lane, then in to the enemy core near the far end
         public static Vector3 Goal(Vector3 pos, int team, int lane)
         {
+            if (Lanes == 2) return SkyLanes.Goal(pos, team, lane);
             float side = Side(team), enemyEnd = -side * (HalfL + 5);
             if (Lanes == 1) return new Vector3(pos.x * .5f, 0, enemyEnd);
             bool nearEnemyBase = pos.z * side < -30;
@@ -64,6 +65,70 @@ namespace NovaBlade
             var l = new GameObject("glow").AddComponent<Light>(); l.transform.SetParent(crystal.transform, false); l.type = LightType.Point; l.color = TeamColor(team) / 2.2f; l.intensity = 6; l.range = 9;
             return root;
         }
+    }
+
+    // The floating 3v3 map (SKY-LANES-3V3.md): a straight lane and a curved one round a jungle, a base at each end, open sky between.
+    // Walkable ground is the lanes (capsules round each stretch), the jungle disc and the two base discs; everything else is a drop.
+    // Mirror-symmetric in Z so both teams get the same map (ready for online play later).
+    public static class SkyLanes
+    {
+        public const float LaneHalf = 5, JungleR = 12.5f, BaseR = 10.5f, Lookahead = 7;
+        public static readonly Vector2 Jungle = new(17, 0), Base = new(0, 42);   // Base: team 0's; team 1's is mirrored to -Z
+        // each lane from team 0's end (+Z) to team 1's; team 1 walks it backwards
+        public static readonly Vector2[][] Paths =
+        {
+            new Vector2[] { new(0, 37), new(0, -37) },
+            new Vector2[] { new(3, 37), new(14, 32), new(26, 22), new(34, 9), new(36, 0), new(34, -9), new(26, -22), new(14, -32), new(3, -37) },
+        };
+        public static float Length(int lane) { float l = 0; var p = Paths[lane]; for (int i = 0; i + 1 < p.Length; i++) l += Vector2.Distance(p[i], p[i + 1]); return l; }
+        public static Vector2 PointAt(int lane, float s)
+        {
+            var p = Paths[lane];
+            for (int i = 0; i + 1 < p.Length; i++) { float l = Vector2.Distance(p[i], p[i + 1]); if (s <= l || i + 2 == p.Length) return Vector2.Lerp(p[i], p[i + 1], Mathf.Clamp01(s / l)); s -= l; }
+            return p[p.Length - 1];
+        }
+        // nearest point of a lane's centre line, and how far along the lane it is
+        public static float Nearest(int lane, Vector2 q, out Vector2 at, out float along)
+        {
+            var p = Paths[lane]; float best = 1e9f, run = 0; at = p[0]; along = 0;
+            for (int i = 0; i + 1 < p.Length; i++)
+            {
+                var a = p[i]; var d = p[i + 1] - a; float l = d.magnitude, u = Mathf.Clamp01(Vector2.Dot(q - a, d) / (l * l)); var c = a + d * u; float dist = Vector2.Distance(q, c);
+                if (dist < best) { best = dist; at = c; along = run + u * l; }
+                run += l;
+            }
+            return best;
+        }
+        public static Vector3 Goal(Vector3 pos, int team, int lane)
+        {
+            lane = Mathf.Clamp(lane, 0, 1); Nearest(lane, new Vector2(pos.x, pos.z), out _, out float s); float len = Length(lane), ahead = team == 0 ? s + Lookahead : s - Lookahead;
+            if (ahead >= len - 1 || ahead <= 1) return new Vector3(0, 0, -Lane.Side(team) * Lane.CoreZ);   // the lane's end: in to the enemy core
+            var q = PointAt(lane, ahead); return new Vector3(q.x, 0, q.y);
+        }
+        public static Vector2 BaseOf(int team) => new(Base.x, Base.y * Lane.Side(team));
+        public static bool Inside(Vector2 q, float pad = 0)
+        {
+            if (Vector2.Distance(q, Jungle) <= JungleR + pad || Vector2.Distance(q, BaseOf(0)) <= BaseR + pad || Vector2.Distance(q, BaseOf(1)) <= BaseR + pad) return true;
+            for (int l = 0; l < Paths.Length; l++) if (Nearest(l, q, out _, out _) <= LaneHalf + pad) return true;
+            return false;
+        }
+        // keep a point on walkable ground: unchanged when inside, else onto the nearest edge
+        public static Vector3 Walk(Vector3 p, float margin = 0)
+        {
+            var q = new Vector2(p.x, p.z); if (Inside(q, margin)) return p;
+            Vector2 best = q; float bd = 1e9f;
+            void Try(Vector2 c, float r) { var d = q - c; float m = d.magnitude; var e = m > 1e-4f ? c + d / m * r : c + Vector2.right * r; float dd = Vector2.Distance(q, e); if (dd < bd) { bd = dd; best = e; } }
+            Try(Jungle, JungleR + margin); Try(BaseOf(0), BaseR + margin); Try(BaseOf(1), BaseR + margin);
+            for (int l = 0; l < Paths.Length; l++) { Nearest(l, q, out var c, out _); Try(c, LaneHalf + margin); }
+            p.x = best.x; p.z = best.y; return p;
+        }
+        // towers: two per lane per team, the outer one further out; the straight lane uses Lane.TowerZ, the curve the same share of its length
+        public static Vector3 Tower(int team, int lane, int inner)
+        {
+            if (lane == 0) return new Vector3(0, 0, Lane.Side(team) * Lane.TowerZ[inner == 1 ? 1 : 0]);
+            float len = Length(1), share = inner == 1 ? .2f : .36f; var q = PointAt(1, team == 0 ? share * len : (1 - share) * len); return new Vector3(q.x, 0, q.y);
+        }
+        public static Vector3 LaneStart(int team, int lane) { lane = Mathf.Clamp(lane, 0, 1); float len = Length(lane); var q = PointAt(lane, team == 0 ? 2 : len - 2); return new Vector3(q.x, 0, q.y); }
     }
 
     public class Spin : MonoBehaviour { void Update() { transform.Rotate(0, 60 * Time.deltaTime, 0, Space.World); transform.localPosition += Vector3.up * Mathf.Sin(Time.time * 2) * .002f; } }

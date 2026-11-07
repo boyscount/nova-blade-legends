@@ -36,7 +36,7 @@ namespace NovaBlade
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); hero.transform.position = OpenWorld.Start; pet.transform.position = OpenWorld.Start + new Vector3(1.2f, 0, 1); camPos = OpenWorld.Start + new Vector3(0, 9, 12);
             ui.ShowHud();
         }
-        void MoveTo(Vector3 at) { hero.transform.position = at; pet.transform.position = at + new Vector3(1.2f, 0, 1); camPos = at + new Vector3(0, 9, 12); }
+        void MoveTo(Vector3 at) { hero.StopWalk(); hero.transform.position = at; pet.transform.position = at + new Vector3(1.2f, 0, 1); camPos = at + new Vector3(0, 9, 12); }
         static readonly string[] HouseFoes = { "orc", "orc", "goblin", "goblin", "goblin", "skeleton" };
         // the zone's house: a room of its own, with its monsters until the chest has been opened on this visit
         public void EnterHouse()
@@ -96,12 +96,16 @@ namespace NovaBlade
             else if (hero.soul) hero.soul.End();
             ui.ShowHud(); if (boss && boss.alive) ui.ShowBoss(boss.d.name);
         }
+        // the city gate's duels (Ui gate panel): the Sky Court without the zone
+        public void StartArena(string id) { if (!wildsCtl) wildsCtl = gameObject.AddComponent<OpenWorld>(); wildsCtl.FromCity(id); }
+        public void CityAtGate() { StartCity(); MoveTo(City.Gate + new Vector3(0, 0, 2.6f)); }
         // fallen in the zone: wake at its gate, a fifth of this trip's gold lost
         public void FallInZone()
         {
             SetSoul(false);
             int lost = Mathf.RoundToInt(gold * .2f); gold -= lost; banked = Mathf.Min(banked, gold);
-            hero.ResetForGame(); pet.ResetForGame(); BackToZone(OpenWorld.Start);
+            if (wildsCtl && wildsCtl.FromCityDuel) { wildsCtl.LeftSky(); CityAtGate(); }   // a duel taken at the city gate: back at the gate
+            else { hero.ResetForGame(); pet.ResetForGame(); BackToZone(OpenWorld.Start); }
             ui.Banner(Loc.S("พ่ายแพ้", "You fell"), lost > 0 ? Loc.S($"เสียทอง {lost}", $"Lost {lost} gold") : "");
         }
         // leaving a stage or the pause menu: back where the player came from
@@ -219,6 +223,7 @@ namespace NovaBlade
             int cw = System.Array.IndexOf(args, "-crowdtest"); if (cw >= 0 && cw + 1 < args.Length) StartCoroutine(CrowdTest(args[cw + 1]));
             int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
             int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
+            int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
             int dlt = System.Array.IndexOf(args, "-duelstest"); if (dlt >= 0 && dlt + 1 < args.Length) StartCoroutine(DuelsTest(args[dlt + 1]));
             int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
             int cl = System.Array.IndexOf(args, "-classlook"); if (cl >= 0 && cl + 1 < args.Length) StartCoroutine(ClassLook(args[cl + 1]));
@@ -834,8 +839,50 @@ namespace NovaBlade
             }
             z.EnterDuel(OpenWorld.Wanderer, z.RisePos); yield return new WaitForSecondsRealtime(1.5f); gold = 100; hero.inv = 0; hero.Hurt(1e8f, hero.Pos + Vector3.forward); yield return new WaitForSecondsRealtime(4.5f);
             Snap("fell"); log.AppendLine($"fell in a duel: wilds {wilds} sky {sky} soul {soul} dead {hero.dead} gold {gold} at {hero.Pos} fighting {z.Fighting ?? "none"}");
+            {   // the city gate's arena (the phone build's way in): refused while resting, won and walked home, lost and woken at the gate
+                StartCity(); yield return new WaitForSecondsRealtime(1.5f); MoveTo(City.Gate + new Vector3(0, 0, 2)); yield return new WaitForSecondsRealtime(.5f); ui.OpenCityPanel("gate"); yield return new WaitForSecondsRealtime(.6f); Snap("gate_arena"); ui.CloseCityPanel();
+                StartArena("elite"); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"arena elite while resting: sky {sky} city {city}");
+                StartArena("wanderer"); yield return new WaitForSecondsRealtime(1.5f); Snap("arena_wanderer"); log.AppendLine($"arena wanderer: sky {sky} fighting {z.Fighting} from city {z.FromCityDuel} boss {(boss ? boss.d.name : "none")}");
+                yield return Fell(); MoveTo(OpenWorld.SkyExit + new Vector3(0, 0, -2)); yield return new WaitForSecondsRealtime(.6f); log.AppendLine($"arena won: exit prompt {ui.CityPromptShown}");
+                useDuel.Invoke(z, new object[] { "sky_exit" }); yield return new WaitForSecondsRealtime(1.5f); Snap("arena_home"); log.AppendLine($"home: city {city} sky {sky} at {hero.Pos} (gate {City.Gate})");
+                StartArena("wanderer"); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"wanderer again at once: sky {sky}");
+                typeof(OpenWorld).GetField("eliteBackAt", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(z, 0f);
+                StartArena("elite"); yield return new WaitForSecondsRealtime(1.5f); gold = 50; hero.inv = 0; hero.Hurt(1e8f, hero.Pos + Vector3.forward); yield return new WaitForSecondsRealtime(4.5f);
+                Snap("arena_fell"); log.AppendLine($"arena fell: city {city} sky {sky} dead {hero.dead} gold {gold} at {hero.Pos}");
+            }
+            foreach (var ln in new[] { 1, 3 }) { StartLane(3, ln); yield return new WaitForSecondsRealtime(1); log.AppendLine($"lane battle {ln} lane(s): stage {System.Array.Find(stageRoots, r => r && r.gameObject.activeSelf)?.name}"); if (ln == 3) Snap("lane3"); }   // picked by name, not by place in the list
             save = JsonUtility.FromJson<Save>(keep); Persist();
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "duels.txt"), log.ToString()); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
+        }
+        // Test mode (-skylanestest <dir>): the Sky Lanes 3v3 map. Views of each part, then the match runs on its own for a while (the hero
+        // cannot fall and stays home): towers, soldiers and heroes per side, how far the waves get, and anything standing off the ground.
+        System.Collections.IEnumerator SkyLanesTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.hero = "warrior"; hero.Equip();
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            StartLane(3, 2); yield return new WaitForSecondsRealtime(2); hero.max = hero.hp = 999999;
+            log.AppendLine($"stage {System.Array.Find(stageRoots, r => r && r.gameObject.activeSelf)?.name} · towers+core ours {TowersLeft(0)} theirs {TowersLeft(1)} · heroes {foes.Count(f => f && f.d.kind == "champ")} · lane lengths {SkyLanes.Length(0):0} / {SkyLanes.Length(1):0} m");
+            foreach (var (x, z) in new[] { (5f, 50f), (40f, 40f), (-20f, 10f) }) log.AppendLine($"clamp ({x}, {z}) -> {Clamp(new Vector3(x, 0, z))}");
+            ZoomBy(1.2f);
+            foreach (var (n, at) in new[] { ("view_ourbase", new Vector3(0, 0, 38)), ("view_jungle", new Vector3(17, 0, 2)), ("view_curve", new Vector3(32, 0, 8)), ("view_theirbase", new Vector3(0, 0, -36)) })
+            { ui.Pan = at; yield return new WaitForSecondsRealtime(1.2f); Snap(n); yield return new WaitForSecondsRealtime(.2f); }
+            ui.Pan = null; ZoomBy(-1.2f);
+            int shot = 0; float worstFrame = 0, ms = 0; int frames = 0;
+            for (float t = 0; t < 75; t += Time.unscaledDeltaTime)
+            {
+                hero.hp = hero.max; ms += Time.unscaledDeltaTime * 1000; frames++; worstFrame = Mathf.Max(worstFrame, Time.unscaledDeltaTime * 1000);
+                if (t > 15 * (shot + 1))
+                {
+                    var live = foes.Where(f => f && f.alive && !f.spawning).ToList(); var off = live.Count(f => f.d.kind != "tower" && !SkyLanes.Inside(new Vector2(f.Pos.x, f.Pos.z), .3f));
+                    var front0 = live.Where(f => f.team == 0 && f.d.kind == "minion").Select(f => f.Pos.z).DefaultIfEmpty(99).Min(); var front1 = live.Where(f => f.team == 1 && f.d.kind == "minion").Select(f => f.Pos.z).DefaultIfEmpty(-99).Max();
+                    log.AppendLine($"t {t:0}s: soldiers {live.Count(f => f.team == 0 && f.d.kind == "melee" && f.d.id == "minion")} v {live.Count(f => f.team == 1 && f.d.id == "minion")} · heroes {live.Count(f => f.team == 0 && f.d.kind == "champ")} v {live.Count(f => f.team == 1 && f.d.kind == "champ")} · towers {TowersLeft(0)} v {TowersLeft(1)} · off the ground {off} · wave {wave}");
+                    var lead = live.Where(f => f.team == 0 && f.d.id == "minion").OrderBy(f => f.Pos.z).FirstOrDefault(); if (lead) ui.Pan = lead.Pos;
+                    shot++; Snap($"match_{shot}");
+                }
+                yield return null;
+            }
+            ui.Pan = null; log.AppendLine($"frames: avg {ms / Mathf.Max(1, frames):0.0} ms, worst {worstFrame:0} ms");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "skylanes.txt"), log.ToString()); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
         }
         System.Collections.IEnumerator GateWalk(string dir)
         {
@@ -1489,7 +1536,8 @@ namespace NovaBlade
         {
             if (lane)
             {
-                p.x = Mathf.Clamp(p.x, -Lane.HalfW - margin, Lane.HalfW + margin); p.z = Mathf.Clamp(p.z, -Lane.HalfL - margin, Lane.HalfL + margin);
+                if (Lane.Lanes == 2) p = SkyLanes.Walk(p, margin);   // the floating map: only the lanes, the jungle and the bases are ground
+                else { p.x = Mathf.Clamp(p.x, -Lane.HalfW - margin, Lane.HalfW + margin); p.z = Mathf.Clamp(p.z, -Lane.HalfL - margin, Lane.HalfL + margin); }
                 foreach (var tw in foes)
                 {   // towers are solid: nobody walks through them (destroyed ones too, until they have sunk)
                     if (!tw || tw.d.kind != "tower") continue; var d = Flat(p - tw.Pos); float rr = tw.rad + .45f;
@@ -1516,11 +1564,13 @@ namespace NovaBlade
         }
 
         public int laneCount = 1;
+        // lanes: 1 or 3 on the ground maps, 2 = Sky Lanes (the floating 3v3 map, SKY-LANES-3V3.md)
         public void StartLane(int size, int lanes = 1)
         {
+            if (lanes == 2) { StartSkyLanes(); return; }
             ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = lanes; Lane.Lanes = lanes;
             kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0;
-            SetTheme(lanes == 3 ? stageRoots.Length - 1 : stageRoots.Length - 2);   // the two lane maps are the last stage roots
+            SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == (lanes == 3 ? "Stage_lane3" : "Stage_lane")));   // by name: the zone, house and Sky Court come after the lane maps (the phone build leaves some out)
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             for (int t = 0; t < 2; t++)
             {
@@ -1537,8 +1587,34 @@ namespace NovaBlade
             camPos = new Vector3(0, 9, Lane.CoreZ + 10);
             ui.ShowHud(); ui.Banner(lanes == 3 ? Loc.S($"สนามรบ 3 เลน · {size} ต่อ {size}", $"3-Lane Battle · {size} vs {size}") : Loc.S($"สนามรบ {size} ต่อ {size}", $"Lane Battle · {size} vs {size}"), lanes == 3 ? Loc.S("ทำลายป้อมในแต่ละเลน แล้วทุบคริสตัลหลักของศัตรู", "Destroy the towers in each lane, then smash the enemy Core Crystal") : Loc.S("ทำลายคริสตัลหลักของฝ่ายตรงข้าม", "Destroy the enemy Core Crystal"));
         }
+        // Sky Lanes, always 3 against 3: towers along both lanes, the player and one helper start on the straight lane, the other helper takes the curve; the enemy mirrors it
+        public static readonly int[] SkyLaneOf = { 0, 1 };   // our two helpers; the enemy's three: 0, 1, 0
+        void StartSkyLanes()
+        {
+            const int size = 3; ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = 2; Lane.Lanes = 2;
+            kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0;
+            SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_skylanes"));
+            hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
+            for (int t = 0; t < 2; t++)
+            {
+                for (int l = 0; l < 2; l++) for (int k = 0; k < 2; k++) { var u = SpawnUnit(Lane.Tower, SkyLanes.Tower(t, l, k), t); if (u) u.laneIdx = l; }
+                SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t);
+            }
+            var others = Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();
+            for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), new Vector3(i == 0 ? -2.5f : 3, 0, Lane.SpawnZ), 0); if (u) u.laneIdx = SkyLaneOf[i]; }
+            var foesH = Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
+            for (int i = 0; i < size; i++) { var u = SpawnUnit(Lane.Champ(foesH[i % foesH.Count]), new Vector3((i - 1) * 2.5f, 0, -Lane.SpawnZ), 1); if (u) u.laneIdx = i == 1 ? 1 : 0; }
+            camPos = new Vector3(0, 9, Lane.CoreZ + 10);
+            ui.ShowHud(); ui.Banner(Loc.S("สนามรบลอยฟ้า · 3 ต่อ 3", "Sky Lanes · 3 vs 3"), Loc.S("เลนตรงกับเลนโค้งรอบป่า ทำลายป้อมแล้วทุบคริสตัลหลักของศัตรู", "A straight lane and a curved one round the jungle: break the towers, then the enemy Core Crystal"));
+        }
         void UpdLane(float dt)
         {
+            if (Lane.Lanes == 2)
+            {   // a wave of three soldiers down each lane, from each base
+                minionT -= dt; if (minionT > 0) return; minionT = 28; wave++;
+                for (int t = 0; t < 2; t++) for (int l = 0; l < 2; l++) { var s0 = SkyLanes.LaneStart(t, l); for (int i = 0; i < 3; i++) { var u = SpawnUnit(Lane.Minion, s0 + new Vector3((i - 1) * 1.6f, 0, 0), t); if (u) u.laneIdx = l; } }
+                return;
+            }
             minionT -= dt; if (minionT > 0) return; minionT = Lane.Lanes == 3 ? 30 : 24; wave++;
             for (int t = 0; t < 2; t++)
                 for (int l = 0; l < Lane.Lanes; l++)

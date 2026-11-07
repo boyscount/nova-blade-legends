@@ -109,7 +109,7 @@ public static class NovaBuild
     {
         if (!BuildPipeline.isBuildingPlayer || !phoneScene) return;
         var main = Object.FindAnyObjectByType<Main>(); if (!main) return;
-        foreach (var r in main.stageRoots.Where(r => r && r.name is "Stage_wilds" or "Stage_house" or "Stage_sky").ToArray()) Object.DestroyImmediate(r.gameObject);
+        foreach (var r in main.stageRoots.Where(r => r && r.name is "Stage_wilds" or "Stage_house" or "Stage_skylanes").ToArray()) Object.DestroyImmediate(r.gameObject);   // the Sky Court stays: phones reach its duels from the city gate
         main.stageRoots = main.stageRoots.Where(r => r).ToArray();
         Debug.Log("[NovaBuild] phone scene: zone and house left out");
     }
@@ -421,7 +421,7 @@ public static class NovaBuild
         // game
         var mainGo = new GameObject("Game"); var main = mainGo.AddComponent<Main>(); main.cam = cam;
         main.cityRoot = null;
-        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage(), WildsStage(), HouseStage(), SkyStage() };   // 360° photo stages (PlazaStage, MirrorStage, ValleyCliff) are kept but out of the game   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
+        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage(), WildsStage(), HouseStage(), SkyStage(), SkyLanesStage() };   // 360° photo stages (PlazaStage, MirrorStage, ValleyCliff) are kept but out of the game   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
         foreach (var sr in main.stageRoots) NoCartoonFx(sr);
         main.cityRoot = CityStage(main); main.cityRoot.gameObject.SetActive(false);
         for (int i = 1; i < main.stageRoots.Length; i++) main.stageRoots[i].gameObject.SetActive(false);
@@ -1279,6 +1279,127 @@ public static class NovaBuild
         float H(int a, int b) { a = ((a % p) + p) % p; b = ((b % p) + p) % p; uint h = (uint)(a * 374761393 + b * 668265263) ^ 0x5bd1e995u; h = (h ^ (h >> 13)) * 1274126177u; return (h & 0xffff) / 65535f; }
         float sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
         return Mathf.Lerp(Mathf.Lerp(H(x0, y0), H(x0 + 1, y0), sx), Mathf.Lerp(H(x0, y0 + 1), H(x0 + 1, y0 + 1), sx), sy);
+    }
+    // Sky Lanes (SKY-LANES-3V3.md): the floating 3v3 map. The walkable ground (SkyLanes: the lane stretches with round joins and the two bases)
+    // is one paved mesh textured in world space, so where pieces overlap they match; the jungle is a grass disc just below it; a stone edge
+    // hangs under every rim and rocks hang beneath. Our base (+Z) is a ruined altar court (Altar Ruins), the enemy's (-Z) a dark stone fort.
+    // Only pieces at the rims are solid; scenery off the ground sits in groups the obstacle map does not read.
+    static Transform SkyLanesStage()
+    {
+        NewRoot("Stage_skylanes", new Color(.7f, .8f, .93f), .0035f, new Color(.8f, .87f, .98f), new Color(.6f, .63f, .68f), new Color(.36f, .34f, .32f));
+        var look = root.GetComponent<StageLook>(); look.sun = Sun(new Color(1f, .93f, .8f), 1.9f, new Vector3(40, 150, 0)); look.sky = SkyDome();
+        const string PT = "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/", AR = "Assets/Altar_Ruins_FREE/Prefabs/", D = "Assets/ThirdParty/Dungeon/Prefabs/";
+        string N(string n) => $"Assets/Game/Models/Nature/{n}.glb";
+        Transform Group(string n) { var g = new GameObject(n).transform; g.SetParent(root); return g; }
+        const float Skirt = 1.6f, UvScale = 4;
+        // ---- ground meshes ----
+        var pv = new List<Vector3>(); var pt = new List<int>(); var sv = new List<Vector3>(); var st = new List<int>(); var jv = new List<Vector3>(); var jt = new List<int>();
+        void Disc(List<Vector3> v, List<int> t, Vector2 c, float r, float y, int seg = 40)
+        {
+            int c0 = v.Count; v.Add(new Vector3(c.x, y, c.y));
+            for (int i = 0; i <= seg; i++) { float a = -i / (float)seg * Mathf.PI * 2; v.Add(new Vector3(c.x + Mathf.Cos(a) * r, y, c.y + Mathf.Sin(a) * r)); if (i > 0) { t.Add(c0); t.Add(c0 + i); t.Add(c0 + i + 1); } }
+        }
+        void Wall(Vector3 a, Vector3 b)
+        {   // a stone face hanging from the rim, seen from outside
+            int k = sv.Count; sv.Add(a); sv.Add(b); sv.Add(b + Vector3.down * Skirt); sv.Add(a + Vector3.down * Skirt);
+            st.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });   // one face; the material draws both sides (a mesh holding both windings on shared corners gets no usable normals)
+        }
+        void Rim(Vector2 c, float r, int seg = 40) { for (int i = 0; i < seg; i++) { float a0 = i / (float)seg * Mathf.PI * 2, a1 = (i + 1) / (float)seg * Mathf.PI * 2; Wall(new Vector3(c.x + Mathf.Cos(a0) * r, 0, c.y + Mathf.Sin(a0) * r), new Vector3(c.x + Mathf.Cos(a1) * r, 0, c.y + Mathf.Sin(a1) * r)); } }
+        float H = SkyLanes.LaneHalf;
+        foreach (var path in SkyLanes.Paths)
+        {
+            for (int i = 0; i + 1 < path.Length; i++)
+            {
+                var a = path[i]; var b = path[i + 1]; var d = (b - a).normalized; var n = new Vector2(-d.y, d.x) * H; int k = pv.Count;
+                pv.Add(new Vector3(a.x + n.x, 0, a.y + n.y)); pv.Add(new Vector3(b.x + n.x, 0, b.y + n.y)); pv.Add(new Vector3(b.x - n.x, 0, b.y - n.y)); pv.Add(new Vector3(a.x - n.x, 0, a.y - n.y));
+                pt.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
+                Wall(pv[k], pv[k + 1]); Wall(pv[k + 3], pv[k + 2]);
+            }
+            foreach (var j in path) { Disc(pv, pt, j, H, 0, 24); Rim(j, H, 24); }   // round joins (and round ends), matching SkyLanes.Walk
+        }
+        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Disc(pv, pt, b, SkyLanes.BaseR, 0); Rim(b, SkyLanes.BaseR); }
+        Disc(jv, jt, SkyLanes.Jungle, SkyLanes.JungleR, -.02f, 56); Rim(SkyLanes.Jungle, SkyLanes.JungleR, 56);
+        GameObject MeshGo(string name, List<Vector3> v, List<int> t, Material mat, bool worldUv)
+        {
+            var mesh = new Mesh { name = name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; mesh.SetVertices(v); mesh.SetTriangles(t, 0);
+            mesh.SetUVs(0, v.Select(p => worldUv ? new Vector2(p.x / UvScale, p.z / UvScale) : new Vector2((p.x + p.z) / UvScale, p.y / UvScale)).ToList());
+            if (worldUv) mesh.SetNormals(v.Select(_ => Vector3.up).ToList()); else mesh.RecalculateNormals(); mesh.RecalculateBounds();   // flat ground faces straight up
+            mat.SetFloat("_Cull", 0); EditorUtility.SetDirty(mat);   // both sides: the rim faces are seen from outside, whichever way they were wound
+            var path = $"{Gen}/{name}.asset"; if (File.Exists(path)) AssetDatabase.DeleteAsset(path); AssetDatabase.CreateAsset(mesh, path);
+            var go = new GameObject(name); go.transform.SetParent(root); go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterial = mat; return go;
+        }
+        MeshGo("SkyLanesPaving", pv, pt, Lit("SkyLanesPave", "mossy_brick", 1, .12f, new Color(1.3f, 1.15f, .95f)), true);
+        MeshGo("SkyLanesJungleGround", jv, jt, Lit("SkyLanesGrass", "leafy_grass", 1, .05f, new Color(.85f, 1f, .8f)), true);
+        MeshGo("SkyLanesRim", sv, st, Lit("SkyLanesRock", "rock_face_04", 1, .08f, new Color(.62f, .58f, .55f)), false).GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        // ---- rock hanging under the ground ----
+        var under = Group("Underside");
+        GameObject Hang(Vector2 at, float h, float top, Transform parent) { var g = Fit(Load(N("namaqualand_boulder_03")), new Vector3(at.x, 0, at.y), R(0, 360), h, parent); if (!g) return null; g.transform.position += Vector3.up * (top - Bounds(g).max.y); return g; }
+        for (int l = 0; l < SkyLanes.Paths.Length; l++) { float len = SkyLanes.Length(l); for (float s = 4; s < len - 4; s += 9) Hang(SkyLanes.PointAt(l, s), R(7, 11), -1.2f, under); }
+        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Hang(b, 16, -1.3f, under); Hang(b + new Vector2(R(-3, 3), R(-3, 3)), 9, -9, under); }
+        Hang(SkyLanes.Jungle, 18, -1.3f, under); foreach (var o in new[] { new Vector2(-6, 5), new Vector2(6, -5), new Vector2(5, 6), new Vector2(-5, -6) }) Hang(SkyLanes.Jungle + o, R(8, 11), -1.2f, under);
+        // ---- jungle: trees round its edge, bushes and rocks, the middle kept open for camps later ----
+        var pines = new[] { PT + "Trees/PT_Pine_Tree_03_green.prefab", PT + "Trees/PT_Pine_Tree_03_green_cut.prefab" };
+        bool OnLane(Vector2 q, float pad) { for (int l = 0; l < SkyLanes.Paths.Length; l++) if (SkyLanes.Nearest(l, q, out _, out _) < SkyLanes.LaneHalf + pad) return true; return false; }
+        for (int i = 0; i < 26; i++)
+        {
+            float a = i / 26f * Mathf.PI * 2 + R(-.08f, .08f), r = R(7.5f, 11.2f); var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, 1.2f)) continue;
+            int kind = rnd.Next(5); var at = new Vector3(q.x, 0, q.y);
+            if (kind < 2) Fit(Load(pines[rnd.Next(2)]), at, R(0, 360), R(6, 9)); else if (kind < 3) PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), at, R(0, 360), R(4.5f, 6)));
+            else if (kind < 4) Fit(Load(PT + "Shrubs/PT_Generic_Shrub_01_green.prefab"), at, R(0, 360), R(1, 1.6f)); else Place(Load(N("namaqualand_boulder_03")), at, R(0, 360), R(.35f, .6f));
+        }
+        // ---- our base (+Z): a ruined altar court ----
+        var home = new Vector3(0, 0, SkyLanes.Base.y);
+        var plat = Fit(Load(AR + "Platform_circle.prefab"), home, 0, .6f); if (plat) { plat.name = "BasePlatform"; plat.transform.localScale = new Vector3(plat.transform.localScale.x * 1.5f, plat.transform.localScale.y, plat.transform.localScale.z * 1.5f); var pb = Bounds(plat); plat.transform.position += new Vector3(home.x - pb.center.x, .03f - pb.max.y, home.z - pb.center.z); }
+        string[] arches = { "Arch_1", "Arch_2", "Arch_3", "Arch_4", "Arch_5" };
+        for (int i = 0; i < 5; i++)
+        {   // arches standing round the back of the court, facing in
+            float a = Mathf.Lerp(30, 150, i / 4f) * Mathf.Deg2Rad; var p = home + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (SkyLanes.BaseR - 1.2f);
+            Fit(Load(AR + arches[i] + ".prefab"), p, Mathf.Atan2(home.x - p.x, home.z - p.z) * Mathf.Rad2Deg + 90, R(5.5f, 6.6f));
+        }
+        foreach (int sd in new[] { -1, 1 }) { Fit(Load(AR + "Column.prefab"), home + new Vector3(sd * 8.6f, 0, -3.5f), R(0, 360), 4.6f); Fit(Load(AR + "Broken_column.prefab"), home + new Vector3(sd * 9.4f, 0, 1.5f), R(0, 360), 1.9f); }
+        Fit(Load(AR + "Stone_structure.prefab"), home + new Vector3(0, 0, SkyLanes.BaseR + 2.5f), 180, 7.3f);
+        Fit(Load(AR + "Tree.prefab"), home + new Vector3(-7.5f, 0, 6.5f), R(0, 360), 4.1f);
+        foreach (var (x, z) in new[] { (-4.2f, 4f), (4.2f, 4.5f), (-6.5f, -1f), (6.8f, -1.5f) }) Place(Load(AR + $"Rubble_{rnd.Next(1, 9)}.prefab"), home + new Vector3(x, 0, z), R(0, 360), 1);
+        // ---- the enemy base (-Z): a dark fort: stone walls round its back, pillars and the ruined archway pillars at its mouth ----
+        var foe = new Vector3(0, 0, -SkyLanes.Base.y); var walls = new[] { Load(D + "Walls/Wall_A.prefab"), Load(D + "Walls/Wall_B.prefab"), Load(D + "Walls/Wall_C.prefab") };
+        for (int i = 0; i < 7; i++)
+        {
+            float a = -Mathf.Lerp(20, 160, i / 6f) * Mathf.Deg2Rad; var p = foe + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (SkyLanes.BaseR - .6f);
+            var w = Place(walls[rnd.Next(3)], p, Mathf.Atan2(foe.x - p.x, foe.z - p.z) * Mathf.Rad2Deg); if (w) w.name = "FortWall";
+        }
+        var pillar = Load(D + "Pillars/Pillar_A.prefab"); foreach (int sd in new[] { -1, 1 }) { Fit(pillar, foe + new Vector3(sd * 8.2f, 0, 2.5f), 0, 6); Fit(Load("Assets/Symphonie/Ruins/URP/Prefabs/archway_pillar02.prefab"), foe + new Vector3(sd * 6f, 0, 8.6f), sd * 90, 7); }
+        var post = Load(AR + "Column_broken_small.prefab"); var fire = Load("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
+        foreach (var (b, col) in new[] { (home, new Color(.55f, .8f, 1f)), (foe, new Color(1, .4f, .25f)) })
+            foreach (int sd in new[] { -1, 1 })
+            {   // a fire on a broken column either side of each base mouth, and a coloured light over the court
+                var tp = b + new Vector3(sd * 4.5f, 0, b.z > 0 ? -SkyLanes.BaseR + 1.2f : SkyLanes.BaseR - 1.2f); var pg = Fit(post, tp, R(0, 360), 1.1f); float top = pg ? Bounds(pg).max.y : 1.1f; Place(fire, new Vector3(tp.x, top, tp.z), 0, .3f);
+                if (sd > 0) { var l = PointLight(b + Vector3.up * 5, col, 6, 16); l.name = "BaseLight"; }
+            }
+        // ---- far scenery: drifting rocks, spires in the haze, the sea of cloud ----
+        var far = Group("Scenery");
+        foreach (var (x, y, z, h) in new[] { (-22f, -3f, 20f, 6f), (-26f, 2f, -14f, 5f), (55f, -4f, 18f, 7f), (58f, 3f, -22f, 5f), (-18f, -8f, 58f, 6f), (30f, 5f, 60f, 4f), (24f, -6f, -60f, 6f), (-30f, 1f, -55f, 5f), (48f, 6f, 40f, 4f), (50f, -2f, -45f, 6f) })
+        { var r = Fit(Load(N("namaqualand_boulder_03")), new Vector3(x, y, z), R(0, 360), h, far); if (r) r.transform.rotation = Quaternion.Euler(R(150, 210), R(0, 360), 0); }
+        foreach (var (a, d, h) in new[] { (-150f, 130f, 70f), (-110f, 140f, 60f), (-70f, 125f, 85f), (-35f, 145f, 65f), (0f, 150f, 80f), (40f, 135f, 70f), (80f, 140f, 60f), (115f, 125f, 75f), (150f, 140f, 55f), (180f, 135f, 65f) })
+        {
+            float ar = a * Mathf.Deg2Rad; var sp = Fit(Load(N("namaqualand_boulder_03")), Vector3.zero, R(0, 360), h, far); if (!sp) continue;
+            sp.transform.localScale = Vector3.Scale(sp.transform.localScale, new Vector3(.4f, 1, .4f)); var bb = Bounds(sp);
+            sp.transform.position += new Vector3(18 + Mathf.Sin(ar) * d - bb.center.x, -40 - bb.min.y, -Mathf.Cos(ar) * d - bb.center.z);
+        }
+        CloudSea(far);
+        Static(root); foreach (var t in far.GetComponentsInChildren<Drift>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        return root;
+    }
+    // puts the Sky Lanes map into the saved scene without rebuilding the rest, then the Windows player
+    public static void AddSkyLanesAndWin()
+    {
+        rnd = new System.Random(47);
+        var scene = EditorSceneManager.OpenScene("Assets/Game/Scenes/Main.unity"); var main = Object.FindAnyObjectByType<Main>();
+        foreach (var old in scene.GetRootGameObjects().Where(g => g.name == "Stage_skylanes")) Object.DestroyImmediate(old);
+        var active = main.stageRoots.FirstOrDefault(r => r && r.gameObject.activeSelf);
+        var sl = SkyLanesStage(); NoCartoonFx(sl); sl.gameObject.SetActive(false);
+        main.stageRoots = main.stageRoots.Where(r => r && r.name != "Stage_skylanes").Append(sl).ToArray();
+        if (active) active.GetComponent<StageLook>().Apply(); EditorUtility.SetDirty(main); EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene);
+        BuildWin();
     }
     static Transform ValleyStage()
     {

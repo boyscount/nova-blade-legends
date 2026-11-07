@@ -10,6 +10,29 @@ public static class NovaFx
     public static void ConvertHovl() => ConvertParticles("Assets/Hovl Studio");
     // Matthew Guz "Slash Effects FREE": Particles/Standard Unlit too
     public static void ConvertSlash() => ConvertParticles("Assets/Matthew Guz");
+    // "Altar Ruins Free" (built-in Standard Specular materials) -> URP Lit, metallic workflow; also reports each ruin mesh's triangles.
+    // Its textures were shrunk to 1024 px and its EXR displacement maps, old meshes and demo scenes left out when it was copied in.
+    public static void ConvertRuins()
+    {
+        var lit = Shader.Find("Universal Render Pipeline/Lit");
+        foreach (var path in AssetDatabase.FindAssets("t:Material", new[] { "Assets/Altar_Ruins_FREE" }).Select(AssetDatabase.GUIDToAssetPath))
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m || m.shader == lit || m.shader.name.StartsWith("Skybox")) continue;
+            Texture Tex(string p) => m.HasProperty(p) ? m.GetTexture(p) : null;
+            var albedo = Tex("_MainTex"); var normal = Tex("_BumpMap"); var ao = Tex("_OcclusionMap"); var col = m.HasProperty("_Color") ? m.GetColor("_Color") : Color.white; var was = m.shader.name;
+            m.shader = lit; m.SetTexture("_BaseMap", albedo); m.SetColor("_BaseColor", col); m.SetFloat("_Metallic", 0); m.SetFloat("_Smoothness", .15f);
+            if (normal) { m.SetTexture("_BumpMap", normal); m.EnableKeyword("_NORMALMAP"); }
+            if (ao) { m.SetTexture("_OcclusionMap", ao); m.EnableKeyword("_OCCLUSIONMAP"); }
+            m.enableInstancing = true; EditorUtility.SetDirty(m); Debug.Log($"[NovaFx] ruins material {path}: {was} -> URP Lit (albedo {(albedo ? albedo.name : "none")}, normal {(normal ? normal.name : "none")})");
+        }
+        foreach (var path in AssetDatabase.FindAssets("t:Model", new[] { "Assets/Altar_Ruins_FREE", "Assets/Symphonie" }).Select(AssetDatabase.GUIDToAssetPath))
+        {
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(path); int tris = go.GetComponentsInChildren<MeshFilter>(true).Sum(f => f.sharedMesh ? f.sharedMesh.triangles.Length / 3 : 0);
+            var b = new Bounds(); bool any = false; foreach (var r in go.GetComponentsInChildren<MeshFilter>(true)) if (r.sharedMesh) { var mb = r.sharedMesh.bounds; if (!any) { b = mb; any = true; } else b.Encapsulate(mb); }
+            Debug.Log($"[NovaFx] ruins mesh {System.IO.Path.GetFileNameWithoutExtension(path)}: {tris} tris, size {b.size.x:0.0} x {b.size.y:0.0} x {b.size.z:0.0}");
+        }
+        AssetDatabase.SaveAssets();
+    }
     static void ConvertParticles(string folder)
     {
         var unlit = Shader.Find("Universal Render Pipeline/Particles/Unlit"); var lit = Shader.Find("Universal Render Pipeline/Lit");

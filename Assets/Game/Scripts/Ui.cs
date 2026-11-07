@@ -275,6 +275,7 @@ namespace NovaBlade
             laneRow.Add(Pill(touchUi ? Loc.S("สนามรบ", "Battle") : Loc.S("สนามรบเลนเดียว", "Lane Battle")));
             foreach (var (txt, size, lanes) in new[] { (Loc.S("1 เลน 1v1", "1 Lane 1v1"), 1, 1), (Loc.S("1 เลน 3v3", "1 Lane 3v3"), 3, 1), (Loc.S("3 เลน 3v3", "3 Lanes 3v3"), 3, 3) })
             { var b = Sec(txt, () => G.StartLane(size, lanes)); b.style.flexGrow = 1; b.style.marginLeft = 6; laneRow.Add(b); }
+            if (G.Stage("Stage_skylanes")) { var b = Sec(Loc.S("ลอยฟ้า 3v3", "Sky Lanes 3v3"), () => G.StartLane(3, 2)); b.style.flexGrow = 1; b.style.marginLeft = 6; laneRow.Add(b); }   // the floating 2-lane map (PC only for now)
             var bottom = Box(); bottom.style.flexShrink = 0; bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
             var cur = Box(new Color(0, 0, 0, .5f), 24); Border(cur, new Color(1, .82f, .5f, .5f), 2); cur.style.paddingLeft = cur.style.paddingRight = 16; cur.style.paddingTop = cur.style.paddingBottom = 10; cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center;
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
@@ -1087,6 +1088,7 @@ namespace NovaBlade
         public void TestPick() => Pick();   // autopilot
         // ---------- the city: walking prompt, NPC panels and the stage list at the gate ----------
         VisualElement hudBtns, lobbyPlayBox, gateOv; Button lobbyCityB; Button cityTalk, cityClose; System.Action cityAct; public bool CityPanelOpen { get; private set; } public bool CityPromptShown => cityTalk != null && cityTalk.style.display == DisplayStyle.Flex;
+        const float SkyMiniR = 50; static Vector3 MiniCentre => Main.G && Main.G.lane && Lane.Lanes == 2 ? new Vector3(18, 0, 0) : Vector3.zero;   // Sky Lanes lies mostly at +X
         public void SetPlate(string a, string b, string c) { waveT.text = a; waveT2.text = b; waveT3.text = c; }
         public void SetCityPrompt(string text, System.Action act)
         {
@@ -1134,6 +1136,14 @@ namespace NovaBlade
                 var tl = L(Loc.S("เลือกด่าน", "CHOOSE A STAGE"), 38 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; top.Add(tl);
                 var x = new Button(CloseCityPanel) { text = "" }; DrawX(x); x.style.width = x.style.height = 48 * big; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); top.Add(x);
                 var wildsB = Btn(Loc.S("เข้าสู่ป่าจันทร์พลัดกลีบ (Open World ทดลอง)", "Enter Driftpetal Wilds (Open World preview)"), () => { CloseCityPanel(); G.StartWilds(); }); wildsB.style.fontSize = 26 * big; wildsB.style.marginTop = 14; wildsB.style.paddingTop = wildsB.style.paddingBottom = 12 * big; if (G.Stage("Stage_wilds")) pn.Add(wildsB);   // the phone build leaves the zone out for now
+                if (G.Stage("Stage_sky"))
+                {   // duels on the Sky Court straight from the gate (on phones the only way in until the zone comes back)
+                    var dr = Box(); dr.style.flexDirection = FlexDirection.Row; dr.style.marginTop = 12; pn.Add(dr);
+                    foreach (var (id, th, en) in new[] { ("elite", "ลานประลอง · ยักษ์กูล (Elite)", "Sky Court · Ghoul Warden (Elite)"), ("wanderer", "ลานประลอง · นักดาบพเนจร", "Sky Court · the Wanderer") })
+                    {
+                        var duelId = id; var b = Btn(Loc.S(th, en), () => { CloseCityPanel(); G.StartArena(duelId); }); b.style.fontSize = 24 * big; b.style.flexGrow = 1; b.style.flexBasis = 0; b.style.marginRight = 8; b.style.paddingTop = b.style.paddingBottom = 12 * big; dr.Add(b);
+                    }
+                }
                 var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.marginTop = 16; pn.Add(row);
                 for (int i = 0; i < Data.Themes.Length; i++)
                 {
@@ -1215,7 +1225,7 @@ namespace NovaBlade
             var mapNt = L("N", 18, Gold, true); mapN.Add(mapNt); mapBox.Add(mapN);
             // hold / drag on the minimap: the camera looks at that spot (scout the lanes); let go and it returns to the hero
             mini.pickingMode = PickingMode.Position; int mpid = -1;
-            void PanTo(Vector2 lp) { float W = mini.resolvedStyle.width; if (float.IsNaN(W) || G == null) return; float S = W / 2 / ((G.lane ? Lane.HalfL : G.ArenaRadius) + 3); Pan = new Vector3(-(lp.x - W / 2) / S, 0, (lp.y - W / 2) / S); }
+            void PanTo(Vector2 lp) { float W = mini.resolvedStyle.width; if (float.IsNaN(W) || G == null) return; float S = W / 2 / ((G.lane ? (Lane.Lanes == 2 ? SkyMiniR : Lane.HalfL) : G.ArenaRadius) + 3); Pan = MiniCentre + new Vector3(-(lp.x - W / 2) / S, 0, (lp.y - W / 2) / S); }
             mini.RegisterCallback<PointerDownEvent>(e => { mpid = e.pointerId; mini.CapturePointer(mpid); PanTo(e.localPosition); e.StopPropagation(); });
             mini.RegisterCallback<PointerMoveEvent>(e => { if (e.pointerId == mpid) PanTo(e.localPosition); });
             System.Action<IPointerEvent> mup = e => { if (e.pointerId != mpid) return; if (mini.HasPointerCapture(mpid)) mini.ReleasePointer(mpid); mpid = -1; Pan = null; };
@@ -1461,12 +1471,19 @@ namespace NovaBlade
         }
         void DrawMini(MeshGenerationContext ctx)
         {
-            if (G == null || G.hero == null) return; var p = ctx.painter2D; float W = mini.resolvedStyle.width; if (float.IsNaN(W)) return; float S = W / 2 / ((G.lane ? Lane.HalfL : G.ArenaRadius) + 3); var c = new Vector2(W / 2, W / 2);
-            Vector2 M(Vector3 w) => c + new Vector2(-w.x, w.z) * S;   // screen-right is world -X
+            if (G == null || G.hero == null) return; var p = ctx.painter2D; float W = mini.resolvedStyle.width; if (float.IsNaN(W)) return; float S = W / 2 / ((G.lane ? (Lane.Lanes == 2 ? SkyMiniR : Lane.HalfL) : G.ArenaRadius) + 3); var c = new Vector2(W / 2, W / 2); var mc = MiniCentre;
+            Vector2 M(Vector3 w) => c + new Vector2(-(w.x - mc.x), w.z - mc.z) * S;   // screen-right is world -X
             void Dot(Vector2 at, float r, Color col) { p.fillColor = new Color(0, 0, 0, .75f); p.BeginPath(); p.Arc(at, r + 2, 0, 360); p.Fill(); p.fillColor = col; p.BeginPath(); p.Arc(at, r, 0, 360); p.Fill(); }
             p.fillColor = new Color(.1f, .22f, .17f, .9f); p.BeginPath(); p.Arc(c, W * .47f, 0, 360); p.Fill();
             p.strokeColor = new Color(1, .85f, .55f, .07f); p.lineWidth = 1; for (int g = 1; g < 4; g++) { float q = W * g / 4; p.BeginPath(); p.MoveTo(new Vector2(q, 0)); p.LineTo(new Vector2(q, W)); p.Stroke(); p.BeginPath(); p.MoveTo(new Vector2(0, q)); p.LineTo(new Vector2(W, q)); p.Stroke(); }
-            if (G.lane && Lane.Lanes == 3)
+            if (G.lane && Lane.Lanes == 2)
+            {   // Sky Lanes: the two bases, the jungle, the straight lane and the curved one
+                p.fillColor = new Color(.6f, .45f, .28f, .4f); foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { p.BeginPath(); p.Arc(M(new Vector3(b.x, 0, b.y)), SkyLanes.BaseR * S, 0, 360); p.Fill(); }
+                p.fillColor = new Color(.15f, .4f, .2f, .6f); p.BeginPath(); p.Arc(M(new Vector3(SkyLanes.Jungle.x, 0, SkyLanes.Jungle.y)), SkyLanes.JungleR * S, 0, 360); p.Fill();
+                p.strokeColor = new Color(.7f, .55f, .32f, .55f); p.lineWidth = SkyLanes.LaneHalf * 2 * S; p.lineJoin = LineJoin.Round; p.lineCap = LineCap.Round;
+                foreach (var path in SkyLanes.Paths) { p.BeginPath(); p.MoveTo(M(new Vector3(path[0].x, 0, path[0].y))); for (int k = 1; k < path.Length; k++) p.LineTo(M(new Vector3(path[k].x, 0, path[k].y))); p.Stroke(); }
+            }
+            else if (G.lane && Lane.Lanes == 3)
             {   // three lane strips that meet at both bases, a river across the middle
                 p.strokeColor = new Color(.7f, .55f, .32f, .55f); p.lineWidth = 5.5f * S; p.lineJoin = LineJoin.Round;
                 foreach (float x in Lane.LaneX3) { p.BeginPath(); p.MoveTo(M(new Vector3(0, 0, -Lane.CoreZ))); p.LineTo(M(new Vector3(x, 0, -30))); p.LineTo(M(new Vector3(x, 0, 30))); p.LineTo(M(new Vector3(0, 0, Lane.CoreZ))); p.Stroke(); }

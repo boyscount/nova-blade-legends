@@ -116,7 +116,7 @@ namespace NovaBlade
         }
         void TurnTime(bool night)
         {
-            foreach (var a in areas) foreach (var s in a.slots) if (s.foe && s.foe.alive) Strengthen(s.foe, night ? NightFoePower : 1 / NightFoePower);
+            if (areas != null) foreach (var a in areas) foreach (var s in a.slots) if (s.foe && s.foe.alive) Strengthen(s.foe, night ? NightFoePower : 1 / NightFoePower);   // none when the duel came from the city
             DuelsTurn(night);
             if (G.wilds) G.ui.Banner(night ? Loc.S("ค่ำแล้ว", "Night falls") : Loc.S("เช้าแล้ว", "Dawn"), night ? Loc.S("ศัตรูแรงขึ้น ทองเพิ่ม 50% สะพานหลักพัง", "Stronger foes, +50% gold, the main bridge is down") : Loc.S("ศัตรูกลับเป็นปกติ สะพานใช้ได้แล้ว", "Foes calm down, the bridge is back"));
         }

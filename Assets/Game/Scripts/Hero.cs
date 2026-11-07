@@ -152,7 +152,7 @@ namespace NovaBlade
         public void RefreshGear() { float share = max > 0 ? hp / max : 1; max = BaseHp + Items.Bonus(G.save).hp; if (!dead) hp = Mathf.Clamp(max * share, 1, max); }
         public void ResetForGame()
         {
-            mp = mpMax; offActive = false; swapCD = 0; G.runLoot.Clear(); G.runXp = 0;
+            StopWalk(); mp = mpMax; offActive = false; swapCD = 0; G.runLoot.Clear(); G.runXp = 0;
             transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
             buffT = shieldT = dodgeCD = orbAtkT = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
             if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
@@ -175,6 +175,7 @@ namespace NovaBlade
 
         // ---------- input ----------
         Vector3? clickGoal; ITarget clickFoe;   // web on a PC: right-click destination / target
+        public void StopWalk() { clickGoal = null; clickFoe = null; }   // moved to another place: the old right-click goal belongs to the old place
         Vector2 Move()
         {
             if (G.city && G.ui.CityPanelOpen) return Vector2.zero;
