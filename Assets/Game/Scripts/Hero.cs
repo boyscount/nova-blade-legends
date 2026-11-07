@@ -257,6 +257,7 @@ namespace NovaBlade
         public void UsePotion()
         {
             if (dead || potCD > 0 || G.save.potions <= 0 || G.mode != Main.Mode.Game) return;
+            if (G.sky) { if (G.duelPotions <= 0) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("ยาในศึกหมดแล้ว", "No potions left this duel"), "hurt"); return; } G.duelPotions--; G.Number(Pos + Vector3.up * 2.6f, Loc.S($"ยาเหลือ {G.duelPotions}", $"{G.duelPotions} left"), "heal"); }   // a duel allows a few
             G.save.potions--; potCD = 3; Heal(max * .35f); Fx.Burst(Pos + Vector3.up, 26, new Color(1, .35f, .4f), 4); Fx.Spawn("mx_heal_circle", Pos + Vector3.up * .05f, .8f, 1.2f); G.Persist();
         }
         // off-hand: a second owned weapon swapped in mid-fight (X on PC, the swap button on phones); a short cooldown
@@ -312,7 +313,7 @@ namespace NovaBlade
             Play("death", .1f, 1.1f, 1.4f); Fx.Dust(Pos, .9f, 12);
             if (G.lane) Invoke(nameof(Respawn), 6f); else Invoke(nameof(Lose), 2.6f);
         }
-        void Lose() { if (G.mode != Main.Mode.Game) return; if (G.wilds || G.house) G.FallInZone(); else G.Finish(false); }
+        void Lose() { if (G.mode != Main.Mode.Game) return; if (G.wilds || G.house || G.sky) G.FallInZone(); else G.Finish(false); }
         // lane mode: back at our base after a short wait
         void Respawn()
         {
@@ -377,6 +378,10 @@ namespace NovaBlade
             if (dead || G.mode != Main.Mode.Game) { ui.ConsumeInputs(); return; }
             if (G.soul && soul)
             {   // Soulslike mode: the SoulController drives movement, actions and animation
+                if (G.sky && (ui.potP || (Keyboard.current?.hKey.wasPressedThisFrame ?? false)))
+                {   // potions in a duel: a few, counted
+                    ui.potP = false; UsePotion();
+                }
                 soul.Tick(dt);
                 trail.on = def.blade && soul.act is SoulController.Act.Light or SoulController.Act.Heavy or SoulController.Act.Counter or SoulController.Act.Finisher or SoulController.Act.Kick;
                 var sp = transform.position; sp.y = Mathf.Lerp(sp.y, River.Ground(sp.x, sp.z), Mathf.Min(1, dt * 12)); transform.position = sp;

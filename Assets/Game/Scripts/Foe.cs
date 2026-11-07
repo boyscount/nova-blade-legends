@@ -29,7 +29,7 @@ namespace NovaBlade
         public void Init(FoeDef def, Vector3 p, BossDef boss, int team = 1)
         {
             d = def; bd = boss; isBoss = boss != null; this.team = team;
-            if (isBoss) d = new FoeDef { id = "boss", model = boss.model, name = boss.name, hp = boss.hp, spd = 2.6f, dmg = 150, range = 4.5f, kind = "boss", scale = boss.scale, rad = 1, gold = 0, fly = boss.fly };
+            if (isBoss) d = new FoeDef { id = "boss", model = boss.model, name = boss.name, hp = boss.hp, spd = boss.spd > 0 ? boss.spd : 2.6f, dmg = boss.dmg > 0 ? boss.dmg : 150, range = 4.5f, kind = "boss", scale = boss.scale, rad = boss.model.StartsWith("hero_") ? .6f : 1, gold = 0, fly = boss.fly };
             transform.position = p;
             GameObject go;
             if (d.model.StartsWith("@")) go = Lane.Model(d.model, team, transform);
@@ -61,7 +61,7 @@ namespace NovaBlade
             else if (anim || d.kind == "tower") look.Set(Color.white, new Color(.2f, .02f, .01f));
             else look.Set(new Color(1, .76f, .72f), new Color(.25f, .02f, .01f));
             float sc = G.lane ? 1 : 1 + (G.stage - 1) * (isBoss ? .3f : .35f); hp = maxHp = d.hp * sc;
-            poiseMax = isBoss ? 320 : d.kind == "tower" ? 1e9f : Mathf.Max(40, d.hp * .35f);
+            poiseMax = isBoss ? (boss.poise > 0 ? boss.poise : 320) : d.kind == "tower" ? 1e9f : Mathf.Max(40, d.hp * .35f);
             y = d.fly ? 1.1f : 0; atkCD = Random.Range(.5f, 1.5f); t = Random.Range(0, 10f);
             st = isBoss ? 1.2f : .7f; transform.localScale = Vector3.one * .01f;
             if (isBoss) Fx.Ring(p, 4, boss.color * .6f, 1.2f, .12f); else if (G.lane) Fx.Ring(p, 1.8f, Lane.TeamColor(team) / 2.2f, .7f);
@@ -100,9 +100,20 @@ namespace NovaBlade
         {
             aggro = true;
             if (!alive) return; o ??= new Main.Hit(); var hero = G.hero; var sw = o.byFoe ? new SwordDef { color = o.col ?? Color.white } : hero.sword;
+            if (evading && !o.byFoe) { G.Number(Pos + Vector3.up * (y + h), Loc.S("หลบ", "Miss"), ""); return; }
+            if (isBoss && !o.byFoe && bossMode == "chase" && stag <= 0 && brokenT <= 0 && bd.near != null && System.Array.IndexOf(bd.near, "sidestep") >= 0 && Random.value < SidestepChance)
+            {   // a duellist reads the swing and steps out of it
+                StartMove("sidestep", 0, face, raged ? .7f : 1); G.Number(Pos + Vector3.up * (y + h), Loc.S("หลบ", "Miss"), ""); return;
+            }
+            float poiseK = 1;
+            if (guarding && !o.byFoe && Mathf.Abs(Main.AngDiff(face, Main.Ang(Main.Flat(from - Pos)))) < 1.5f)
+            {   // a raised guard turns blows from the front aside and answers them; a kick or a counter breaks it
+                if (o.poise >= 25 || o.kb >= 5) { guarding = false; G.Number(Pos + Vector3.up * (y + h + .3f), Loc.S("ทำลายการ์ด!", "Guard broken!"), "crit"); Break(); }
+                else { dmg *= .1f; poiseK = .35f; Fx.Burst(Pos + Vector3.up * 1.3f + Main.Dir(face) * .5f, 12, Color.white, 4); G.Number(Pos + Vector3.up * (y + h), Loc.S("กัน!", "Blocked!"), ""); if (bossMode == "guard") Riposte(); }
+            }
             bool crit = Random.value < (o.byFoe ? .05f : (o.melee && sw.crit > 0 ? sw.crit : .12f) + hero.CritBonus);
             dmg = Mathf.Round(CombatRules.Current.ModifyDamage(dmg) * (crit ? 1.8f : 1) * (brokenT > 0 ? 1.3f : 1) * Random.Range(.9f, 1.1f)); hp -= dmg; flash = .12f;
-            if (o.poise > 0 && brokenT <= 0) { poise += CombatRules.Current.ModifyStun(o.poise); if (poise >= poiseMax) Break(); }
+            if (o.poise > 0 && brokenT <= 0) { poise += CombatRules.Current.ModifyStun(o.poise) * poiseK; if (poise >= poiseMax) Break(); }
             G.Number(Pos + Vector3.up * (y + h), dmg.ToString(), crit ? "crit" : "");
             if (o.melee && sw.slow) slow = 2; if (o.slow > 0) slow = Mathf.Max(slow, o.slow);
             if (o.melee && sw.burn != null) { burn = 3; burnD = dmg * .14f; burnC = sw.burn == "poison" ? new Color(.6f, 1, .35f) : new Color(1, .48f, .06f); }
@@ -130,19 +141,19 @@ namespace NovaBlade
             if (clipAnim) { cur = null; Play("Death"); }
             if (anim) { anim.SetFloat("Speed", 1.2f); anim.CrossFadeInFixedTime("death", .1f, 0, 1.4f); }
             G.OnFoeDown(this);
-            if (isBoss) { G.hitStop = .25f; G.shake = .6f; G.ui.HideBoss(); Invoke(nameof(Win), 2.2f); }
+            if (isBoss) { G.hitStop = .25f; G.shake = .6f; G.ui.HideBoss(); guarding = evading = false; if (body) body.gameObject.SetActive(true); Invoke(nameof(Win), 2.2f); }
         }
-        void Win() { G.Finish(true); }
+        void Win() { if (G.sky) G.Zone.DuelWon(this); else G.Finish(true); }
 
         public void Break()
         {
-            brokenT = 2.6f; stag = 2.6f; poise = 0; s = S.Chase; skillWind = false;
+            brokenT = 2.6f; stag = 2.6f; poise = 0; s = S.Chase; skillWind = false; if (isBoss) EndMove(1);
             G.Number(Pos + Vector3.up * (y + h + .3f), Loc.S("เสียหลัก!", "Staggered!"), "crit"); Fx.Ring(Pos, 2.4f, new Color(1, .8f, .3f), .5f);
             if (clipAnim) { cur = null; Play("HitRecieve", "HitReact"); }
             if (anim) { animState = null; anim.CrossFadeInFixedTime("hurt", .05f); }
         }
         // the player parried this attack: lose balance (and break if the meter fills)
-        public void Parried() { if (!alive) return; s = S.Rec; st = .6f; poise += poiseMax * .55f; if (poise >= poiseMax) Break(); else stag = Mathf.Max(stag, .7f); }
+        public void Parried() { if (!alive) return; if (isBoss) EndMove(1.1f); s = S.Rec; st = .6f; poise += poiseMax * .55f; if (poise >= poiseMax) Break(); else stag = Mathf.Max(stag, .7f); }
         public void EndBreak() { brokenT = 0; }
 
         // ---------- update ----------
@@ -245,7 +256,8 @@ namespace NovaBlade
             {
                 face += Main.AngDiff(face, want) * Mathf.Min(1, dt * 4);
                 if (dd > 3.2f && !hero.dead) { transform.position += Main.Dir(face) * sp * dt; moving = true; if (!bd.fly) y = Mathf.Abs(Mathf.Sin(t * 5)) * .25f; } else if (!bd.fly) y = 0;
-                if (bossMt <= 0 && !hero.dead)
+                if (bossMt <= 0 && !hero.dead && bd.near != null) StartMove(PickMove(dd), dd, want, wind);
+                else if (bossMt <= 0 && !hero.dead)
                 {
                     int adds = G.foes.Count(o => o && o.alive && !o.isBoss);
                     var pool = dd < 5 ? new[] { "sweep", "sweep", "souls", "dash" } : new[] { "souls", "dash", "sweep" };
@@ -274,7 +286,7 @@ namespace NovaBlade
                 st -= dt; y += .6f * (1 - Mathf.Max(0, st)) * dt * 3;
                 if (st <= 0)
                 {
-                    int n = raged ? 16 : 12; for (int r = 0; r < (raged ? 2 : 1); r++) for (int i = 0; i < n; i++) { float a = i / (float)n * Mathf.PI * 2 + r * .2f; Shot.Fire(Pos + Vector3.up * 1.2f, Main.Dir(a) * (6 + r * 2), 85, C, "shard", 3.5f, enemy: true); }
+                    int n = raged ? 16 : 12; for (int r = 0; r < (raged ? 2 : 1); r++) for (int i = 0; i < n; i++) { float a = i / (float)n * Mathf.PI * 2 + r * .2f; Shot.Fire(Pos + Vector3.up * 1.2f, Main.Dir(a) * (6 + r * 2), bd.hits > 0 ? d.dmg * .55f : 85, C, "shard", 3.5f, enemy: true); }
                     Fx.Ring(Pos, 3, C * .5f, .5f, .1f); Fx.Dust(Pos, 1.2f, 14); bossMode = "chase"; bossMt = Random.Range(1.4f, 2.4f) * wind;
                 }
             }
@@ -289,9 +301,99 @@ namespace NovaBlade
             }
             else if (bossMode == "summon")
             {
-                st -= dt; if (st <= 0) { for (int i = 0; i < 3; i++) { float a = Random.Range(0, Mathf.PI * 2); G.SpawnFoe(bd.summon, Pos + Main.Dir(a) * 2.5f); } bossMode = "chase"; bossMt = Random.Range(1.5f, 2.5f); }
+                st -= dt; if (st <= 0) { for (int i = 0; i < bd.summonN; i++) { float a = Random.Range(0, Mathf.PI * 2); G.SpawnFoe(bd.summon, G.Clamp(Pos + Main.Dir(a) * 2.5f, -1)); } bossMode = "chase"; bossMt = Random.Range(1.5f, 2.5f); }
             }
+            else moving = DuelMove(dt, to, dd, want, sp, wind);
             if (raged && Random.value < .4f) Fx.Burst(Pos + new Vector3(Random.Range(-.5f, .5f), Random.Range(.5f, 2.5f), Random.Range(-.5f, .5f)), 1, bd.rage * 3, 1, .6f, -.3f);
+            return moving;
+        }
+
+        // ---------- duel moves (open world duellists: BossDef.near / far) ----------
+        // every blow is shown first (a red cone or circle on the ground) and every move leaves an opening after it
+        bool guarding, evading; int side; Vector3 moveFrom, moveTo, moveDir;
+        const float SidestepChance = .2f, ComboReach = 2.9f, ComboHalf = .95f, LeapR = 2.8f, LeapH = 3.2f, LungeSpeed = 16, LungeMax = 10;
+        public string Move => bossMode;   // for the test log
+        string PickMove(float dd)
+        {
+            var pool = dd < 5 ? bd.near : bd.far ?? bd.near; int adds = G.foes.Count(o => o && o.alive && !o.isBoss);
+            for (int i = 0; i < 6; i++) { var m = pool[Random.Range(0, pool.Length)]; if (m == "summon" && (bd.summon == null || adds >= bd.summonN)) continue; if (m == "guard" && dd > 4) continue; return m; }
+            return dd < 5 ? "combo" : "lunge";
+        }
+        // the clip's strike lands 'lead' seconds from now
+        void Act(string clip, float lead, float speed = 1)
+        {
+            if (!anim) { if (clip != "roll" && clip != "blockidle") PlayAttack(); return; }
+            animState = null; anim.SetFloat("Speed", speed); var c = Catalog.I.Clip(animSet, clip); anim.CrossFadeInFixedTime(clip, .06f, 0, Mathf.Max(0, c.hit - lead * speed));
+        }
+        void EndMove(float wait)
+        {
+            guarding = evading = false; bossMode = "chase"; bossMt = wait; bossStage = 0; if (body) body.gameObject.SetActive(true); if (body && !anim) body.localRotation = Quaternion.identity; if (!bd.fly) y = 0;
+        }
+        void StartMove(string m, float dd, float want, float wind)
+        {
+            bossMode = m; bossStage = 0; var hero = G.hero; face = m == "sidestep" ? face : want;
+            switch (m)
+            {
+                case "combo": st = .6f * wind; ComboTell(); break;
+                case "leap": moveFrom = Pos; moveTo = G.Clamp(Main.Flat(hero.Pos), -1); st = 1.05f * wind; Fx.Telegraph(moveTo, LeapR, st); Act("heavy", st); break;
+                case "guard": guarding = true; st = Random.Range(1.3f, 1.9f); side = Random.value < .5f ? -1 : 1; Act("blockidle", 0); Fx.Ring(Pos, 1.6f, Color.white * .6f, .4f); break;
+                case "sidestep": evading = true; st = .42f; side = Random.value < .5f ? -1 : 1; moveDir = Main.Dir(face + side * 1.9f); if (anim) { animState = null; anim.SetFloat("Speed", 2.2f); anim.CrossFadeInFixedTime("roll", .04f, 0, .93f); } break;
+                case "lunge": st = .5f * wind; float r = Mathf.Min(dd + 1.6f, LungeMax); Fx.Telegraph(Pos, r, st + .2f, face, .22f); Act("atk1", st + .2f); break;
+                case "sweep": Act("heavy", wind); Fx.Telegraph(Pos, 5, wind, face, 1.1f); st = wind; break;
+                case "souls": st = .9f * wind; Fx.Ring(Pos, 2.5f, bd.color, .9f); Act("cast2", st); break;
+                case "dash": st = .45f; Fx.Burst(Pos + Vector3.up * 1.4f, 40, bd.color, 4, .6f, -.2f); Act("roll", 0); break;
+                case "summon": st = 1; Fx.Burst(Pos + Vector3.up * 2.5f, 40, bd.color, 4, .7f, -.4f); Act("cast2", st); break;
+            }
+        }
+        void ComboTell() { Fx.Telegraph(Pos, ComboReach + .4f, st, face, ComboHalf); Act("atk" + bossStage % 3, st, 1.3f); }
+        // struck while guarding: an answer comes back quickly; parry it or roll
+        void Riposte()
+        {
+            guarding = false; bossMode = "riposte"; st = raged ? .26f : .32f; face = Main.Ang(G.hero.Pos - Pos);
+            Fx.Telegraph(Pos, ComboReach + .3f, st, face, ComboHalf); Act("atk2", st, 1.4f); Fx.Burst(Pos + Vector3.up * 1.5f, 10, new Color(1, .9f, .5f), 3);
+        }
+        bool Strikes(float dd, Vector3 to, float reach, float half) => dd < reach && Mathf.Abs(Main.AngDiff(face, Main.Ang(to))) < half;
+        bool DuelMove(float dt, Vector3 to, float dd, float want, float sp, float wind)
+        {
+            var hero = G.hero; bool moving = false; st -= dt;
+            switch (bossMode)
+            {
+                case "combo":
+                    if (st > .12f) face += Main.AngDiff(face, want) * Mathf.Min(1, dt * 5);
+                    if (dd > 1.4f) { transform.position += Main.Dir(face) * sp * .9f * dt; moving = true; }
+                    if (st > 0) break;
+                    bool last = bossStage == 2; if (Strikes(dd, to, ComboReach, ComboHalf)) hero.Hurt(d.dmg * (last ? .8f : .5f), Pos);
+                    Fx.SlashFx(last ? "sx_double" : "sx_basic", Pos + Vector3.up * 1.1f + Main.Dir(face) * 1.4f, face, last ? 1.4f : 1.1f, bossStage == 1 ? 180 : 0);
+                    if (++bossStage >= 3) EndMove(Random.Range(1.1f, 1.9f) * wind); else { st = (bossStage == 2 ? .62f : .38f) * wind; ComboTell(); }   // the third blow waits a beat longer: rolling early gets caught
+                    break;
+                case "leap":
+                    float air = .55f * wind;
+                    if (st < air) { float k = 1 - Mathf.Max(0, st) / air; var p = Vector3.Lerp(moveFrom, moveTo, k); transform.position = new Vector3(p.x, transform.position.y, p.z); y = Mathf.Sin(k * Mathf.PI) * LeapH; }
+                    if (st > 0) break;
+                    y = 0; if (Main.Flat(hero.Pos - moveTo).magnitude < LeapR + .3f) hero.Hurt(d.dmg * 1.1f, moveTo);
+                    Fx.Spawn("ground_hit", moveTo, 1.6f, 2); Fx.Ring(moveTo, LeapR + .4f, bd.color, .5f, .25f); Fx.Dust(moveTo, 1.5f, 20); G.shake = Mathf.Max(G.shake, .35f);
+                    EndMove(Random.Range(1.4f, 2.1f) * wind); break;
+                case "guard":
+                    face += Main.AngDiff(face, want) * Mathf.Min(1, dt * 8);
+                    transform.position += Main.Dir(face + side * Mathf.PI / 2) * 1.3f * dt;
+                    if (st <= 0) { guarding = false; if (dd < 3.5f) StartMove("combo", dd, want, wind); else EndMove(.5f); }
+                    break;
+                case "riposte":
+                    if (st > 0) break;
+                    if (Strikes(dd, to, ComboReach + .2f, ComboHalf)) hero.Hurt(d.dmg * .8f, Pos);
+                    Fx.SlashFx("sx_shiny", Pos + Vector3.up * 1.1f + Main.Dir(face) * 1.4f, face, 1.3f); EndMove(Random.Range(1f, 1.6f) * wind); break;
+                case "sidestep":
+                    transform.position += moveDir * 7.5f * Mathf.Clamp01(st / .42f + .2f) * dt;
+                    if (st <= 0) { evading = false; if (dd < 4.5f && Random.value < .6f) StartMove("combo", dd, want, wind); else EndMove(.4f); }
+                    break;
+                case "lunge":
+                    if (bossStage == 0) { if (st > .1f) face += Main.AngDiff(face, want) * Mathf.Min(1, dt * 6); if (st <= 0) { bossStage = 1; st = .32f; } break; }
+                    transform.position += Main.Dir(face) * LungeSpeed * dt; moving = true; Fx.Burst(Pos + Vector3.up, 1, bd.color, 1, .3f, 0);
+                    if (st > 0 && dd > 1.1f) break;
+                    if (Strikes(dd, to, 2.4f, .8f)) hero.Hurt(d.dmg * .9f, Pos);
+                    Fx.SlashFx("sx_basic", Pos + Vector3.up * 1.1f + Main.Dir(face) * 1.2f, face, 1.2f); EndMove(Random.Range(1.2f, 1.8f) * wind); break;
+                default: EndMove(1); break;
+            }
             return moving;
         }
     }

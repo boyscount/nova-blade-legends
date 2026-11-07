@@ -1473,7 +1473,7 @@ namespace NovaBlade
                 p.strokeColor = new Color(.3f, .6f, .9f, .5f); p.lineWidth = 3 * S; p.BeginPath(); p.MoveTo(M(new Vector3(-Lane.HalfW, 0, 0))); p.LineTo(M(new Vector3(Lane.HalfW, 0, 0))); p.Stroke();
             }
             else if (G.lane) { p.fillColor = new Color(.6f, .45f, .28f, .35f); p.BeginPath(); var a0 = M(new Vector3(Lane.HalfW, 0, -Lane.HalfL)); var a1 = M(new Vector3(-Lane.HalfW, 0, Lane.HalfL)); p.MoveTo(a0); p.LineTo(new Vector2(a1.x, a0.y)); p.LineTo(a1); p.LineTo(new Vector2(a0.x, a1.y)); p.ClosePath(); p.Fill(); }
-            else if (!G.house) { p.strokeColor = new Color(.85f, .68f, .4f, .8f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
+            else if (!G.house && !G.sky) { p.strokeColor = new Color(.85f, .68f, .4f, .8f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
             foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower"; Dot(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5.5f, f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : Red); }
             if (G.wilds) Dot(M(OpenWorld.Gate), 6, new Color(1, .55f, .8f));   // the way back to the city
             Dot(M(G.pet.Pos), 4, new Color(1, .88f, .54f));
@@ -1497,7 +1497,7 @@ namespace NovaBlade
                 for (int i = 0; i < 3; i++) { var info = (SkBtn)sk[i + 1].userData; info.id = ids[i]; info.cd = 0; info.c = i == 1 ? Cyan : Gold; sk[i + 1].Q<Label>("lb").text = names[i]; sk[i + 1].Q<Label>("cd").text = ""; SetIcon(i + 1, new[] { "btn_souls_heavy", "btn_souls_guard", "btn_souls_lock" }[i]); }
             }
             stamBar.style.display = G.soul ? DisplayStyle.Flex : DisplayStyle.None; lookZone.style.display = G.soul ? DisplayStyle.Flex : DisplayStyle.None;
-            if (hint != null) hint.text = G.soul ? Loc.S("WASD เดิน · เมาส์หมุนกล้อง · คลิกซ้าย เบา · คลิกขวา หนัก · Q ป้องกัน/ปัดป้อง · Space หลบ · Tab ล็อกเป้า", "WASD move · Mouse turns camera · Left-click light · Right-click heavy · Q block/parry · Space dodge · Tab lock-on") : WebPc ? Loc.S("คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ", "Right-click move/attack · Left-click/A attack · Q W E skills · R/Space dodge") : Loc.S("WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", "WASD move · J/click attack · U I O skills · Space dodge");
+            if (hint != null) hint.text = G.soul ? Loc.S("WASD เดิน · เมาส์หมุนกล้อง · คลิกซ้าย/J เบา · คลิกขวา/U หนัก · Q/I ค้างไว้ ป้องกัน (กดตรงจังหวะ = ปัดป้อง) · ป้องกัน+หนัก = เตะทำลายการ์ด · Space หลบ · Tab/O ล็อกเป้า · H ยา", "WASD move · Mouse turns camera · Left-click/J light · Right-click/U heavy · Hold Q/I block (on time = parry) · Block+heavy = guard-breaking kick · Space dodge · Tab/O lock-on · H potion") : WebPc ? Loc.S("คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ", "Right-click move/attack · Left-click/A attack · Q W E skills · R/Space dodge") : Loc.S("WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", "WASD move · J/click attack · U I O skills · Space dodge");
             ((SkBtn)sk[0].userData).c = G.hero.sword.color; ((SkBtn)sk[4].userData).c = new Color(.62f, .9f, 1);
             Joy = Vector2.zero; ConsumeInputs(); JoyHome();
         }
@@ -1633,6 +1633,7 @@ namespace NovaBlade
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;
             if (G.city) SetPlate(Loc.S("สวนซากุระ", "SAKURA GARDEN"), Loc.S("เมืองหลัก", "MAIN CITY"), "");   // once here: writing it from two places each frame locked the game up
+            else if (G.sky) SetPlate(Loc.S("ลานฟ้า", "SKY COURT"), Loc.S("ศึกตัวต่อตัว", "DUEL"), G.boss && G.boss.alive ? G.boss.d.name : Loc.S("เดินเข้าประตูมิติเพื่อกลับ", "Walk into the portal to return"));
             else if (G.house) SetPlate(G.Zone.InCave ? Loc.S("ถ้ำลับ", "SECRET CAVE") : Loc.S("บ้านร้าง", "ABANDONED HOUSE"), Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), left > 0 ? (Loc.En ? $"ENEMIES: {left}" : $"ศัตรู: {left}") : "");
             else if (G.wilds) SetPlate(Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), G.Zone.TimeLabel, left > 0 ? (Loc.En ? $"ENEMIES NEAR: {left}" : $"ศัตรูใกล้: {left}") : "");
             else if (G.lane)

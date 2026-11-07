@@ -23,9 +23,10 @@ namespace NovaBlade
             ui.ShowHud();
         }
         // Open World zone 1: free walking in a wider area, no waves; reached from the city gate
-        public bool wilds; OpenWorld wildsCtl; public OpenWorld Zone => wildsCtl; public bool ZoneNight => wilds && wildsCtl && wildsCtl.Clock.IsNight;
+        public bool wilds; OpenWorld wildsCtl; public OpenWorld Zone => wildsCtl; public bool ZoneNight => (wilds || sky) && wildsCtl && wildsCtl.Clock.IsNight;
+        public bool sky;   // the floating duel court reached through the hilltop portal (OpenWorld.Duels)
         public bool house; public bool HouseFought => house && !foes.Any(f => f && f.alive);   // inside the zone's house; its monsters are gone
-        public float ArenaRadius => house ? OpenWorld.RoomHalf + 1 : wilds ? OpenWorld.Radius : Data.ArenaR;
+        public float ArenaRadius => sky ? OpenWorld.SkyHalf + 1 : house ? OpenWorld.RoomHalf + 1 : wilds ? OpenWorld.Radius : Data.ArenaR;
         public Transform Stage(string name) => System.Array.Find(stageRoots, r => r && r.name == name);
         public void StartWilds()
         {
@@ -58,10 +59,47 @@ namespace NovaBlade
         }
         Color roomSunCol; float roomSunI;
         public void LeaveHouse() => BackToZone(wildsCtl.InCave ? wildsCtl.CaveDoor + new Vector3(0, 0, 1.5f) : wildsCtl.Door + new Vector3(0, 0, 1.5f));
-        void BackToZone(Vector3 at) { if (wildsCtl.InCave) { var sun = RenderSettings.sun; if (sun) { sun.color = roomSunCol; sun.intensity = roomSunI; } wildsCtl.InCave = false; } ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_wilds")); wilds = true; wildsCtl.ShowTime(true); MoveTo(at); }
+        public void BackToZone(Vector3 at) { SetSoul(false); wildsCtl.LeftSky(); if (wildsCtl.InCave) { var sun = RenderSettings.sun; if (sun) { sun.color = roomSunCol; sun.intensity = roomSunI; } wildsCtl.InCave = false; } ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_wilds")); wilds = true; wildsCtl.ShowTime(true); MoveTo(at); }
+        // the duel court: a stage of its own, the duellist across from the hero, the duel controls on
+        public void EnterSky(OpenWorld.Duelist duel, bool night)
+        {
+            ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_sky")); sky = true; MoveTo(OpenWorld.SkyStart); hero.face = Mathf.PI; hero.hp = hero.max;
+            var sun = RenderSettings.sun; if (sun) { if (!skySunKept) { skySunKept = true; skySunCol = sun.color; skySunI = sun.intensity; } sun.color = night ? SkyMoon : skySunCol; sun.intensity = night ? SkyMoonI : skySunI; }
+            if (night) { RenderSettings.fogColor = SkyNightFog; RenderSettings.ambientSkyColor = SkyNightAmb; RenderSettings.ambientEquatorColor = SkyNightAmb * .7f; RenderSettings.ambientGroundColor = SkyNightAmb * .3f; var sh = new UnityEngine.Rendering.SphericalHarmonicsL2(); sh.AddAmbientLight(SkyNightAmb * .7f); RenderSettings.ambientProbe = sh; if (cam) { cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = SkyNightFog; } }
+            var f = new GameObject("Boss").AddComponent<Foe>(); f.Init(null, OpenWorld.SkyFoe, duel.boss); foes.Add(f); boss = f; f.face = 0; float edge = DuelSync(f, duel.boss); duelPotions = DuelPotions;
+            if (night)
+            {   // stronger by night, and lit: a glow in its own colour and a light that goes with it, so it stands out of the dark
+                f.hp *= OpenWorld.NightFoePower; f.maxHp *= OpenWorld.NightFoePower; f.Spirit(duel.boss.color * .14f, new Color(1.35f, 1.35f, 1.45f));
+                var l = new GameObject("DuelLight").AddComponent<Light>(); l.transform.SetParent(f.transform, false); l.transform.localPosition = new Vector3(0, 2.4f, .6f); l.type = LightType.Point; l.color = Color.Lerp(duel.boss.color, Color.white, .5f); l.intensity = 2.4f; l.range = 7; l.shadows = LightShadows.None;
+            }
+            ui.ShowBoss(duel.boss.name); ui.Banner(duel.boss.name, duel.title + Loc.S($" · ดวลยุติธรรม: เลเวลและความชำนาญได้เปรียบ +{edge * 100:0}% · ยา {DuelPotions} ขวด", $" · Fair duel: level and mastery +{edge * 100:0}% · {DuelPotions} potions")); shake = .3f;
+        }
+        // A fair duel: the duellist is sized to the hero, so timing decides and not gear. Its health is so many of the hero's light blows, its blows
+        // take so many of the hero's health (after armour and shield); weapons differ in speed and reach, not power. Level and weapon
+        // mastery still count, for at most a 15% edge (shorter fights, lighter hits). The pet watches, the potions are counted.
+        public const int DuelPotions = 2; public int duelPotions;
+        public float DuelEdge => Mathf.Clamp01((hero.Level - 1) / (float)(Data.MaxLevel - 1)) * .1f + hero.MasteryTier / 4f * .05f;
+        float DuelSync(Foe f, BossDef b)
+        {
+            if (b.hits <= 0) return 0; hero.orbAtkT = hero.buffT = 0;   // every duel starts clean: no picked-up fury
+            float edge = DuelEdge, guard = Mathf.Max(.4f, 1 - Items.Bonus(save).def) * (hero.ShieldOn != null ? 1 - hero.ShieldOn.block : 1);
+            f.hp = f.maxHp = b.hits * hero.AtkPow / (1 + edge); f.d.dmg = hero.max / b.takes / guard / (1 + edge);
+            return edge;
+        }
+        bool skySunKept; Color skySunCol; float skySunI;
+        static readonly Color SkyMoon = new(.66f, .75f, 1f), SkyNightFog = new(.06f, .09f, .17f), SkyNightAmb = new(.46f, .5f, .68f); const float SkyMoonI = 1.9f;   // a bright moon: the duel has to stay readable
+        // the duel controls (third-person camera, block, parry, stamina) on or off in the middle of a visit
+        public void SetSoul(bool on)
+        {
+            if (soul == on) return; soul = on; hero.state = Hero.St.Idle;
+            if (on) { if (!hero.soul) hero.soul = hero.gameObject.AddComponent<SoulController>(); hero.soul.Begin(hero); hero.soul.yaw = hero.face; camPos = hero.Pos + new Vector3(0, 3, 6); }
+            else if (hero.soul) hero.soul.End();
+            ui.ShowHud(); if (boss && boss.alive) ui.ShowBoss(boss.d.name);
+        }
         // fallen in the zone: wake at its gate, a fifth of this trip's gold lost
         public void FallInZone()
         {
+            SetSoul(false);
             int lost = Mathf.RoundToInt(gold * .2f); gold -= lost; banked = Mathf.Min(banked, gold);
             hero.ResetForGame(); pet.ResetForGame(); BackToZone(OpenWorld.Start);
             ui.Banner(Loc.S("พ่ายแพ้", "You fell"), lost > 0 ? Loc.S($"เสียทอง {lost}", $"Lost {lost} gold") : "");
@@ -91,6 +129,7 @@ namespace NovaBlade
         public class Save
         {
             public string caveDay = "";   // the local date the secret cave's chest was last opened
+            public string legendDay = "";   // the local date the lurking legend of the zone was beaten (once per day)
             public string hero = "warrior", sword = "w_lava", pet = "candle"; public int gold, best, stage = 1; public List<string> skinKeys = new(); public List<int> skinVals = new();
             public int gems = Shop.TestGems;                       // test-only premium currency (no real payments yet)
             public List<string> owned = new(), ledger = new();     // ownership and purchase history, kept apart from what is equipped
@@ -180,6 +219,7 @@ namespace NovaBlade
             int cw = System.Array.IndexOf(args, "-crowdtest"); if (cw >= 0 && cw + 1 < args.Length) StartCoroutine(CrowdTest(args[cw + 1]));
             int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
             int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
+            int dlt = System.Array.IndexOf(args, "-duelstest"); if (dlt >= 0 && dlt + 1 < args.Length) StartCoroutine(DuelsTest(args[dlt + 1]));
             int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
             int cl = System.Array.IndexOf(args, "-classlook"); if (cl >= 0 && cl + 1 < args.Length) StartCoroutine(ClassLook(args[cl + 1]));
             int wc = System.Array.IndexOf(args, "-weaponcards"); if (wc >= 0 && wc + 1 < args.Length) StartCoroutine(WeaponCardsTest(args[wc + 1]));
@@ -743,6 +783,60 @@ namespace NovaBlade
             save = JsonUtility.FromJson<Save>(keep); Persist();
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "cave.txt"), log.ToString()); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
         }
+        // Test mode (-duelstest <dir>): the hilltop portal, each duel on the Sky Court (moves seen, guard and sidestep against swings), winning
+        // and its rewards, the merchant, the wanderer gone after his loss, the legend's hint and ambush by night, losing a duel. Leaves the save as it found it.
+        System.Collections.IEnumerator DuelsTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.hero = "warrior"; hero.Equip(); var keep = JsonUtility.ToJson(save); save.legendDay = "";
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            var useDuel = typeof(OpenWorld).GetMethod("UseDuel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            System.Collections.IEnumerator Watch(string tag, float secs, bool swing)
+            {   // the hero cannot fall; logs every move the duellist makes, and the frame time
+                hero.max = hero.hp = 999999; var seen = new Dictionary<string, int>(); string last = null; float ms = 0; int frames = 0, shot = 0, blocked = 0, missed = 0; float swingT = 0;
+                for (float t = 0; t < secs; t += Time.unscaledDeltaTime)
+                {
+                    var b = boss; if (b && b.alive && b.Move != last) { last = b.Move; seen[last] = seen.TryGetValue(last, out var k) ? k + 1 : 1; }
+                    if (swing && b && b.alive && t > swingT) { swingT = t + .45f; float hpWas = b.hp; b.Damage(40, hero.Pos, new Hit { melee = true, poise = 12, face = hero.face }); if (b.hp >= hpWas - 1) missed++; else if (b.hp > hpWas - 30) blocked++; }
+                    if (b && b.alive) { var to = Flat(hero.Pos - b.Pos); if (to.magnitude > 4) hero.transform.position -= to.normalized * Time.deltaTime * 3; }   // stay close: the hero walks toward it
+                    ms += Time.unscaledDeltaTime * 1000; frames++;
+                    if (t > shot * secs / 3 + 1.5f && shot < 3) Snap($"{tag}_{shot++}");
+                    yield return null;
+                }
+                log.AppendLine($"{tag}: moves {string.Join(" ", seen.Select(kv => kv.Key + "x" + kv.Value))} · swings blocked {blocked} missed {missed} · avg frame {ms / Mathf.Max(1, frames):0.0} ms · boss hp {(boss ? boss.hp : 0):0}/{(boss ? boss.maxHp : 0):0}");
+            }
+            string Sync() => boss ? $"sync: hero Lv{hero.Level} atk {hero.AtkPow:0} hp {hero.max:0} edge +{DuelEdge * 100:0}% · {boss.d.name} hp {boss.maxHp:0} = {boss.maxHp / hero.AtkPow:0.0} light blows, full hit {boss.d.dmg:0} = {hero.max / boss.d.dmg:0.0} to fall (before armour)" : "sync: no boss";
+            System.Collections.IEnumerator Fell()
+            {
+                var b = boss; for (float t = 0; t < 4 && b && b.alive; t += .1f) { b.Damage(1e7f, b.Pos + Vector3.forward); yield return new WaitForSecondsRealtime(.1f); }
+                yield return new WaitForSecondsRealtime(3); hero.RefreshGear(); hero.hp = hero.max;   // the test's endless health goes back to the real one
+            }
+            StartCity(); yield return new WaitForSecondsRealtime(1); StartWilds(); yield return new WaitForSecondsRealtime(1.5f); var z = wildsCtl; z.Clock.t = 30;
+            MoveTo(z.HillTop + new Vector3(0, 0, 4)); yield return new WaitForSecondsRealtime(2.5f); Snap("hill_portal"); MoveTo(z.HillTop + new Vector3(0, 0, 2)); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"hill: elite here {z.EliteHere} prompt {ui.CityPromptShown}");
+            useDuel.Invoke(z, new object[] { "portal" }); yield return new WaitForSecondsRealtime(2); Snap("sky_elite"); log.AppendLine(Sync()); log.AppendLine($"elite: sky {sky} soul {soul} boss {(boss ? boss.d.name : "none")} hp {(boss ? boss.maxHp : 0):0} hero at {hero.Pos}");
+            yield return Watch("elite", 14, false);
+            yield return Fell(); Snap("sky_won"); log.AppendLine($"elite won: fighting {z.Fighting} soul {soul} boss {(boss ? "left" : "none")}");
+            MoveTo(OpenWorld.SkyExit + new Vector3(0, 0, -2)); yield return new WaitForSecondsRealtime(1); Snap("sky_exit"); log.AppendLine($"exit prompt {ui.CityPromptShown}");
+            useDuel.Invoke(z, new object[] { "sky_exit" }); yield return new WaitForSecondsRealtime(2.5f); Snap("hill_merchant"); log.AppendLine($"back: wilds {wilds} sky {sky} soul {soul} at {hero.Pos} · elite here {z.EliteHere} merchant {z.MerchantHere}");
+            MoveTo(z.RisePos + new Vector3(0, 0, 3.5f)); yield return new WaitForSecondsRealtime(2); Snap("wanderer"); MoveTo(z.RisePos + new Vector3(0, 0, 2)); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"rise: wanderer {z.WandererHere} prompt {ui.CityPromptShown}");
+            int matsWas = save.mats[2]; useDuel.Invoke(z, new object[] { "wanderer" }); yield return new WaitForSecondsRealtime(1.5f); log.AppendLine(Sync()); log.AppendLine($"wanderer: {(boss ? boss.d.name : "none")} hp {(boss ? boss.maxHp : 0):0}");
+            yield return Watch("wanderer", 14, true);
+            yield return Fell(); log.AppendLine($"wanderer won: rare stones {matsWas} -> {save.mats[2]}"); useDuel.Invoke(z, new object[] { "sky_exit" }); yield return new WaitForSecondsRealtime(1.5f); log.AppendLine($"after: wanderer still here {z.WandererHere}");
+            z.Clock.t = WorldClock.DayLen + 5; yield return new WaitForSecondsRealtime(2); log.AppendLine($"night {z.Clock.IsNight} lurk at {z.LurkAt} wanderer {z.WandererHere}");
+            MoveTo(z.LurkAt + new Vector3(0, 0, 14)); yield return new WaitForSecondsRealtime(2.5f); Snap("lurk_hint");
+            int ownedWas = save.owned.Count; MoveTo(z.LurkAt + new Vector3(0, 0, 4)); yield return new WaitForSecondsRealtime(.4f); Snap("ambush"); yield return new WaitForSecondsRealtime(2.5f); Snap("sky_legend"); log.AppendLine(Sync()); log.AppendLine($"ambush: sky {sky} fighting {z.Fighting} boss {(boss ? boss.d.name : "none")} hp {(boss ? boss.maxHp : 0):0}");
+            yield return Watch("legend", 14, true);
+            yield return Fell(); log.AppendLine($"legend won: weapons {ownedWas} -> {save.owned.Count} ({(save.owned.Count > ownedWas ? save.owned[save.owned.Count - 1] : "")}) day {save.legendDay} taken {z.LegendTaken}");
+            useDuel.Invoke(z, new object[] { "sky_exit" }); yield return new WaitForSecondsRealtime(1.5f);
+            {   // the same duel for a level 1 hero: the fight should be about as long
+                int xi = save.xpKeys.IndexOf(hero.def.id); int xpWas = xi >= 0 ? save.xpVals[xi] : 0; if (xi >= 0) save.xpVals[xi] = 0; hero.RefreshGear(); hero.hp = hero.max;
+                z.EnterDuel(OpenWorld.Elite, z.HillTop); yield return new WaitForSecondsRealtime(1); log.AppendLine("level 1 " + Sync());
+                if (xi >= 0) save.xpVals[xi] = xpWas; hero.RefreshGear(); useDuel.Invoke(z, new object[] { "sky_exit" }); BackToZone(z.HillTop); yield return new WaitForSecondsRealtime(1);
+            }
+            z.EnterDuel(OpenWorld.Wanderer, z.RisePos); yield return new WaitForSecondsRealtime(1.5f); gold = 100; hero.inv = 0; hero.Hurt(1e8f, hero.Pos + Vector3.forward); yield return new WaitForSecondsRealtime(4.5f);
+            Snap("fell"); log.AppendLine($"fell in a duel: wilds {wilds} sky {sky} soul {soul} dead {hero.dead} gold {gold} at {hero.Pos} fighting {z.Fighting ?? "none"}");
+            save = JsonUtility.FromJson<Save>(keep); Persist();
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "duels.txt"), log.ToString()); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
+        }
         System.Collections.IEnumerator GateWalk(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); StartCity(); yield return new WaitForSecondsRealtime(2);
@@ -1056,7 +1150,7 @@ namespace NovaBlade
         // ---------- stages ----------
         public void SetTheme(int i)
         {
-            LobbyNight.Set(false); city = false; wilds = false; house = false; if (cityRoot) cityRoot.gameObject.SetActive(false); foreach (var t in autumnTrees) if (t) t.SetActive(true); autumnTrees.Clear();
+            LobbyNight.Set(false); city = false; wilds = false; house = false; sky = false; if (cityRoot) cityRoot.gameObject.SetActive(false); foreach (var t in autumnTrees) if (t) t.SetActive(true); autumnTrees.Clear();
             for (int k = 0; k < stageRoots.Length; k++) if (stageRoots[k]) stageRoots[k].gameObject.SetActive(k == i);
             River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river"; River.Valley = stageRoots[i] && stageRoots[i].name == "Stage_valley"; River.Wilds = stageRoots[i] && stageRoots[i].name == "Stage_wilds";
             var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null; stageLook = look;
@@ -1326,7 +1420,7 @@ namespace NovaBlade
             // hit stop: a few frames of near-freeze on heavy hits (animators and particles slow down too)
             if (hitStop > 0) hitStop -= dt;
             Time.timeScale = hitStop > 0 ? .06f : 1;
-            if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city && !wilds && !house) UpdWaves(dt); UpdDrops(dt); }
+            if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city && !wilds && !house && !sky) UpdWaves(dt); UpdDrops(dt); }
             for (int i = foes.Count - 1; i >= 0; i--) if (!foes[i]) foes.RemoveAt(i);
         }
 
@@ -1403,7 +1497,7 @@ namespace NovaBlade
                 }
                 return Obstacles.Push(p);
             }
-            if (house) { float hw = OpenWorld.RoomHalf + margin; p.x = Mathf.Clamp(p.x, -hw, hw); p.z = Mathf.Clamp(p.z, -hw, hw); return Obstacles.Push(p); }
+            if (house || sky) { float hw = (sky ? OpenWorld.SkyHalf : OpenWorld.RoomHalf) + margin; p.x = Mathf.Clamp(p.x, -hw, hw); p.z = Mathf.Clamp(p.z, -hw, hw); return Obstacles.Push(p); }
             var f = Flat(p); float r = f.magnitude, R = ArenaRadius + margin; if (r > R) { f *= R / r; p.x = f.x; p.z = f.z; }
             return Obstacles.Push(p);
         }

@@ -48,10 +48,10 @@ namespace NovaBlade
         }
         Vector3 WorldMove(Vector2 m) => Main.Dir(yaw) * m.y + Main.Dir(yaw + Mathf.PI / 2) * m.x;
         bool LightPressed { get { var ui = G.ui; bool k = ui.atkP; ui.atkP = false; return k || (Mouse.current?.leftButton.wasPressedThisFrame ?? false) || (Keyboard.current?.jKey.wasPressedThisFrame ?? false); } }
-        bool HeavyPressed { get { var ui = G.ui; bool k = ui.heavyP; ui.heavyP = false; return k || (Mouse.current?.rightButton.wasPressedThisFrame ?? false) || (Keyboard.current?.kKey.wasPressedThisFrame ?? false); } }
+        bool HeavyPressed { get { var ui = G.ui; bool k = ui.heavyP; ui.heavyP = false; return k || (Mouse.current?.rightButton.wasPressedThisFrame ?? false) || (Keyboard.current?.kKey.wasPressedThisFrame ?? false) || (Keyboard.current?.uKey.wasPressedThisFrame ?? false); } }   // U, I, O: the keys shown on the PC bar
         bool DodgePressed { get { var ui = G.ui; bool k = ui.dodgeP; ui.dodgeP = false; return k || (Keyboard.current?.spaceKey.wasPressedThisFrame ?? false); } }
-        bool LockPressed { get { var ui = G.ui; bool k = ui.lockP; ui.lockP = false; return k || (Keyboard.current?.tabKey.wasPressedThisFrame ?? false) || (Mouse.current?.middleButton.wasPressedThisFrame ?? false); } }
-        bool BlockHeld => G.ui.blockHold || (Keyboard.current != null && (Keyboard.current.qKey.isPressed || Keyboard.current.leftShiftKey.isPressed));
+        bool LockPressed { get { var ui = G.ui; bool k = ui.lockP; ui.lockP = false; return k || (Keyboard.current?.tabKey.wasPressedThisFrame ?? false) || (Mouse.current?.middleButton.wasPressedThisFrame ?? false) || (Keyboard.current?.oKey.wasPressedThisFrame ?? false); } }
+        bool BlockHeld => G.ui.blockHold || (Keyboard.current != null && (Keyboard.current.qKey.isPressed || Keyboard.current.leftShiftKey.isPressed || Keyboard.current.iKey.isPressed));
 
         bool Spend(float cost) { if (stamina <= 0) return false; stamina = Mathf.Max(0, stamina - cost); regenWait = .7f; return true; }
 

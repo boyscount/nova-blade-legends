@@ -109,7 +109,7 @@ public static class NovaBuild
     {
         if (!BuildPipeline.isBuildingPlayer || !phoneScene) return;
         var main = Object.FindAnyObjectByType<Main>(); if (!main) return;
-        foreach (var r in main.stageRoots.Where(r => r && r.name is "Stage_wilds" or "Stage_house").ToArray()) Object.DestroyImmediate(r.gameObject);
+        foreach (var r in main.stageRoots.Where(r => r && r.name is "Stage_wilds" or "Stage_house" or "Stage_sky").ToArray()) Object.DestroyImmediate(r.gameObject);
         main.stageRoots = main.stageRoots.Where(r => r).ToArray();
         Debug.Log("[NovaBuild] phone scene: zone and house left out");
     }
@@ -421,7 +421,7 @@ public static class NovaBuild
         // game
         var mainGo = new GameObject("Game"); var main = mainGo.AddComponent<Main>(); main.cam = cam;
         main.cityRoot = null;
-        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage(), WildsStage(), HouseStage() };   // 360° photo stages (PlazaStage, MirrorStage, ValleyCliff) are kept but out of the game   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
+        main.stageRoots = new[] { Forest(), RiverStage(), KingdomSquare(), ValleyStage(), Castle(), LaneStage(), Lane3Stage(), WildsStage(), HouseStage(), SkyStage() };   // 360° photo stages (PlazaStage, MirrorStage, ValleyCliff) are kept but out of the game   // Data.Themes order, then the 1-lane and 3-lane maps   // Data.Themes order, lane last   // story themes in Data.Themes order, lane last
         foreach (var sr in main.stageRoots) NoCartoonFx(sr);
         main.cityRoot = CityStage(main); main.cityRoot.gameObject.SetActive(false);
         for (int i = 1; i < main.stageRoots.Length; i++) main.stageRoots[i].gameObject.SetActive(false);
@@ -979,10 +979,10 @@ public static class NovaBuild
     {
         rnd = new System.Random(31);
         var scene = EditorSceneManager.OpenScene("Assets/Game/Scenes/Main.unity"); var main = Object.FindAnyObjectByType<Main>();
-        foreach (var old in scene.GetRootGameObjects().Where(g => g.name is "Stage_wilds" or "Stage_house")) Object.DestroyImmediate(old);
+        foreach (var old in scene.GetRootGameObjects().Where(g => g.name is "Stage_wilds" or "Stage_house" or "Stage_sky")) Object.DestroyImmediate(old);
         var active = main.stageRoots.FirstOrDefault(r => r && r.gameObject.activeSelf);
-        var w = WildsStage(); NoCartoonFx(w); w.gameObject.SetActive(false); var hs = HouseStage(); NoCartoonFx(hs); hs.gameObject.SetActive(false);
-        main.stageRoots = main.stageRoots.Where(r => r && r.name is not ("Stage_wilds" or "Stage_house")).Append(w).Append(hs).ToArray();
+        var w = WildsStage(); NoCartoonFx(w); w.gameObject.SetActive(false); var hs = HouseStage(); NoCartoonFx(hs); hs.gameObject.SetActive(false); var sk = SkyStage(); NoCartoonFx(sk); sk.gameObject.SetActive(false);
+        main.stageRoots = main.stageRoots.Where(r => r && r.name is not ("Stage_wilds" or "Stage_house" or "Stage_sky")).Append(w).Append(hs).Append(sk).ToArray();
         if (active) active.GetComponent<StageLook>().Apply(); EditorUtility.SetDirty(main); EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene);
         BuildWin();
     }
@@ -1163,6 +1163,122 @@ public static class NovaBuild
             Place(Load(D + "Props/" + n + ".prefab"), new Vector3(x, 0, z), yaw, 1);
         Place(Load("Assets/Game/Models/Props/treasure_chest/treasure_chest_1k.gltf"), OpenWorld.Chest, 0, 1.6f);
         return root;
+    }
+    // the Sky Court (duels of the zone): a square stone court on a rock floating over a sea of cloud, a wooden fence open on the camera side
+    // where a short bridge leads to a smaller rock, sakura in the corners, torches, more rocks drifting round, far peaks out of the clouds.
+    // Only the court and its fence are near the fight; everything else sits in groups the obstacle map does not read.
+    static Transform SkyStage()
+    {
+        NewRoot("Stage_sky", new Color(.7f, .8f, .93f), .0065f, new Color(.8f, .87f, .98f), new Color(.6f, .63f, .68f), new Color(.36f, .34f, .32f));
+        var look = root.GetComponent<StageLook>(); look.sun = Sun(new Color(1f, .93f, .8f), 1.9f, new Vector3(38, 160, 0)); look.sky = SkyDome();
+        const string D = "Assets/ThirdParty/Dungeon/Prefabs/", PT = "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/", V = "Assets/Polytope Studio/Lowpoly_Village/Prefabs/Modular/";
+        string N(string n) => $"Assets/Game/Models/Nature/{n}.glb";
+        const float Half = 11.7f, Tile = 5.85f, Gap = 2.4f;
+        Transform Group(string n) { var g = new GameObject(n).transform; g.SetParent(root); return g; }
+        // the court: warm paving on a thick stone slab
+        var fl = Group("Floor");
+        var pave = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(pave.GetComponent<Collider>()); pave.name = "Paving"; pave.transform.SetParent(fl); pave.transform.position = new Vector3(0, .01f, 0); pave.transform.rotation = Quaternion.Euler(90, 0, 0); pave.transform.localScale = new Vector3(Half * 2, Half * 2, 1);
+        pave.GetComponent<Renderer>().sharedMaterial = Lit("SkyPaving", "mossy_brick", 5, .12f, new Color(1.4f, 1.22f, 1f));
+        var slab = GameObject.CreatePrimitive(PrimitiveType.Cube); Object.DestroyImmediate(slab.GetComponent<Collider>()); slab.name = "Slab"; slab.transform.SetParent(fl); slab.transform.position = new Vector3(0, -.75f, 0); slab.transform.localScale = new Vector3(Half * 2 + .3f, 1.4f, Half * 2 + .3f);
+        slab.GetComponent<Renderer>().sharedMaterial = Lit("SkySlab", "rock_face_04", 8, .1f, new Color(.55f, .52f, .5f));
+        // the rock it stands on, narrowing downward
+        var under = Group("Underside");
+        GameObject Hang(Vector2 at, float h, float top, Transform parent) { var g = Fit(Load(N("namaqualand_boulder_03")), new Vector3(at.x, 0, at.y), R(0, 360), h, parent); if (!g) return null; g.transform.position += Vector3.up * (top - Bounds(g).max.y); return g; }
+        Hang(Vector2.zero, 15, -.9f, under); foreach (var (x, z) in new[] { (-7f, -7f), (7f, -7f), (-7f, 7f), (7f, 7f) }) Hang(new Vector2(x, z), 8, -.8f, under);
+        foreach (var (x, z, h, t) in new[] { (-3f, 2f, 9f, -9f), (3f, -2f, 8f, -12f), (0f, 0f, 6f, -17f) }) Hang(new Vector2(x, z), h, t, under);
+        // wooden railing round the edge (posts, a top rail and a middle rail), open in the middle of the camera side
+        var rail = Group("Rail"); var wood = Lit("SkyWood", "weathered_brown_planks", 1, .1f, new Color(.78f, .6f, .45f));
+        void Beam(Vector3 a, Vector3 b, float w, Transform parent)
+        {
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cube); Object.DestroyImmediate(c.GetComponent<Collider>()); c.name = "Plank"; c.transform.SetParent(parent);
+            var d = b - a; c.transform.position = (a + b) / 2; c.transform.rotation = Quaternion.LookRotation(d.sqrMagnitude > 1e-4f ? d : Vector3.forward); c.transform.localScale = new Vector3(w, w, Mathf.Max(w, d.magnitude));
+            c.GetComponent<Renderer>().sharedMaterial = wood;
+        }
+        void Railing(Vector3 a, Vector3 b, Transform parent)
+        {
+            int posts = Mathf.Max(1, Mathf.RoundToInt((b - a).magnitude / 2.3f));
+            for (int i = 0; i <= posts; i++) { var p = Vector3.Lerp(a, b, i / (float)posts); Beam(p, p + Vector3.up * 1.15f, .16f, parent); }
+            Beam(a + Vector3.up * 1.05f, b + Vector3.up * 1.05f, .11f, parent); Beam(a + Vector3.up * .55f, b + Vector3.up * .55f, .08f, parent);
+        }
+        float e = Half - .15f;
+        Railing(new Vector3(-e, 0, -e), new Vector3(e, 0, -e), rail); Railing(new Vector3(-e, 0, -e), new Vector3(-e, 0, e), rail); Railing(new Vector3(e, 0, -e), new Vector3(e, 0, e), rail);
+        Railing(new Vector3(-e, 0, e), new Vector3(-Gap, 0, e), rail); Railing(new Vector3(Gap, 0, e), new Vector3(e, 0, e), rail);
+        // torches at the corners and either side of the opening
+        var torch = Load("Assets/ThirdParty/PrisonCell/Prefabs/Props/Torch.prefab"); var fire = Load("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
+        foreach (var (x, z) in new[] { (-Half + .4f, -Half + .4f), (Half - .4f, -Half + .4f), (-Half + .4f, Half - .4f), (Half - .4f, Half - .4f), (-Gap - .3f, Half - .3f), (Gap + .3f, Half - .3f) })
+        { var tp = new Vector3(x, 1.5f, z); Place(torch, tp, 0, 1.4f, false, rail); Place(fire, tp + Vector3.up * .55f, 0, .3f, false, rail); }
+        // sakura in the corners, low shrubs along the fence
+        foreach (var (x, z) in new[] { (-9.6f, -9.6f), (9.6f, -9.6f), (-9.6f, 9.4f), (9.6f, 9.4f) }) PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), new Vector3(x, 0, z), R(0, 360), R(4.6f, 5.4f)));
+        var green = Group("Planting"); foreach (var (x, z) in new[] { (-5f, -10.6f), (5f, -10.6f), (-10.6f, -3f), (10.6f, 3f), (-10.6f, 4f), (10.6f, -4f) }) Fit(Load(PT + "Shrubs/PT_Generic_Shrub_01_green.prefab"), new Vector3(x, 0, z), R(0, 360), R(.8f, 1.2f), green);
+        // the bridge out to a smaller rock on the camera side, and rocks drifting round the court
+        var far = Group("Scenery"); const float IslandZ = 21.5f;
+        { float z0 = Half, z1 = IslandZ - 2.6f; for (float z = z0 + .2f; z < z1; z += .42f) Beam(new Vector3(-1.2f, -.06f, z), new Vector3(1.2f, -.06f, z), .3f, far); Railing(new Vector3(-1.25f, 0, z0), new Vector3(-1.25f, 0, z1), far); Railing(new Vector3(1.25f, 0, z0), new Vector3(1.25f, 0, z1), far); }
+        var isl = Fit(Load(N("namaqualand_boulder_03")), new Vector3(0, 0, IslandZ), R(0, 360), 6, far); if (isl) isl.transform.position += Vector3.up * (-.1f - Bounds(isl).max.y);
+        Hang(new Vector2(0, IslandZ), 7, -1.5f, far);
+        foreach (var (x, y, z, h) in new[] { (-24f, -3f, -8f, 6f), (22f, 2f, -16f, 5f), (-30f, 4f, 14f, 4f), (31f, -6f, 10f, 7f), (-12f, -9f, -30f, 5f), (14f, 6f, -34f, 4f), (40f, 1f, -30f, 8f), (-42f, -2f, -26f, 6f) })
+        { var r = Fit(Load(N("namaqualand_boulder_03")), new Vector3(x, y, z), R(0, 360), h, far); if (r) r.transform.rotation = Quaternion.Euler(R(150, 210), R(0, 360), 0); }   // upside down: the broken face on top, the point below
+        foreach (var (a, d, h) in new[] { (-150f, 120f, 70f), (-120f, 140f, 55f), (-95f, 110f, 80f), (-60f, 135f, 60f), (-30f, 120f, 75f), (0f, 150f, 65f), (35f, 125f, 85f), (70f, 140f, 60f), (110f, 120f, 70f), (150f, 135f, 50f) })
+        {
+            float ar = a * Mathf.Deg2Rad; var sp = Fit(Load(N("namaqualand_boulder_03")), Vector3.zero, R(0, 360), h, far); if (!sp) continue;
+            sp.transform.localScale = Vector3.Scale(sp.transform.localScale, new Vector3(.4f, 1, .4f)); var bb = Bounds(sp);
+            sp.transform.position += new Vector3(Mathf.Sin(ar) * d - bb.center.x, -40 - bb.min.y, -Mathf.Cos(ar) * d - bb.center.z);
+        }
+        CloudSea(far);
+        Static(root); foreach (var t in rail.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);   // the fires keep their own transforms
+        foreach (var t in far.GetComponentsInChildren<Drift>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        return root;
+    }
+    // a sky dome without a picture: Unity's procedural sky, blue overhead and pale towards the cloud line
+    static Material SkyDome()
+    {
+        var path = $"{Gen}/SkyCourtSky.mat"; var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(Shader.Find("Skybox/Procedural")); AssetDatabase.CreateAsset(m, path); }
+        m.SetColor("_SkyTint", new Color(.42f, .58f, .86f)); m.SetColor("_GroundColor", new Color(.78f, .84f, .92f)); m.SetFloat("_AtmosphereThickness", .75f); m.SetFloat("_Exposure", 1.25f); m.SetFloat("_SunSize", .035f);
+        EditorUtility.SetDirty(m); return m;
+    }
+    // three layers of soft cloud below the court (a drawn noise picture, scrolled slowly by Drift) over a pale floor
+    static void CloudSea(Transform parent)
+    {
+        const string png = Gen + "/SkyClouds.png"; const int S = 256;
+        if (!File.Exists(png))
+        {
+            var t = new Texture2D(S, S, TextureFormat.RGBA32, false);
+            float Fbm(float x, float y) { float v = 0, amp = .5f, f = 1; for (int o = 0; o < 5; o++) { v += amp * TileNoise(x * f, y * f, 4 * f); amp *= .5f; f *= 2; } return v; }
+            for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) { float v = Fbm(x / (float)S * 4, y / (float)S * 4); float a = Mathf.SmoothStep(.38f, .72f, v); float l = .86f + .14f * Mathf.SmoothStep(.5f, .85f, v); t.SetPixel(x, y, new Color(l, l, Mathf.Min(1, l + .03f), a)); }
+            File.WriteAllBytes(png, t.EncodeToPNG()); AssetDatabase.ImportAsset(png);
+            var ti = (TextureImporter)AssetImporter.GetAtPath(png); ti.wrapMode = TextureWrapMode.Repeat; ti.alphaIsTransparency = true; ti.maxTextureSize = 256; ti.SaveAndReimport();
+        }
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(png);
+        Material Mat(string name, Color c, bool see)
+        {
+            var path = $"{Gen}/{name}.mat"; var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (!m) { m = new Material(Shader.Find("Universal Render Pipeline/Unlit")); AssetDatabase.CreateAsset(m, path); }
+            m.SetColor("_BaseColor", c);
+            if (see)
+            {
+                m.SetTexture("_BaseMap", tex); m.SetFloat("_Surface", 1); m.SetFloat("_Blend", 0); m.SetFloat("_ZWrite", 0); m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                m.SetOverrideTag("RenderType", "Transparent"); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 2990;
+            }
+            EditorUtility.SetDirty(m); return m;
+        }
+        void Layer(string name, float y, float size, float tile, Material m, float drift)
+        {
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(q.GetComponent<Collider>()); q.name = name; q.transform.SetParent(parent);
+            q.transform.position = new Vector3(0, y, 0); q.transform.rotation = Quaternion.Euler(90, 0, 0); q.transform.localScale = new Vector3(size, size, 1);
+            var r = q.GetComponent<Renderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            if (drift != 0) { var d = q.AddComponent<Drift>(); d.speed = new Vector2(drift, drift * .4f); d.tile = tile; }
+        }
+        Layer("CloudFloor", -34, 700, 1, Mat("SkyCloudFloor", new Color(.8f, .86f, .94f), false), 0);
+        Layer("CloudLow", -22, 420, 3, Mat("SkyCloudLow", new Color(.9f, .94f, 1f, 1), true), .004f);
+        Layer("CloudHigh", -11, 300, 2.2f, Mat("SkyCloudHigh", new Color(1, 1, 1, .85f), true), .007f);
+    }
+    // value noise that repeats every 'period' units, so the cloud picture tiles without a seam
+    static float TileNoise(float x, float y, float period)
+    {
+        int p = Mathf.Max(1, Mathf.RoundToInt(period)); int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y); float fx = x - x0, fy = y - y0;
+        float H(int a, int b) { a = ((a % p) + p) % p; b = ((b % p) + p) % p; uint h = (uint)(a * 374761393 + b * 668265263) ^ 0x5bd1e995u; h = (h ^ (h >> 13)) * 1274126177u; return (h & 0xffff) / 65535f; }
+        float sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+        return Mathf.Lerp(Mathf.Lerp(H(x0, y0), H(x0 + 1, y0), sx), Mathf.Lerp(H(x0, y0 + 1), H(x0 + 1, y0 + 1), sx), sy);
     }
     static Transform ValleyStage()
     {

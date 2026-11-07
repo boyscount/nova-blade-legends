@@ -29,7 +29,7 @@ namespace NovaBlade
         }
     }
     // Open World zone 1, Driftpetal Wilds (design: OPEN-WORLD-ZONE1.md): a walkable area reached from the city gate, a house to enter and fight in, and the way back.
-    public class OpenWorld : MonoBehaviour
+    public partial class OpenWorld : MonoBehaviour
     {
         public const float Radius = 60, RoomHalf = 8;
         public static readonly Vector3 Start = new(0, 0, 54), Gate = new(0, 0, 57.5f), RoomStart = new(0, 0, 3.6f), RoomExit = new(0, 0, 7.6f), Chest = new(0, 0, -6.2f);
@@ -117,6 +117,7 @@ namespace NovaBlade
         void TurnTime(bool night)
         {
             foreach (var a in areas) foreach (var s in a.slots) if (s.foe && s.foe.alive) Strengthen(s.foe, night ? NightFoePower : 1 / NightFoePower);
+            DuelsTurn(night);
             if (G.wilds) G.ui.Banner(night ? Loc.S("ค่ำแล้ว", "Night falls") : Loc.S("เช้าแล้ว", "Dawn"), night ? Loc.S("ศัตรูแรงขึ้น ทองเพิ่ม 50% สะพานหลักพัง", "Stronger foes, +50% gold, the main bridge is down") : Loc.S("ศัตรูกลับเป็นปกติ สะพานใช้ได้แล้ว", "Foes calm down, the bridge is back"));
         }
         // ---------- the secret cave: found by following the petals, open only at night, one rare weapon per real day (the player's own clock until there is a server) ----------
@@ -158,7 +159,7 @@ namespace NovaBlade
             look = zone.GetComponent<StageLook>(); if (look && look.sun && !sunKept) { sunKept = true; sunDayCol = look.sun.color; sunDayI = look.sun.intensity; }
             if (!bridge) { foreach (var b in zone.GetComponentsInChildren<BridgeDeck>(true)) if (!bridge || Mathf.Abs(b.center.x - MainBridgeX) < Mathf.Abs(bridge.center.x - MainBridgeX)) bridge = b; if (bridge) { bridgePos = bridge.transform.position; bridgeRot = bridge.transform.rotation; } }
             if (!testedNight && Crumb.Has("night")) { testedNight = true; Clock.t = WorldClock.DayLen - WorldClock.Fade - 5; }   // test switch in the page address: dusk comes in 5 seconds
-            wasNight = Clock.IsNight; ShowTime(true);
+            wasNight = Clock.IsNight; ShowTime(true); DuelsEnter(zone);
         }
         void Glow(Vector3 at, Color c) => Fx.Ring(at + Vector3.up * .06f, 2.4f, c, 1.1f, .22f);
         void Use(string key)
@@ -168,6 +169,7 @@ namespace NovaBlade
             else if (key == "exit") G.LeaveHouse();
             else if (key == "chest") { if (InCave) OpenCaveChest(); else OpenChest(); }
             else if (key == "cave" || key == "cave_open") TryCave();
+            else UseDuel(key);
         }
         public void OpenChest()
         {
@@ -176,23 +178,27 @@ namespace NovaBlade
         }
         void Update()
         {
-            if (G && (G.wilds || G.house) && G.mode == Main.Mode.Game)
+            if (heroLight && heroLight.enabled && !(G && G.sky)) heroLight.enabled = false;   // left the duel any way at all (pause menu to the city too)
+            if (G && (G.wilds || G.house || G.sky) && G.mode == Main.Mode.Game)
             {
                 Clock.Tick(Time.deltaTime); if (Clock.IsNight != wasNight) { wasNight = Clock.IsNight; TurnTime(wasNight); }
                 if (Time.time > lightT) { lightT = Time.time + LightEvery; ShowTime(false); }
             }
             if (G && G.wilds && G.hero && !G.hero.dead && G.mode == Main.Mode.Game && Time.time > checkT) { checkT = Time.time + CheckEvery; UpdateAreas(); }
+            if (G && (G.wilds || G.sky) && G.hero && G.mode == Main.Mode.Game) DuelsTick();
             string key = null; string text = null;
-            if (G && G.hero && !G.hero.dead && G.mode == Main.Mode.Game && (G.wilds || G.house))
+            if (G && G.hero && !G.hero.dead && G.mode == Main.Mode.Game && (G.wilds || G.house || G.sky) && !G.ui.CityPanelOpen)
             {
                 bool Near(Vector3 at) => Main.Flat(at - G.hero.Pos).magnitude < TalkRange;
                 if (Time.time > glowT)
                 {
                     glowT = Time.time + GlowEvery;
-                    if (G.wilds) { Glow(Gate, new Color(1, .72f, .86f)); Glow(door, new Color(1, .8f, .45f)); if (Clock.IsNight && !CaveTaken) Glow(caveDoor, CaveGlowCol); }
+                    if (G.sky) DuelGlow();
+                    else if (G.wilds) { Glow(Gate, new Color(1, .72f, .86f)); Glow(door, new Color(1, .8f, .45f)); if (Clock.IsNight && !CaveTaken) Glow(caveDoor, CaveGlowCol); DuelGlow(); }
                     else { Glow(RoomExit, new Color(1, .8f, .45f)); if (G.HouseFought && ChestReady) Glow(Chest, InCave ? CaveGlowCol : new Color(1, .85f, .4f)); }
                 }
-                if (G.wilds) { if (Near(Gate)) { key = "gate"; text = Loc.S("กลับเมือง", "BACK TO CITY"); } else if (Near(door)) { key = "door"; text = Loc.S("เข้าบ้าน", "ENTER THE HOUSE"); } else if (Near(caveDoor)) { key = Clock.IsNight && !CaveTaken ? "cave_open" : "cave"; text = Clock.IsNight && !CaveTaken ? Loc.S("เข้าถ้ำลับ", "ENTER THE CAVE") : Loc.S("ตรวจดูประตูหิน", "EXAMINE THE DOOR"); } }
+                if (G.sky) key = DuelKey(Near, out text);
+                else if (G.wilds) { if (Near(Gate)) { key = "gate"; text = Loc.S("กลับเมือง", "BACK TO CITY"); } else if (Near(door)) { key = "door"; text = Loc.S("เข้าบ้าน", "ENTER THE HOUSE"); } else if (Near(caveDoor)) { key = Clock.IsNight && !CaveTaken ? "cave_open" : "cave"; text = Clock.IsNight && !CaveTaken ? Loc.S("เข้าถ้ำลับ", "ENTER THE CAVE") : Loc.S("ตรวจดูประตูหิน", "EXAMINE THE DOOR"); } else key = DuelKey(Near, out text); }
                 else if (Near(RoomExit)) { key = "exit"; text = InCave ? Loc.S("ออกจากถ้ำ", "LEAVE THE CAVE") : Loc.S("ออกจากบ้าน", "LEAVE THE HOUSE"); }
                 else if (G.HouseFought && ChestReady && Near(Chest)) { key = "chest"; text = Loc.S("เปิดหีบ", "OPEN THE CHEST"); }
             }
