@@ -7,7 +7,7 @@ Avatar:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: sunpriest_Avatar
-  m_AvatarSize: 6488
+  m_AvatarSize: 6720
   m_Avatar:
     serializedVersion: 3
     m_AvatarSkeleton:
@@ -35,9 +35,9 @@ Avatar:
           m_AxesId: -1
         - m_ParentId: 9
           m_AxesId: -1
-        - m_ParentId: 4
+        - m_ParentId: 9
           m_AxesId: -1
-        - m_ParentId: 11
+        - m_ParentId: 4
           m_AxesId: -1
         - m_ParentId: 12
           m_AxesId: -1
@@ -45,19 +45,23 @@ Avatar:
           m_AxesId: -1
         - m_ParentId: 14
           m_AxesId: -1
-        - m_ParentId: 2
+        - m_ParentId: 15
           m_AxesId: -1
-        - m_ParentId: 16
-          m_AxesId: -1
-        - m_ParentId: 17
+        - m_ParentId: 14
           m_AxesId: -1
         - m_ParentId: 2
+          m_AxesId: -1
+        - m_ParentId: 18
           m_AxesId: -1
         - m_ParentId: 19
           m_AxesId: -1
-        - m_ParentId: 20
+        - m_ParentId: 2
           m_AxesId: -1
-        m_ID: 000000008ca49a7b2fa9e37e1aeebd0280486ba32c4d08aa7621b034a8b6a10f9257bb1efe16b666f3572264cb8baef513549d0191f27c02269fe7796ec3b971d043d99d0ad0a7196ca1de7cb37ed66770ce998a2c38f146u
+        - m_ParentId: 21
+          m_AxesId: -1
+        - m_ParentId: 22
+          m_AxesId: -1
+        m_ID: 000000008ca49a7b2fa9e37e1aeebd0280486ba32c4d08aa7621b034a8b6a10f9257bb1efe16b666f35722648fcbaed1cb8baef513549d0191f27c02269fe7796ec3b9718b1ee954d043d99d0ad0a7196ca1de7cb37ed66770ce998a2c38f146u
         m_AxesArray: []
     m_AvatarSkeletonPose:
       data:
@@ -95,6 +99,9 @@ Avatar:
         - t: {x: -0.000000014901161, y: 0.1820879, z: -0.00000018044375}
           q: {x: -0.00000020139854, y: 0.0000002224697, z: 0.0000000018917492, w: 1}
           s: {x: 1, y: 0.99999994, z: 0.99999994}
+        - t: {x: -0.0000000037252903, y: 0.000000005122274, z: -0.0000001238659}
+          q: {x: -0.4538314, y: 0.52272165, z: -0.5227217, w: 0.49755532}
+          s: {x: 0.99999994, y: 1, z: 1}
         - t: {x: 0.04375, y: 0.1571933, z: -0.009824581}
           q: {x: -0.49388298, y: -0.49388352, z: -0.50604254, w: 0.50604314}
           s: {x: 0.9999999, y: 0.9999999, z: 0.99999994}
@@ -110,6 +117,9 @@ Avatar:
         - t: {x: -0, y: 0.048125338, z: -0.0000004954636}
           q: {x: 0.046998728, y: -0.998417, z: -0.021847809, w: 0.021847786}
           s: {x: 1.0000001, y: 1, z: 1.0000001}
+        - t: {x: 0.0000000037252903, y: 0.000000034924597, z: -0.00000009476207}
+          q: {x: -0.45386165, y: -0.52270794, z: 0.5227079, w: 0.49755657}
+          s: {x: 1, y: 1.0000001, z: 1.0000001}
         - t: {x: -0.098421484, y: 0.035000026, z: 0}
           q: {x: 0.9997337, y: -0.000000015954345, z: -0.023078877, w: 0.000000009056628}
           s: {x: 1, y: 1, z: 1.0000007}
@@ -164,6 +174,9 @@ Avatar:
         - t: {x: -0.000000014901161, y: 0.1820879, z: -0.00000018044375}
           q: {x: -0.00000020139854, y: 0.0000002224697, z: 0.0000000018917492, w: 1}
           s: {x: 1, y: 0.99999994, z: 0.99999994}
+        - t: {x: -0.0000000037252903, y: 0.000000005122274, z: -0.0000001238659}
+          q: {x: -0.4538314, y: 0.52272165, z: -0.5227217, w: 0.49755532}
+          s: {x: 0.99999994, y: 1, z: 1}
         - t: {x: 0.04375, y: 0.1571933, z: -0.009824581}
           q: {x: -0.49388298, y: -0.49388352, z: -0.50604254, w: 0.50604314}
           s: {x: 0.9999999, y: 0.9999999, z: 0.99999994}
@@ -179,6 +192,9 @@ Avatar:
         - t: {x: -0, y: 0.048125338, z: -0.0000004954636}
           q: {x: 0.046998728, y: -0.998417, z: -0.021847809, w: 0.021847786}
           s: {x: 1.0000001, y: 1, z: 1.0000001}
+        - t: {x: 0.0000000037252903, y: 0.000000034924597, z: -0.00000009476207}
+          q: {x: -0.45386165, y: -0.52270794, z: 0.5227079, w: 0.49755657}
+          s: {x: 1, y: 1.0000001, z: 1.0000001}
         - t: {x: -0.098421484, y: 0.035000026, z: 0}
           q: {x: 0.9997337, y: -0.000000015954345, z: -0.023078877, w: 0.000000009056628}
           s: {x: 1, y: 1, z: 1.0000007}
@@ -197,7 +213,7 @@ Avatar:
         - t: {x: 0.0000000041909516, y: 0.39041835, z: 0.000000011175871}
           q: {x: -0.5197339, y: -0.029971728, z: 0.0063603777, w: 0.85377866}
           s: {x: 0.99999994, y: 0.99999994, z: 0.99999994}
-    m_SkeletonNameIDArray: 000000008ca49a7b2fa9e37ecfeecf92b7b344fb53d611209cf6f3a7fe99b09269d17b61726b73b232957d119da4bf680aec749b11567c4851a872eb68e8933ff8e2966174b83ce5368edd309bdf999b1785331f55b3d2cau
+    m_SkeletonNameIDArray: 000000008ca49a7b2fa9e37ecfeecf92b7b344fb53d611209cf6f3a7fe99b09269d17b61726b73b232957d1143fb25769da4bf680aec749b11567c4851a872eb68e8933f20c62a8cf8e2966174b83ce5368edd309bdf999b1785331f55b3d2cau
     m_Human:
       data:
         serializedVersion: 2
@@ -509,8 +525,8 @@ Avatar:
         m_HasLeftHand: 0
         m_HasRightHand: 0
         m_HasTDoF: 0
-    m_HumanSkeletonIndexArray: 0000000002000000030000000400000005000000060000000700000008000000090000000a0000000b0000000c0000000d0000000e000000100000001100000012000000130000001400000015000000i
-    m_HumanSkeletonReverseIndexArray: 00000000ffffffff0100000002000000030000000400000005000000060000000700000008000000090000000a0000000b0000000c0000000d000000ffffffff0e0000000f00000010000000110000001200000013000000i
+    m_HumanSkeletonIndexArray: 0000000002000000030000000400000005000000060000000700000008000000090000000a0000000c0000000d0000000e0000000f000000120000001300000014000000150000001600000017000000i
+    m_HumanSkeletonReverseIndexArray: 00000000ffffffff010000000200000003000000040000000500000006000000070000000800000009000000ffffffff0a0000000b0000000c0000000d000000ffffffffffffffff0e0000000f00000010000000110000001200000013000000i
     m_RootMotionBoneIndex: -1
     m_RootMotionBoneX:
       t: {x: 0, y: 0, z: 0}
@@ -540,12 +556,14 @@ Avatar:
     46001690: hips/spine
     515594130: hips/spine/chest/shoulder.L/upperarm.L
     883958134: hips/spine/chest/neck/head
+    1424563851: hips/spine/chest/shoulder.R/upperarm.R/forearm.R/sleeve.R
     1723209470: hips/spine/chest/shoulder.L/upperarm.L/forearm.L
     4121856971: hips/spine/chest/shoulder.R
     1907999598: hips/spine/chest/shoulder.R/upperarm.R/forearm.R/hand.R/SwordSocket
     262256296: hips/spine/chest/shoulder.L
     1742110387: hips/thigh.R
     0: 
+    3517893519: hips/spine/chest/shoulder.L/upperarm.L/forearm.L/sleeve.L
     2325335664: hips/thigh.R/shin.R
     2852670764: hips/spine/chest/neck
   m_HumanDescription:
@@ -759,6 +777,11 @@ Avatar:
       m_Position: {x: -0.000000014901161, y: 0.1820879, z: -0.00000018044375}
       m_Rotation: {x: -0.00000020139854, y: 0.0000002224697, z: 0.0000000018917492, w: 1}
       m_Scale: {x: 1, y: 0.99999994, z: 0.99999994}
+    - m_Name: sleeve.L
+      m_ParentName: 
+      m_Position: {x: -0.0000000037252903, y: 0.000000005122274, z: -0.0000001238659}
+      m_Rotation: {x: -0.4538314, y: 0.52272165, z: -0.5227217, w: 0.49755532}
+      m_Scale: {x: 0.99999994, y: 1, z: 1}
     - m_Name: shoulder.R
       m_ParentName: 
       m_Position: {x: 0.04375, y: 0.1571933, z: -0.009824581}
@@ -784,6 +807,11 @@ Avatar:
       m_Position: {x: -0, y: 0.048125338, z: -0.0000004954636}
       m_Rotation: {x: 0.046998728, y: -0.998417, z: -0.021847809, w: 0.021847786}
       m_Scale: {x: 1.0000001, y: 1, z: 1.0000001}
+    - m_Name: sleeve.R
+      m_ParentName: 
+      m_Position: {x: 0.0000000037252903, y: 0.000000034924597, z: -0.00000009476207}
+      m_Rotation: {x: -0.45386165, y: -0.52270794, z: 0.5227079, w: 0.49755657}
+      m_Scale: {x: 1, y: 1.0000001, z: 1.0000001}
     - m_Name: thigh.L
       m_ParentName: 
       m_Position: {x: -0.098421484, y: 0.035000026, z: 0}

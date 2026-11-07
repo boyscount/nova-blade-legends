@@ -508,7 +508,7 @@ namespace NovaBlade
                 float Foot() { var a = hero.GetComponentInChildren<Animator>(); if (!a || !a.isHuman) return 0; float m = 9; foreach (var b in new[] { HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes }) { var t = a.GetBoneTransform(b); if (t) m = Mathf.Min(m, t.position.y - hero.Pos.y); } return m; }
                 for (float t = 0; t < 1; t += Time.deltaTime) { hero.inv = 0; idle = Mathf.Min(idle, Foot()); yield return null; }
                 bool shot = false;
-                for (float t = 0; t < 3.2f; t += Time.deltaTime) { hero.inv = 0; hero.hp = hero.max; ui.Joy = new Vector2(Mathf.Sin(t), -1).normalized; if (t > .6f) { float f = Foot(); run = Mathf.Min(run, f); top = Mathf.Max(top, f); var a = hero.GetComponentInChildren<Animator>(); if (a) { rate += a.GetFloat("Speed"); n++; } if (!shot && t > 2) { shot = true; ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"run_{d.id}.png")); } } yield return null; }
+                for (float t = 0; t < 3.2f; t += Time.deltaTime) { hero.inv = 0; hero.hp = hero.max; ui.Joy = new Vector2(Mathf.Sin(t), -1).normalized; if (d.id == "samurai" && Time.frameCount % 6 == 0 && t > 1.2f && t < 2.2f) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"walk_{d.id}_{Mathf.RoundToInt(t * 60)}.png")); if (t > .6f) { float f = Foot(); run = Mathf.Min(run, f); top = Mathf.Max(top, f); var a = hero.GetComponentInChildren<Animator>(); if (a) { rate += a.GetFloat("Speed"); n++; } if (!shot && t > 2) { shot = true; ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"run_{d.id}.png")); } } yield return null; }
                 ui.Joy = Vector2.zero; pet.gameObject.SetActive(true);
                 log.AppendLine($"{d.id,-10} {d.name,-8} speed {d.spd:0.00} set {Data.AnimSet(d.id) ?? "base",-8} clip rate {(n > 0 ? rate / n : 0):0.00}  lowest foot idle {idle:0.000} run {run:0.000} highest {top:0.000}");
             }
@@ -722,12 +722,12 @@ namespace NovaBlade
         {
             System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
             foreach (var hd in Data.Heroes) if (Studio.HeroFull(hd.id) is Texture2D card && card.isReadable) System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, "card_" + hd.id + ".png"), card.EncodeToPNG());
-            foreach (var h in new[] { "harpy", "tenzin" })
+            foreach (var h in new[] { "sunpriest", "lyra", "spartan", "warrior" })
             {
                 save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.SetTab("hero"); yield return new WaitForSecondsRealtime(1.2f);
                 ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lobby_" + h + ".png")); yield return new WaitForSecondsRealtime(.4f);
             }
-            save.shield = ""; foreach (var h in new[] { "harpy", "tenzin" }) { save.hero = h; save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f); hero.max = hero.hp = 999999; hero.mp = hero.mpMax; for (int i = 0; i < 3; i++) { ui.skP[i] = true; yield return new WaitForSecondsRealtime(1.1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_skill{i}.png")); yield return new WaitForSecondsRealtime(.4f); hero.mp = hero.mpMax; } ShowLobby(); yield return new WaitForSecondsRealtime(1); }
+            save.shield = ""; foreach (var h in new[] { "sunpriest", "lyra", "spartan", "warrior" }) { save.hero = h; save.best = 9; StartGame(1); yield return new WaitForSecondsRealtime(2.5f); hero.max = hero.hp = 999999; hero.mp = hero.mpMax; for (int i = 0; i < 3; i++) { ui.skP[i] = true; yield return new WaitForSecondsRealtime(1.1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{h}_skill{i}.png")); yield return new WaitForSecondsRealtime(.4f); hero.mp = hero.mpMax; } ShowLobby(); yield return new WaitForSecondsRealtime(1); }
             Application.Quit();
         }
         // Test mode (-new5test <dir>): the five empty-handed heroes holding chosen weapons, then the two bosses that replaced the dragon.

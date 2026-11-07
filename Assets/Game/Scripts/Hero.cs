@@ -44,7 +44,7 @@ namespace NovaBlade
             if (model) Destroy(model);
             if (def.rig)
             {
-                model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform);
+                model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform); SleeveHang.Attach(model);
                 anim = model.GetComponentInChildren<Animator>();
                 animSet = Data.AnimSet(def.id); if (animSet != null) animSet += def.female ? "_f" : "_m";   // each class set comes in a women's and a men's walk, run and stance
                 if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
@@ -423,7 +423,7 @@ namespace NovaBlade
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);
-                    var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 1.45f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
+                    var gc = Catalog.I.Clip(animSet, "run"); Loop("run", gc.speed > .1f ? Mathf.Clamp(sp / (gc.speed * transform.lossyScale.y), .6f, 1.8f) : Mathf.Max(.6f, mv.magnitude) * 1.05f);   // feet stay planted
                 }
                 else Loop(G.mode == Main.Mode.Lobby ? Show : "idle");
             }

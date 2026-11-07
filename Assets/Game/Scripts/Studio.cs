@@ -98,11 +98,11 @@ namespace NovaBlade
             if (!pf) return null; int W = Main.IsPhone ? 256 : 384, H = Main.IsPhone ? 384 : 576;
             var inst = Object.Instantiate(pf, Spot, Quaternion.identity);
             foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
-            var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false;
+            var an = inst.GetComponentInChildren<Animator>(); if (an) an.enabled = false; var hang = SleeveHang.Attach(inst);
             var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
             // a model built in T-pose (much wider than a standing figure) takes its lobby stance for the card; the framing still comes from its height
             bool tPose = an && b.size.x > b.size.y * .7f;
-            if (tPose) { an.enabled = true; if (Resources.Load<RuntimeAnimatorController>("Anim/warrior" + (female ? "_f" : "_m")) is RuntimeAnimatorController stance) an.runtimeAnimatorController = stance; an.Rebind(); an.Play("show", 0, 0); an.Update(0); an.enabled = false; }   // the plain standing pose, not a posed one with crossed legs
+            if (tPose) { an.enabled = true; if (Resources.Load<RuntimeAnimatorController>("Anim/warrior" + (female ? "_f" : "_m")) is RuntimeAnimatorController stance) an.runtimeAnimatorController = stance; an.Rebind(); an.Play("show", 0, 0); an.Update(0); an.enabled = false; if (hang) hang.Apply(); }   // the plain standing pose, not a posed one with crossed legs
             if (an && an.isHuman && an.GetBoneTransform(HumanBodyBones.LeftUpperArm) is Transform la && an.GetBoneTransform(HumanBodyBones.RightUpperArm) is Transform ra)
             {   // every card faces straight ahead: undo whatever turn the stance has, going by the shoulders
                 var fwd = Vector3.Cross(ra.position - la.position, Vector3.up); if (fwd.sqrMagnitude > .001f) inst.transform.Rotate(0, -Vector3.SignedAngle(Vector3.forward, fwd, Vector3.up), 0, Space.World);

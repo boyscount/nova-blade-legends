@@ -48,8 +48,8 @@ public static class NovaSetup
         ["bow"] = new() { ["show"] = ("bow_idle", true), ["idle"] = ("bow_idle", true), ["walk"] = ("bow_walk", true), ["run"] = ("bow_run", true) },
         ["ninja"] = new() { ["show"] = ("show_ninja", true), ["idle"] = ("ninja_idle", true), ["walk"] = ("ninja_walk", true), ["run"] = ("ninja_run", true), ["atk0"] = ("ninja_slash", false) },
         ["monk"] = new() { ["show"] = ("monk_idle", true), ["idle"] = ("monk_idle", true), ["walk"] = ("monk_walk", true), ["run"] = ("monk_run", true), ["atk0"] = ("monk_punch1", false), ["atk1"] = ("monk_punch2", false), ["atk2"] = ("monk_kick", false) },
-        ["warrior"] = new() { ["show"] = ("show_warrior", true) },
-        ["shield"] = new() { ["show"] = ("show_warrior", true), ["walk"] = ("shield_walk", true), ["run"] = ("shield_run", true) },
+        ["warrior"] = new() { ["show"] = ("show_warrior", true), ["atk0"] = ("sws_atk0", false), ["atk1"] = ("sws_atk1", false), ["atk2"] = ("sws_atk2", false) },
+        ["shield"] = new() { ["show"] = ("show_warrior", true), ["idle"] = ("sws_idle", true), ["walk"] = ("sws_walk", true), ["run"] = ("sws_run", true), ["atk0"] = ("sws_atk0", false), ["atk1"] = ("sws_atk1", false), ["atk2"] = ("sws_atk2", false) },
         ["samurai"] = new() { ["show"] = ("show_samurai", true) },
     };
     // every class set also comes in a women's and a men's version: same attacks, their own walk, run and lobby stance
@@ -57,7 +57,7 @@ public static class NovaSetup
     {
         foreach (var set in Sets.Keys.ToList())
             foreach (var (sfx, run, walk, stance) in new[] { ("_f", "f_run", "f_walk", "f_idle"), ("_m", "m_run", "m_walk", "m_idle") })
-                Sets[set + sfx] = new(Sets[set]) { ["run"] = (run, true), ["walk"] = (walk, true), ["show"] = (stance, true) };
+                Sets[set + sfx] = set == "shield" ? new(Sets[set]) { ["show"] = (stance, true) } : new(Sets[set]) { ["run"] = (run, true), ["walk"] = (walk, true), ["show"] = (stance, true) };   // the shield set keeps its own walk and run: the shield arm stays up
     }
     public static string SetPath(string clip)
     {
