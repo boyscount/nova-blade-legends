@@ -171,6 +171,7 @@ namespace NovaBlade
             if (System.Array.IndexOf(args, "-hitchtest") >= 0 || Application.absoluteURL.Contains("hitch")) StartCoroutine(HitchTest(System.Array.IndexOf(args, "-hitchtest") >= 0));
             int bk = System.Array.IndexOf(args, "-bakecards"); if (bk >= 0 && bk + 1 < args.Length) StartCoroutine(BakeCards(args[bk + 1]));
             int shots = System.Array.IndexOf(args, "-stageshots"); if (shots >= 0 && shots + 1 < args.Length) StartCoroutine(StageShots(args[shots + 1]));
+            int ft = System.Array.IndexOf(args, "-foottest"); if (ft >= 0 && ft + 2 < args.Length) StartCoroutine(FootTest(args[ft + 1], args[ft + 2]));
             int gt = System.Array.IndexOf(args, "-gaittest"); if (gt >= 0 && gt + 1 < args.Length) StartCoroutine(GaitTest(args[gt + 1]));
             int ct = System.Array.IndexOf(args, "-citytest"); if (ct >= 0 && ct + 1 < args.Length) StartCoroutine(CityTest(args[ct + 1]));
             int qt = System.Array.IndexOf(args, "-questtest"); if (qt >= 0 && qt + 1 < args.Length) StartCoroutine(QuestTest(args[qt + 1]));
@@ -525,6 +526,29 @@ namespace NovaBlade
             if (quit) Application.Quit();
         }
         // Test mode (-gaittest <dir>): every hero's lobby stance and run: how high the feet stay off the ground, how fast the run clip plays, pictures of both
+        // Test mode (-foottest <dir> <ids|all>): how long each foot of the skin is, standing and while walking, and close side pictures of the feet mid-stride
+        System.Collections.IEnumerator FootTest(string dir, string ids)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.helm = save.armor = save.boots = save.acc = ""; save.shield = "";
+            var cam = new GameObject("FootCam").AddComponent<Camera>(); cam.enabled = false; cam.fieldOfView = 30; cam.nearClipPlane = .05f; var rt = new RenderTexture(640, 400, 24); cam.targetTexture = rt;
+            void Shot(string n) { cam.Render(); var was = RenderTexture.active; RenderTexture.active = rt; var t = new Texture2D(640, 400, TextureFormat.RGB24, false); t.ReadPixels(new Rect(0, 0, 640, 400), 0, 0); RenderTexture.active = was; System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, n + ".png"), t.EncodeToPNG()); Destroy(t); }
+            var baked = new Mesh();
+            // the furthest skin point from the ankle, among the points below the ankle and near it: the length of the shoe
+            float Sole(SkinnedMeshRenderer sk, Transform foot) { sk.BakeMesh(baked, true); var v = baked.vertices; var m = sk.transform.localToWorldMatrix; float best = 0; var f = foot.position; foreach (var x in v) { var w = m.MultiplyPoint3x4(x); if (w.y > f.y + .02f) continue; var d = w - f; if (d.magnitude > .45f) continue; best = Mathf.Max(best, new Vector2(d.x, d.z).magnitude); } return best; }
+            foreach (var d in Data.Heroes)
+            {
+                if (ids != "all" && !ids.Split(',').Contains(d.id)) continue; if (!d.rig) continue;
+                save.hero = d.id; StartCity(); pet.gameObject.SetActive(false); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(1.2f);
+                var an = hero.GetComponentInChildren<Animator>(); var sk = hero.GetComponentInChildren<SkinnedMeshRenderer>(); if (!an || !sk || !an.isHuman) { log.AppendLine($"{d.id}: no humanoid"); continue; } log.AppendLine($"{d.id}: readable {sk.sharedMesh.isReadable} sole vertices mended {FootWeights.LastChanged} {FootWeights.Report(sk)}");
+                var fl = an.GetBoneTransform(HumanBodyBones.LeftFoot); var fr = an.GetBoneTransform(HumanBodyBones.RightFoot); var tl = an.GetBoneTransform(HumanBodyBones.LeftToes);
+                float standL = Sole(sk, fl), standR = Sole(sk, fr), walkL = 0, walkR = 0; float toeRest = tl ? Vector3.Distance(fl.position, tl.position) : 0, toeMax = toeRest;
+                int k = 0; for (float t = 0; t < 2.6f; t += Time.deltaTime) { hero.inv = 0; ui.Joy = new Vector2(1, 0); if (t > .8f) { walkL = Mathf.Max(walkL, Sole(sk, fl)); walkR = Mathf.Max(walkR, Sole(sk, fr)); if (tl) toeMax = Mathf.Max(toeMax, Vector3.Distance(fl.position, tl.position)); }
+                    if (t > 1.2f && k < 6 && Time.frameCount % 5 == 0) { var p = hero.Pos; cam.transform.position = p + new Vector3(0, .35f, -2.1f); cam.transform.LookAt(p + Vector3.up * .25f); Shot($"{d.id}_{k++}"); } yield return null; }
+                ui.Joy = Vector2.zero; pet.gameObject.SetActive(true);
+                log.AppendLine($"{d.id,-10} sole stand L {standL:0.00} R {standR:0.00} walk max L {walkL:0.00} R {walkR:0.00} (x{Mathf.Max(walkL / Mathf.Max(standL, .01f), walkR / Mathf.Max(standR, .01f)):0.00}) foot-toe bone {toeRest:0.000} max {toeMax:0.000} toes {(tl ? tl.name : "none")}");
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "foot.txt"), log.ToString()); Application.Quit();
+        }
         System.Collections.IEnumerator GaitTest(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.helm = save.armor = save.boots = save.acc = ""; save.shield = ""; save.sword = Data.Swords[0].id;

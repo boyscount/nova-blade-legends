@@ -44,7 +44,7 @@ namespace NovaBlade
             if (model) Destroy(model);
             if (def.rig)
             {
-                model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform); SleeveHang.Attach(model);
+                model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform); FootWeights.Mend(model); SleeveHang.Attach(model);
                 anim = model.GetComponentInChildren<Animator>();
                 animSet = Data.AnimSet(def.id); if (animSet != null) animSet += def.female ? "_f" : "_m";   // each class set comes in a women's and a men's walk, run and stance
                 if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
