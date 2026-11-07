@@ -23,7 +23,7 @@ namespace NovaBlade
             ui.ShowHud();
         }
         // Open World zone 1: free walking in a wider area, no waves; reached from the city gate
-        public bool wilds; OpenWorld wildsCtl;
+        public bool wilds; OpenWorld wildsCtl; public OpenWorld Zone => wildsCtl; public bool ZoneNight => wilds && wildsCtl && wildsCtl.Clock.IsNight;
         public bool house; public bool HouseFought => house && !foes.Any(f => f && f.alive);   // inside the zone's house; its monsters are gone
         public float ArenaRadius => house ? OpenWorld.RoomHalf + 1 : wilds ? OpenWorld.Radius : Data.ArenaR;
         public Transform Stage(string name) => System.Array.Find(stageRoots, r => r && r.name == name);
@@ -45,8 +45,20 @@ namespace NovaBlade
             for (int i = 0; i < HouseFoes.Length; i++) { float a = (i + .5f) / HouseFoes.Length * Mathf.PI, r = Random.Range(4f, 6.5f); SpawnFoe(HouseFoes[i], new Vector3(Mathf.Cos(a) * r, 0, -Mathf.Sin(a) * r - 1)); }
             ui.Banner(Loc.S("บ้านร้าง", "Abandoned House"), Loc.S("ปราบให้หมดแล้วเปิดหีบ", "Defeat them all, then open the chest"));
         }
-        public void LeaveHouse() => BackToZone(wildsCtl.Door + new Vector3(0, 0, 1.5f));
-        void BackToZone(Vector3 at) { ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_wilds")); wilds = true; MoveTo(at); }
+        static readonly string[] CaveFoes = { "skeleton", "skeleton", "zombie", "zombie", "demon" };
+        static readonly Color CaveSun = new(.45f, .68f, 1f), CaveAmb = new(.16f, .24f, .34f), CaveFog = new(.015f, .04f, .07f); const float CaveSunI = .7f;
+        // the secret cave uses the house's room, in cold moonlight, with guards of its own
+        public void EnterCave()
+        {
+            ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_house")); house = true; wildsCtl.InCave = true; MoveTo(OpenWorld.RoomStart);
+            var sun = RenderSettings.sun; if (sun) { roomSunCol = sun.color; roomSunI = sun.intensity; sun.color = CaveSun; sun.intensity = CaveSunI; }
+            RenderSettings.fogColor = CaveFog; RenderSettings.ambientSkyColor = CaveAmb; RenderSettings.ambientEquatorColor = CaveAmb * .7f; if (Camera.main) Camera.main.backgroundColor = CaveFog;
+            for (int i = 0; i < CaveFoes.Length; i++) { float a = (i + .5f) / CaveFoes.Length * Mathf.PI, r = Random.Range(4f, 6.5f); var f = SpawnFoe(CaveFoes[i], new Vector3(Mathf.Cos(a) * r, 0, -Mathf.Sin(a) * r - 1)); f.Spirit(new Color(.14f, .95f, 1f), new Color(1.25f, 2.5f, 2.7f)); }
+            ui.Banner(Loc.S("ถ้ำลับ", "The Secret Cave"), Loc.S("ปราบผู้เฝ้าถ้ำ แล้วเปิดหีบใหญ่", "Defeat its guards, then open the great chest"));
+        }
+        Color roomSunCol; float roomSunI;
+        public void LeaveHouse() => BackToZone(wildsCtl.InCave ? wildsCtl.CaveDoor + new Vector3(0, 0, 1.5f) : wildsCtl.Door + new Vector3(0, 0, 1.5f));
+        void BackToZone(Vector3 at) { if (wildsCtl.InCave) { var sun = RenderSettings.sun; if (sun) { sun.color = roomSunCol; sun.intensity = roomSunI; } wildsCtl.InCave = false; } ClearWorld(); ui.SetCityPrompt(null, null); SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_wilds")); wilds = true; wildsCtl.ShowTime(true); MoveTo(at); }
         // fallen in the zone: wake at its gate, a fifth of this trip's gold lost
         public void FallInZone()
         {
@@ -78,6 +90,7 @@ namespace NovaBlade
         [System.Serializable]
         public class Save
         {
+            public string caveDay = "";   // the local date the secret cave's chest was last opened
             public string hero = "warrior", sword = "w_lava", pet = "candle"; public int gold, best, stage = 1; public List<string> skinKeys = new(); public List<int> skinVals = new();
             public int gems = Shop.TestGems;                       // test-only premium currency (no real payments yet)
             public List<string> owned = new(), ledger = new();     // ownership and purchase history, kept apart from what is equipped
@@ -165,6 +178,7 @@ namespace NovaBlade
             int mt = System.Array.IndexOf(args, "-movetest"); if (mt >= 0 && mt + 1 < args.Length) StartCoroutine(MoveTest(args[mt + 1]));
             int cw = System.Array.IndexOf(args, "-crowdtest"); if (cw >= 0 && cw + 1 < args.Length) StartCoroutine(CrowdTest(args[cw + 1]));
             int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
+            int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
             int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
             int cl = System.Array.IndexOf(args, "-classlook"); if (cl >= 0 && cl + 1 < args.Length) StartCoroutine(ClassLook(args[cl + 1]));
             int wc = System.Array.IndexOf(args, "-weaponcards"); if (wc >= 0 && wc + 1 < args.Length) StartCoroutine(WeaponCardsTest(args[wc + 1]));
@@ -468,6 +482,8 @@ namespace NovaBlade
                 var trees = zone.GetComponentsInChildren<Renderer>().Where(r => r.name.ToLower().Contains("tree") || r.transform.root != r.transform && r.transform.parent.name.ToLower().Contains("tree")).ToArray(); foreach (var r in trees) r.enabled = false; yield return M($"no trees ({trees.Length})"); foreach (var r in trees) r.enabled = true;
                 float sd = rp.shadowDistance; rp.shadowDistance = 0; yield return M("no shadows"); rp.shadowDistance = sd;
                 var ter = zone.GetComponentInChildren<Terrain>(); if (ter) { ter.drawHeightmap = false; yield return M("no terrain"); ter.drawHeightmap = true; }
+                hero.max = hero.hp = 999999; hero.transform.position = new Vector3(42, 0, -14); yield return new WaitForSecondsRealtime(4); ui.atkP = true; yield return M("at the orc camp with monsters"); ui.atkP = false; Debug.Log($"[Hitch] part monsters alive {wildsCtl.AliveInAreas}");
+                wildsCtl.Clock.t = 245; yield return new WaitForSecondsRealtime(2); ui.atkP = true; yield return M("the camp at night"); ui.atkP = false;
                 Debug.Log("[Hitch] parts done"); yield break;
             }
             if (Application.absoluteURL.Contains("hitchsettle"))
@@ -683,6 +699,26 @@ namespace NovaBlade
             yield return CrowdMeasure(); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "crowd.png")); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
         }
         // Test mode (-gatewalk <dir>): walk (through the same limits as the player) up to every place in the city and the zone; can the prompt be reached?
+        // Test mode (-cavetest <dir>): the petal trail, the door by day and by night, the fight, the chest once per day, the way out. Leaves the save as it found it.
+        System.Collections.IEnumerator CaveTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; var keep = JsonUtility.ToJson(save); save.caveDay = "";
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            StartCity(); yield return new WaitForSecondsRealtime(1); StartWilds(); yield return new WaitForSecondsRealtime(1.5f); hero.max = hero.hp = 999999; var z = wildsCtl; var door = z.CaveDoor; log.AppendLine($"door {door}");
+            MoveTo(new Vector3(-6, 0, -18)); yield return new WaitForSecondsRealtime(4); Snap("trail_a"); yield return new WaitForSecondsRealtime(2); Snap("trail_b");
+            MoveTo(new Vector3(-2, 0, -38)); yield return new WaitForSecondsRealtime(3); Snap("trail_c"); yield return new WaitForSecondsRealtime(.2f);
+            MoveTo(door + new Vector3(0, 0, 2.4f)); yield return new WaitForSecondsRealtime(1.5f); Snap("door_day"); yield return new WaitForSecondsRealtime(.2f); z.TryCave(); log.AppendLine($"by day: in cave {z.InCave}"); yield return new WaitForSecondsRealtime(.3f); Snap("door_day_msg");
+            z.Clock.t = 239; yield return new WaitForSecondsRealtime(2.5f); Snap("door_night"); yield return new WaitForSecondsRealtime(.2f); log.AppendLine($"night {z.Clock.IsNight}"); int ownedBefore = save.owned.Count;
+            z.TryCave(); yield return new WaitForSecondsRealtime(1.5f); log.AppendLine($"by night: in cave {z.InCave} house {house} foes {foes.Count(f => f && f.alive)} chest ready {HouseFought}"); Snap("cave_room");
+            foreach (var x in foes.ToArray()) if (x && x.alive) x.Damage(1e7f, x.Pos); yield return new WaitForSecondsRealtime(.6f); log.AppendLine($"guards down: chest ready {HouseFought}");
+            MoveTo(OpenWorld.Chest + new Vector3(0, 0, 2)); yield return new WaitForSecondsRealtime(.6f); Snap("cave_chest"); var kb = z.GetType().GetMethod("OpenCaveChest", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); kb.Invoke(z, null); yield return new WaitForSecondsRealtime(.5f); Snap("cave_open"); log.AppendLine($"opened: weapons {ownedBefore} -> {save.owned.Count} ({(save.owned.Count > ownedBefore ? save.owned[save.owned.Count - 1] : "")}) caveDay {save.caveDay} taken {z.CaveTaken}"); int o2 = save.owned.Count; kb.Invoke(z, null); log.AppendLine($"opened again: weapons {o2} -> {save.owned.Count}");
+            LeaveHouse(); yield return new WaitForSecondsRealtime(1); log.AppendLine($"left: wilds {wilds} house {house} inCave {z.InCave} at {hero.Pos} sun {RenderSettings.sun.intensity:0.00}"); Snap("left"); z.TryCave(); log.AppendLine($"same day again: in cave {z.InCave}");
+            save.caveDay = "2000-01-01"; log.AppendLine($"next day: taken {z.CaveTaken}"); z.TryCave(); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"next day: in cave {z.InCave}"); FallInZone(); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"fell in cave: wilds {wilds} inCave {z.InCave} at {hero.Pos}");
+            EnterHouse(); yield return new WaitForSecondsRealtime(.5f); log.AppendLine($"house after cave: inCave {z.InCave} foes {foes.Count(f => f && f.alive)} sun {RenderSettings.sun.intensity:0.00}"); Snap("house_after");
+            BackToZone(OpenWorld.Start + new Vector3(0, 0, -4)); yield return new WaitForSecondsRealtime(1.5f); wildsCtl.Clock.t = 100; yield return new WaitForSecondsRealtime(.5f); hero.inv = 0; hero.Hurt(40, hero.Pos + new Vector3(0, 0, -2)); yield return null; Snap("hit_a"); yield return new WaitForSecondsRealtime(.15f); Snap("hit_b"); yield return new WaitForSecondsRealtime(.25f); Snap("hit_c"); wildsCtl.Clock.t = 250; yield return new WaitForSecondsRealtime(.5f); hero.inv = 0; hero.Hurt(40, hero.Pos + new Vector3(0, 0, -2)); yield return new WaitForSecondsRealtime(.12f); Snap("hit_night"); log.AppendLine($"hit: model shown {hero.GetComponentsInChildren<SkinnedMeshRenderer>().Length > 0}");
+            save = JsonUtility.FromJson<Save>(keep); Persist();
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "cave.txt"), log.ToString()); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
+        }
         System.Collections.IEnumerator GateWalk(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); StartCity(); yield return new WaitForSecondsRealtime(2);
@@ -711,6 +747,22 @@ namespace NovaBlade
             foreach (var x in foes.ToArray()) if (x && x.alive) x.Damage(1e7f, x.Pos); yield return new WaitForSecondsRealtime(1); hero.transform.position = OpenWorld.Chest + new Vector3(0, 0, 2.2f); yield return new WaitForSecondsRealtime(1); Snap("house_chest"); log.AppendLine($"house: all down, chest ready {HouseFought}"); yield return new WaitForSecondsRealtime(.5f);
             int dr = drops.Count; wildsCtl.OpenChest(); log.AppendLine($"chest: drops {dr} -> {drops.Count}, cleared {wildsCtl.HouseCleared}"); yield return new WaitForSecondsRealtime(1.2f); Snap("house_loot"); yield return new WaitForSecondsRealtime(.5f);
             LeaveHouse(); yield return new WaitForSecondsRealtime(1); log.AppendLine($"left: wilds {wilds} house {house} at door {Vector3.Distance(hero.Pos, wildsCtl.Door):0.0} m"); EnterHouse(); yield return new WaitForSecondsRealtime(1); log.AppendLine($"second visit: foes {foes.Count(x => x && x.alive)}"); gold = 100; hero.inv = 0; hero.Hurt(1e8f, hero.Pos + Vector3.forward); yield return new WaitForSecondsRealtime(4); log.AppendLine($"fell: gold {gold} (was 100) dead {hero.dead} wilds {wilds} house {house} at {hero.Pos} mode {mode}"); Snap("fell"); yield return new WaitForSecondsRealtime(.5f);
+            { var camp = new Vector3(42, 0, -14); hero.transform.position = OpenWorld.Start; yield return new WaitForSecondsRealtime(1); log.AppendLine($"areas at the gate: {wildsCtl.AreaReport}");
+              hero.max = hero.hp = 999999; hero.transform.position = camp; yield return new WaitForSecondsRealtime(4); log.AppendLine($"areas at the camp: {wildsCtl.AreaReport} (alive {wildsCtl.AliveInAreas})"); Snap("camp"); yield return new WaitForSecondsRealtime(.5f); ui.atkP = true; yield return new WaitForSecondsRealtime(.4f); ui.atkP = false; Snap("camp_fight");
+              var msf = new List<float>(); for (float t = 0; t < 4; t += Time.unscaledDeltaTime) { hero.hp = hero.max; msf.Add(Time.unscaledDeltaTime * 1000); yield return null; } msf.Sort(); log.AppendLine($"camp fight: median {msf[msf.Count / 2]:0.0} ms worst5% {msf[(int)(msf.Count * .95f)]:0.0} ms");
+              float Away() { float sum = 0; int n = 0; foreach (var x in foes) if (x && x.alive && x.leash > 0 && Flat(x.Pos - camp).magnitude < 40) { sum += Flat(x.Pos - x.home).magnitude; n++; } return n > 0 ? sum / n : -1; }
+              log.AppendLine($"chasing: {Away():0.0} m from home on average"); hero.transform.position = camp + new Vector3(-30, 0, 18); yield return new WaitForSecondsRealtime(8); log.AppendLine($"hero 35 m away, 8 s later: {Away():0.0} m from home (leash)");
+              hero.transform.position = new Vector3(-50, 0, -50); yield return new WaitForSecondsRealtime(2); log.AppendLine($"moved far away: {wildsCtl.AreaReport}");
+              hero.transform.position = camp; yield return new WaitForSecondsRealtime(3); foreach (var x in foes.ToArray()) if (x && x.alive) x.Damage(1e7f, x.Pos); yield return new WaitForSecondsRealtime(2); log.AppendLine($"back at the camp, all killed: {wildsCtl.AreaReport}"); Snap("after_kill");
+              yield return new WaitForSecondsRealtime(40); log.AppendLine($"42 s later: {wildsCtl.AreaReport}"); for (int t = 0; t < 52; t++) { hero.hp = hero.max; yield return new WaitForSecondsRealtime(1); } log.AppendLine($"94 s later: {wildsCtl.AreaReport}"); Snap("after_wait"); hero.transform.position = new Vector3(10, 0, 51); yield return new WaitForSecondsRealtime(2); Snap("grove"); hero.transform.position = new Vector3(-13, 0, 40); yield return new WaitForSecondsRealtime(3); Snap("grove2");
+              var clock = wildsCtl.Clock; var br = new Vector3(1.5f, 0, WildsMap.StreamZ(1.5f)); clock.t = 100; hero.inv = 0; hero.hp = hero.max; hero.Hurt(1000, hero.Pos); float hurtDay = hero.max - hero.hp; hero.hp = hero.max; var someone = foes.FirstOrDefault(x => x && x.alive && x.leash > 0); float hpDay = someone ? someone.maxHp : 0; bool deckDay = BridgeDeck.Height(br.x, br.z, out _);
+              hero.transform.position = br + new Vector3(0, 0, 7); yield return new WaitForSecondsRealtime(1.5f); Snap("day_bridge");
+              hero.transform.position = new Vector3(42, 0, -14); clock.t = 238; yield return new WaitForSecondsRealtime(3); hero.inv = 0; hero.hp = hero.max; hero.Hurt(1000, hero.Pos); float hurtNight = hero.max - hero.hp; hero.hp = hero.max; Snap("night_camp");
+              int before = drops.Sum(x => x.v); DropLoot(hero.Pos, false, 10); log.AppendLine($"night: isNight {clock.IsNight} foe hp {hpDay:0} -> {(someone ? someone.maxHp : 0):0}; hurt {hurtDay:0} -> {hurtNight:0}; 10 gold becomes {drops.Sum(x => x.v) - before}; bridge deck {deckDay} -> {BridgeDeck.Height(br.x, br.z, out _)}; label {wildsCtl.TimeLabel}");
+              hero.transform.position = br + new Vector3(0, 0, 7); yield return new WaitForSecondsRealtime(1.5f); Snap("night_bridge");
+              hero.transform.position = new Vector3(-30, 0, -24); yield return new WaitForSecondsRealtime(3); log.AppendLine($"night forest: {wildsCtl.AreaReport}"); Snap("night_forest");
+              clock.t = 359; yield return new WaitForSecondsRealtime(3); log.AppendLine($"dawn near them: {wildsCtl.AreaReport} bridge {BridgeDeck.Height(br.x, br.z, out _)} night {clock.IsNight} label {wildsCtl.TimeLabel}");
+              hero.transform.position = new Vector3(-6, 0, -10); yield return new WaitForSecondsRealtime(2); log.AppendLine($"dawn walked off: {wildsCtl.AreaReport}"); Snap("dawn"); }
             log.AppendLine($"edge: 500 m east is limited to {Clamp(new Vector3(500, 0, 0)).x:0.0} (zone radius {OpenWorld.Radius})");
             hero.transform.position = OpenWorld.Gate + new Vector3(1.5f, 0, -1); yield return new WaitForSecondsRealtime(1.5f); Snap("gate_back"); yield return new WaitForSecondsRealtime(.5f);
             log.AppendLine($"foes in zone: {foes.Count}, wilds {wilds}"); StartCity(); yield return new WaitForSecondsRealtime(2); log.AppendLine($"back: city {city}, wilds {wilds}, edge {Clamp(new Vector3(500, 0, 0)).x:0.0}"); Snap("back_city"); yield return new WaitForSecondsRealtime(.5f);
@@ -1178,6 +1230,7 @@ namespace NovaBlade
         static Color OrbGlow(string kind) => kind switch { "heal" => new Color(.3f, 1, .4f), "mana" => new Color(.75f, .35f, 1), "fury" => new Color(1, .3f, .2f), "quick" => new Color(.8f, .88f, 1), _ => new Color(1, .75f, .25f) };
         public void DropLoot(Vector3 p, bool isBoss, int g)
         {
+            if (ZoneNight) g = Mathf.CeilToInt(g * OpenWorld.NightGold);
             if (isBoss) { for (int i = 0; i < 24; i++) AddDrop(p, "gold", 8); foreach (var k in new[] { "heal", "mana", "fury", "quick" }) AddDrop(p, k, 0); }
             else
             {   // one gold orb worth what the coins came to; the others by chance

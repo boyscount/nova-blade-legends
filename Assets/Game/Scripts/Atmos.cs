@@ -10,7 +10,7 @@ namespace NovaBlade
         public Color haloColor = new(1, .62f, .3f); public float haloSize = 2.6f;
 
         static Texture2D dot;
-        static Texture2D Dot()
+        public static Texture2D Dot()
         {
             if (dot) return dot; dot = new Texture2D(64, 64, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
             for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { float d = Vector2.Distance(new Vector2(x, y), new Vector2(31.5f, 31.5f)) / 32f; float a = Mathf.Clamp01(1 - d); dot.SetPixel(x, y, new Color(1, 1, 1, a * a * a)); }

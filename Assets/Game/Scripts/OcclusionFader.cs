@@ -9,7 +9,7 @@ namespace NovaBlade
     // The faded copy of each material is URP Lit, transparent (Resources/FadeLit keeps that shader variant in the build).
     public class OcclusionFader : MonoBehaviour
     {
-        const float Alpha = .22f, Speed = 6;
+        const float Alpha = .22f, Speed = 6, WildsFoeNear = 9;
         class Faded { public Renderer r; public Material[] orig; public UnityEngine.Rendering.ShadowCastingMode shadow; public float a = 1; public bool hit, near; public bool recv; }
         readonly Dictionary<Renderer, Faded> faded = new Dictionary<Renderer, Faded>();
         readonly Dictionary<Material, Material> fadeMat = new Dictionary<Material, Material>();
@@ -32,7 +32,7 @@ namespace NovaBlade
             // what must stay visible: the hero and the nearest monsters
             var c = cam.transform.position;
             if (G.hero) Check(c, G.hero.Pos + Vector3.up * 1.1f);
-            foreach (var e in G.Live.Where(e => e && e.alive).OrderBy(e => (e.Pos - G.hero.Pos).sqrMagnitude).Take(10)) Check(c, e.Pos + Vector3.up * 1f);
+            foreach (var e in G.Live.Where(e => e && e.alive && (!G.wilds || (e.Pos - G.hero.Pos).sqrMagnitude < WildsFoeNear * WildsFoeNear)).OrderBy(e => (e.Pos - G.hero.Pos).sqrMagnitude).Take(G.wilds ? 4 : 10)) Check(c, e.Pos + Vector3.up * 1f);
             var done = new List<Renderer>();
             foreach (var f in faded.Values)
             {
@@ -55,6 +55,7 @@ namespace NovaBlade
             foreach (var r in stage.GetComponentsInChildren<Renderer>(true))
             {
                 if (!(r is MeshRenderer) || r.GetComponentInParent<Hero>() || r.GetComponentInParent<Foe>()) continue;
+                var top = r.transform; while (top.parent && top.parent != stage) top = top.parent; if (top.name.Contains("CaveRock")) continue;   // the rocks of the cave door are big and stand behind whoever is at the door
                 var n = r.gameObject.name.ToLower(); var b = r.bounds;
                 if (n.Contains("ground") || n.Contains("grass") || n.Contains("water") || n.Contains("terrain") || n.Contains("sky") || n.Contains("mist")) continue;
                 if (b.size.y < .6f || b.size.x > 40 || b.size.z > 40) continue;   // flat pieces and the huge backdrops

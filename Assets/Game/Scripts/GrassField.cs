@@ -91,7 +91,7 @@ namespace NovaBlade
             {
                 float a = R(0, Mathf.PI * 2), lean = R(.1f, .45f), len = h * R(.55f, 1.25f), w = R(.014f, .026f) * wide;
                 // clump palettes: plain, sun-dried, cool, lush (meadow colour variety)
-                var shade = variant == 1 ? new Color(1.15f, 1.08f, .75f) : variant == 2 ? new Color(.88f, 1.02f, .98f) : variant == 3 ? new Color(.92f, 1.12f, .85f) : Color.white; if (meadow) shade = variant == 1 ? new Color(1.4f, 1.2f, .55f) : variant == 2 ? new Color(.7f, 1, .9f) : variant == 3 ? new Color(1, 1.3f, .7f) : Color.white;
+                var shade = variant == 1 ? new Color(1.15f, 1.08f, .75f) : variant == 2 ? new Color(.88f, 1.02f, .98f) : variant == 3 ? new Color(.92f, 1.12f, .85f) : Color.white; if (meadow) shade = variant == 1 ? new Color(1.08f, 1.14f, .78f) : variant == 2 ? new Color(.7f, 1, .92f) : variant == 3 ? new Color(.84f, 1.24f, .82f) : Color.white;
                 var dir = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)); var side = new Vector3(-dir.z, 0, dir.x); var root = dir * R(0, meadow ? .24f : .09f);
                 int baseI = v.Count; const int seg = 4;
                 for (int i = 0; i <= seg; i++)

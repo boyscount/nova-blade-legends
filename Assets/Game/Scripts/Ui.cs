@@ -1633,8 +1633,8 @@ namespace NovaBlade
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;
             if (G.city) SetPlate(Loc.S("สวนซากุระ", "SAKURA GARDEN"), Loc.S("เมืองหลัก", "MAIN CITY"), "");   // once here: writing it from two places each frame locked the game up
-            else if (G.house) SetPlate(Loc.S("บ้านร้าง", "ABANDONED HOUSE"), Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), left > 0 ? (Loc.En ? $"ENEMIES: {left}" : $"ศัตรู: {left}") : "");
-            else if (G.wilds) SetPlate(Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), Loc.S("พื้นที่สำรวจ", "OPEN WORLD"), "");
+            else if (G.house) SetPlate(G.Zone.InCave ? Loc.S("ถ้ำลับ", "SECRET CAVE") : Loc.S("บ้านร้าง", "ABANDONED HOUSE"), Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), left > 0 ? (Loc.En ? $"ENEMIES: {left}" : $"ศัตรู: {left}") : "");
+            else if (G.wilds) SetPlate(Loc.S("ป่าจันทร์พลัดกลีบ", "DRIFTPETAL WILDS"), G.Zone.TimeLabel, left > 0 ? (Loc.En ? $"ENEMIES NEAR: {left}" : $"ศัตรูใกล้: {left}") : "");
             else if (G.lane)
             {
                 waveT.text = Loc.En ? $"BATTLE {G.laneSize} VS {G.laneSize}" : $"สนามรบ {G.laneSize} vs {G.laneSize}"; waveT2.text = Loc.En ? $"WAVE {G.wave}" : $"ระลอก {G.wave}";

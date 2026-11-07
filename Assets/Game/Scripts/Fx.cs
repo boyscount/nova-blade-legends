@@ -101,6 +101,18 @@ namespace NovaBlade
             }
         }
 
+        // a small puff of smoke bursting off a body that was struck: it rises and spreads a little
+        public static void Puff(Vector3 p, Color? c = null, int n = 12, float size = .55f)
+        {
+            if (!I) return; var col = c ?? new Color(.86f, .84f, .9f, .85f); var ep = new ParticleSystem.EmitParams();
+            for (int i = 0; i < n; i++)
+            {
+                var d = Random.onUnitSphere; d.y = Mathf.Abs(d.y) * .6f + .2f;
+                ep.position = p + d * .25f; ep.velocity = d * Random.Range(.8f, 1.6f) + Vector3.up * .5f; ep.startLifetime = Random.Range(.55f, .9f); ep.startSize = size * Random.Range(.7f, 1.3f); ep.rotation = Random.Range(0, 360f);
+                var cc = col * Random.Range(.85f, 1.1f); cc.a = col.a; ep.startColor = cc; I.dust.Emit(ep, 1);
+            }
+        }
+
         // ---------- procedural meshes ----------
         static Mesh Sector(float r0, float r1, float start, float span, int seg = 32)
         {

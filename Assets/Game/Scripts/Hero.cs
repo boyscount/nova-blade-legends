@@ -288,10 +288,10 @@ namespace NovaBlade
         {
             if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
             if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
-            float d = CombatRules.Current.ModifyDamage(dmg) * (1 + (G.stage - 1) * .15f) * (ShieldOn != null ? 1 - ShieldOn.block : 1) * (1 - Items.Bonus(G.save).def); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
+            float d = CombatRules.Current.ModifyDamage(dmg) * (G.ZoneNight ? OpenWorld.NightFoePower : 1) * (1 + (G.stage - 1) * .15f) * (ShieldOn != null ? 1 - ShieldOn.block : 1) * (1 - Items.Bonus(G.save).def); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
             d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
             look.Flash(.5f); flashT = .12f; G.Number(Pos + Vector3.up * 2.1f, "-" + d, "hurt");
-            Fx.Spawn("hit_red", Pos + Vector3.up * 1.1f, .8f, 2);
+            Fx.Spawn("hit_red", Pos + Vector3.up * 1.1f, .8f, 2); Fx.Puff(Pos + Vector3.up * 1.1f);
             if (hp <= 0) { hp = 0; Die(); return; }
             if (G.soul && soul) { if (d > max * .06f && !soul.Blocking) { soul.OnHurt(); Play("hurt", .06f, 1.4f); } return; }
             if (d > max * .06f && state != St.Skill && state != St.Dodge)
@@ -430,7 +430,7 @@ namespace NovaBlade
             if (!def.rig) ToyBot(dt, mv);
             else { var gp = transform.position; gp.y = Mathf.Lerp(gp.y, River.Ground(gp.x, gp.z), Mathf.Min(1, dt * 12)); transform.position = gp; }
             transform.rotation = Quaternion.Euler(0, (face + spin) * Mathf.Rad2Deg, 0);
-            bool blink = inv > 0 && state != St.Dodge && state != St.Skill && Mathf.FloorToInt(inv * 24) % 2 == 1;
+            const bool blink = false;   // a hit shows as a puff of smoke (Fx.Puff in Hurt); the body stays in view
             if (model.activeSelf == blink) { model.SetActive(!blink); var wp = transform.Find("Wings"); if (wp) wp.gameObject.SetActive(!blink); }   // the wings hang off the root, so they blink with the body
         }
         // character select: women and men each have a stance of their own once its clip is in the controller (else the shared "show")

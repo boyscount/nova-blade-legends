@@ -8,6 +8,8 @@ namespace NovaBlade
     public class Foe : MonoBehaviour, ITarget
     {
         public FoeDef d; public BossDef bd; public bool isBoss;
+        public void Spirit(Color c, Color lift) => look?.Spirit(c, lift);
+        public Vector3 home; public float leash; bool aggro; const float AggroRange = 10, LoseRange = 22;   // open world: stays around home until the hero comes close or strikes it; leash 0 = always hunts
         public float hp, maxHp, rad, h, face, slow, pull, stag, burn, burnD, burnT, atkCD, st, t, flash, kx, kz, y;
         public bool alive = true, spawning = true;
         public float poise, poiseMax, brokenT;   // stagger meter: full -> broken (open to a finisher)
@@ -96,6 +98,7 @@ namespace NovaBlade
         // ---------- damage ----------
         public void Damage(float dmg, Vector3 from, Main.Hit o = null)
         {
+            aggro = true;
             if (!alive) return; o ??= new Main.Hit(); var hero = G.hero; var sw = o.byFoe ? new SwordDef { color = o.col ?? Color.white } : hero.sword;
             bool crit = Random.value < (o.byFoe ? .05f : (o.melee && sw.crit > 0 ? sw.crit : .12f) + hero.CritBonus);
             dmg = Mathf.Round(CombatRules.Current.ModifyDamage(dmg) * (crit ? 1.8f : 1) * (brokenT > 0 ? 1.3f : 1) * Random.Range(.9f, 1.1f)); hp -= dmg; flash = .12f;
@@ -164,8 +167,9 @@ namespace NovaBlade
             var hero = G.hero;
             retarget -= dt; if (retarget <= 0 || tgt == null || tgt.Down) { retarget = .3f; tgt = G.PickTarget(this); }
             bool has = tgt != null && !tgt.Down;
+            if (leash > 0) { float hd = Main.Flat(hero.Pos - Pos).magnitude; if (hd < AggroRange) aggro = true; else if (hd > LoseRange || Main.Flat(hero.Pos - home).magnitude > leash) aggro = false; if (!aggro) has = false; }
             // no target in lane mode: march toward the other side's base
-            var goal = has ? tgt.Pos : G.lane ? Lane.Goal(Pos, team, laneIdx) : Pos;
+            var goal = has ? tgt.Pos : G.lane ? Lane.Goal(Pos, team, laneIdx) : leash > 0 ? home : Pos;
             var to = Main.Flat(goal - Pos); float dd = has ? Mathf.Max(0, to.magnitude - tgt.Rad + .45f) : 99, want = Main.Ang(to);
             if (pull > 0) { pull -= dt; if (dd > 1.3f && d.kind != "tower") transform.position += to.normalized * 9 * dt; }
             slow -= dt; float sp = d.spd * (slow > 0 ? .45f : 1) * (raged ? 1.3f : 1) * (!d.fly && River.InWater(Pos.x, Pos.z) ? .7f : 1);
@@ -178,7 +182,7 @@ namespace NovaBlade
                 atkCD -= dt; skillCD -= dt; if (d.kind != "tower") face += Main.AngDiff(face, want) * Mathf.Min(1, dt * 8);
                 float mv = 0;
                 if (d.kind == "tower") mv = 0;
-                else if (!has) mv = G.lane ? 1 : 0;
+                else if (!has) mv = G.lane || (leash > 0 && to.magnitude > 1.5f) ? 1 : 0;
                 else if (d.kind == "ranged") { if (dd > 7) mv = 1; else if (dd < 4.5f) mv = -.7f; } else if (dd > d.range * .8f) mv = 1;
                 if (mv != 0) { transform.position += Main.Dir(face) * sp * mv * dt; moving = true; }
                 skillWind = d.kind == "champ" && skillCD <= 0 && has && dd < 3.5f;

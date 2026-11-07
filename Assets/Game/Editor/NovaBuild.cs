@@ -570,7 +570,7 @@ public static class NovaBuild
                 tl.diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Game/Textures/PBR/{l.tex}_Diffuse_1k.jpg");
                 tl.normalMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Game/Textures/PBR/{l.tex}_nor_gl_1k.jpg");
             } tl.tileSize = Vector2.one * l.tile; tl.smoothness = .05f; tl.normalScale = 1;
-            tl.diffuseRemapMax = l.tex == "leafy_grass" ? new Vector4(.78f, .9f, .68f, 1) : Vector4.one;   // greener ground under the meadow
+            tl.diffuseRemapMax = l.tex == "leafy_grass" ? (name == "WildsGround" ? new Vector4(.5f, 1.05f, .62f, 1) : new Vector4(.78f, .9f, .68f, 1)) : Vector4.one;   // greener ground under the meadow
             EditorUtility.SetDirty(tl); return tl;
         }).ToArray();
         var a = new float[ar, ar, layers.Length];
@@ -1055,18 +1055,44 @@ public static class NovaBuild
         return root;
     }
     // Open World zone 1 (OPEN-WORLD-ZONE1.md), step 1: flat walkable ground, radius 60, hills and thick forest around it, a dirt path through the middle
+    // the low-poly fruit tree in blossom: its leaf texture repainted in pinks, the same shapes and triangles
+    static GameObject PinkFoliage(GameObject go)
+    {
+        const string Mat = Gen + "/Sakura/PT_Fruit_Foliage_sakura.mat", Png = Gen + "/Sakura/PT_Fruit_Foliage_sakura.png";
+        var pink = AssetDatabase.LoadAssetAtPath<Material>(Mat);
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+        {
+            var mats = r.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (!mats[i] || !mats[i].name.Contains("Foliage")) continue;
+                if (!pink)
+                {
+                    var src = mats[i].GetTexture("_BaseTexture") ?? mats[i].GetTexture("_BaseMap"); var rt = RenderTexture.GetTemporary(src.width, src.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB); Graphics.Blit(src, rt);
+                    var was = RenderTexture.active; RenderTexture.active = rt; var t = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false); t.ReadPixels(new Rect(0, 0, src.width, src.height), 0, 0); RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+                    var px = t.GetPixels(); for (int k = 0; k < px.Length; k++) { float l = Mathf.Clamp01(px[k].grayscale * 1.5f); var c = Color.Lerp(new Color(.86f, .42f, .6f), new Color(1, .84f, .9f), l); c.a = px[k].a; px[k] = c; }
+                    t.SetPixels(px); File.WriteAllBytes(Png, t.EncodeToPNG()); AssetDatabase.ImportAsset(Png);
+                    pink = new Material(mats[i]); var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(Png); foreach (var prop in new[] { "_BaseTexture", "_BaseMap" }) if (pink.HasProperty(prop)) pink.SetTexture(prop, tex); if (pink.HasProperty("_TopColor")) pink.SetColor("_TopColor", new Color(1, .78f, .86f));
+                    AssetDatabase.CreateAsset(pink, Mat);
+                }
+                mats[i] = pink;
+            }
+            r.sharedMaterials = mats;
+        }
+        return go;
+    }
     static Transform WildsStage()
     {
         NewRoot("Stage_wilds", new Color(.34f, .38f, .34f), .007f, new Color(.5f, .58f, .66f), new Color(.3f, .36f, .24f), new Color(.1f, .12f, .06f));
-        var sun = Sun(new Color(1f, .78f, .52f), 2f, new Vector3(30, 125, 0)); root.GetComponent<StageLook>().sun = sun; root.GetComponent<StageLook>().lowCam = true;
+        var sun = Sun(new Color(1f, .94f, .82f), 1.9f, new Vector3(30, 125, 0)); root.GetComponent<StageLook>().sun = sun; root.GetComponent<StageLook>().lowCam = true;
         const float Edge = 62, RH = WildsMap.StreamHalf;
-        Ground("WildsGround", new[] { ("leafy_grass", 3.5f), ("forest_ground_05", 4f), ("grass_path_3", 3f), ("brown_mud_02", 3f) }, (x, z, i) =>
+        Ground("WildsGround", new[] { ("leafy_grass", 3.5f), ("leafy_grass", 6f), ("grass_path_3", 3f), ("brown_mud_02", 3f) }, (x, z, i) =>
         {
             float d = Mathf.Abs(z - WildsMap.StreamZ(x)), bank = 1 - Smooth(RH, RH + 1.6f, d); if (i == 3) return bank;
             float path = Mathf.Max(PathMask(x, z), 1 - Smooth(.8f, 2.2f, WildsMap.TrailDistance(x, z))) * (1 - bank), rest = 1 - bank, r = Mathf.Sqrt(x * x + z * z), patch = Mathf.PerlinNoise(x * .05f + 5, z * .05f + 2), edge = Mathf.SmoothStep(0, 1, (r - 86) / 8), wild = Mathf.Max(edge, Mathf.SmoothStep(.7f, .88f, patch));   // green under the grass, so the ground past it still reads as meadow
             return i == 2 ? path * (r < Edge ? 1 : 0) : i == 1 ? (rest - path) * wild : (rest - path) * (1 - wild);
         }, 0, (x, z) => WildsMap.Height(x, z) + Mathf.SmoothStep(0, 1, (Mathf.Sqrt(x * x + z * z) - 84) / 14) * 4 * (.5f + Mathf.PerlinNoise(x * .05f + 3, z * .05f + 7)), WildsMap.StreamDepth);
-        var meadow = Grass(new Color(.07f, .2f, .06f), new Color(.2f, .46f, .13f), new Color(.5f, .74f, .28f), .24f, .3f, 62); meadow.wilds = true; meadow.meadow = true; root.GetComponentInChildren<GrassField>().maxDistance = 34;
+        var meadow = Grass(new Color(.03f, .2f, .1f), new Color(.1f, .46f, .2f), new Color(.32f, .74f, .32f), .24f, .3f, 62); meadow.wilds = true; meadow.meadow = true; root.GetComponentInChildren<GrassField>().maxDistance = 34;
         // the stream: strips of the pack's water following the curve, and two wooden bridges
         var wmat = AssetDatabase.LoadAssetAtPath<Material>($"{Gen}/Water.mat");
         for (float x = -92; x < 92; x += 4)
@@ -1079,17 +1105,29 @@ public static class NovaBuild
         var bridge = Load("Assets/Polytope Studio/Lowpoly_Village/Prefabs/Modular/Bridge/PT_Wooden_Bridge_02.prefab");
         foreach (float bx in new[] { 1.5f, -30f }) Deck(Fit(bridge, new Vector3(bx, -.1f, WildsMap.StreamZ(bx)), 90 - Mathf.Atan(WildsMap.StreamSlope(bx)) * Mathf.Rad2Deg, 2.2f));
         Vector3 On(Vector2 p, float sink = 0) => new(p.x, WildsMap.Height(p.x, p.y) - sink, p.y);
-        bool Free(Vector2 p, float pad) => WildsMap.Dry(p.x, p.y, pad) && WildsMap.TrailDistance(p.x, p.y) > 2.5f && Vector2.Distance(p, WildsMap.House) > 11;
+        bool Free(Vector2 p, float pad) => WildsMap.Dry(p.x, p.y, pad) && WildsMap.TrailDistance(p.x, p.y) > 2.5f && Vector2.Distance(p, WildsMap.House) > 11 && Vector2.Distance(p, WildsMap.Cave) > 9;
         // the house you can go into: faces the camera side; the marker is where its door is
         var hg = Fit(Load("Assets/Art/Prefabs/Houses/Preset_House_01_A.prefab"), new Vector3(WildsMap.House.x, 0, WildsMap.House.y), 0, 9); var hb = Bounds(hg);
         var doorMark = new GameObject("HouseDoor").transform; doorMark.SetParent(root); doorMark.position = new Vector3(hb.center.x, 0, hb.max.z + 1.2f);
         PointLight(doorMark.position + Vector3.up * 2.4f, new Color(1, .7f, .4f), 7, 9);
         string N(string n) => $"Assets/Game/Models/Nature/{n}.glb";
+        // the secret cave: a stone doorway in a heap of boulders at the north edge; its door is gone at night
+        const string DG = "Assets/ThirdParty/Dungeon/Prefabs/"; var cave = WildsMap.Cave;
+        Fit(Load(DG + "Doorways/Doorway_A.prefab"), On(cave), 90, 4.4f);
+        Fit(Load(DG + "Doors/Door_A.prefab"), On(cave), 90, 3.6f).name = "CaveSeal";
+        var dark = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(dark.GetComponent<Collider>()); dark.name = "CaveDark"; dark.transform.SetParent(root); dark.transform.position = On(cave + new Vector2(0, -.45f)) + Vector3.up * 1.9f; dark.transform.rotation = Quaternion.Euler(0, 180, 0); dark.transform.localScale = new Vector3(3.4f, 3.8f, 1);
+        var darkMat = new Material(Shader.Find("Universal Render Pipeline/Unlit")); darkMat.SetColor("_BaseColor", new Color(.008f, .012f, .02f)); AssetDatabase.CreateAsset(darkMat, $"{Gen}/CaveDark.mat"); dark.GetComponent<Renderer>().sharedMaterial = darkMat;
+        // a heap of big rocks round the door, and one laid over it (named so it does not block the way in)
+        foreach (var (dx, dz, ht) in new[] { (-5.4f, -.8f, 3.8f), (5.4f, -.8f, 4f), (-3f, -4.2f, 5f), (3f, -4.2f, 5.2f), (0f, -5f, 5.6f), (-8.4f, -2f, 2.6f), (8.4f, -2f, 2.8f) }) Fit(Load(N("namaqualand_boulder_03")), On(cave + new Vector2(dx, dz), .2f), R(0, 360), ht).name = "boulder_CaveRock";
+        var capRock = Fit(Load(N("namaqualand_boulder_03")), On(cave + new Vector2(0, -1.6f)) + Vector3.up * 4.3f, R(0, 360), 2f); capRock.name = "CaveRockTop";
+        var doorSpot = new GameObject("CaveDoorMark").transform; doorSpot.SetParent(root); doorSpot.position = new Vector3(cave.x, 0, cave.y + 2);
+        var moonLight = PointLight(On(cave + new Vector2(0, 1.5f)) + Vector3.up * 2.2f, new Color(.5f, 1, .95f), 3.5f, 9); moonLight.name = "CaveLight"; moonLight.gameObject.SetActive(false);
         // the low-poly pack: the photo-scanned trees of the small arenas run to 100,000 triangles each, far too many for a whole forest
         const string PT = "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/";
         var pines = new[] { PT + "Trees/PT_Pine_Tree_03_green.prefab", PT + "Trees/PT_Pine_Tree_03_green_cut.prefab" }; var fruit = new[] { PT + "Trees/PT_Fruit_Tree_01_green.prefab", PT + "Trees/PT_Fruit_Tree_01_apples.prefab", PT + "Trees/PT_Fruit_Tree_01_plums.prefab" };
         foreach (var p in Ring(90, 63, 84)) if (Free(p, 1)) Fit(Load(pines[rnd.Next(2)]), On(p), R(0, 360), R(10, 15));   // the wall of forest round the zone
-        foreach (var p in Ring(34, 16, 58, 3, .2f)) if (Free(p, 1)) Fit(Load(fruit[rnd.Next(3)]), On(p), R(0, 360), R(5.5f, 8));   // trees to walk among
+        foreach (var p in Ring(22, 16, 58, 3, .2f)) if (Free(p, 1)) Fit(Load(fruit[rnd.Next(3)]), On(p), R(0, 360), R(5.5f, 8));   // trees to walk among
+        foreach (var g in WildsMap.Groves) for (int i = 0; i < 4; i++) { var p = g + new Vector2(R(-5.5f, 5.5f), R(-5.5f, 5.5f)); if (Free(p, 1) && PathMask(p.x, p.y) < .2f) PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), On(p), R(0, 360), R(6, 8.5f))); }   // the blossom trees the petals fall from
         foreach (var p in Ring(16, 14, 58, 2.5f, .2f)) if (Free(p, 0)) Place(Load(N("namaqualand_boulder_03")), On(p, .1f), R(0, 360), R(.45f, .8f));
         foreach (var p in Ring(26, 12, 60, 2, .2f)) if (Free(p, 0)) Fit(Load(PT + "Shrubs/PT_Generic_Shrub_01_green.prefab"), On(p), R(0, 360), R(1.2f, 2));
         // rocks along the banks, and a ring of boulders on the hilltop: something to climb up to
