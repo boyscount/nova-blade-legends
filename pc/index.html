@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0b1416">
+  <title>Nova Blade Legends</title>
+  <style>
+    /* Full-screen game canvas with a loading bar and a "rotate your phone" prompt. One dark look (game screen). */
+    html, body { margin: 0; height: 100%; background: #0b1416; color: #f3f0e6; font-family: "Segoe UI", Tahoma, sans-serif; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #0b1416; }
+    #load { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at 50% 40%, #173033, #070b0c 70%); z-index: 2; }
+    .logo { font-weight: 700; letter-spacing: .06em; font-size: clamp(30px, 6vw, 56px); text-align: center; line-height: .9; }
+    .logo span { display: block; color: #ffc65a; font-size: .42em; letter-spacing: .5em; margin-top: 6px; }
+    .bar { width: min(360px, 70vw); height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
+    .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffc65a, #5ff6ff); transition: width .2s; }
+    #msg { color: #b9c3bd; font-size: 14px; }
+    #rot { position: fixed; inset: 0; display: none; flex-direction: column; gap: 10px; align-items: center; justify-content: center; background: #070b0c; z-index: 5; text-align: center; padding: 0 24px; }
+    #rot .ph { width: 46px; height: 78px; border: 3px solid #f3f0e6; border-radius: 9px; animation: r 1.8s ease-in-out infinite; }
+    @keyframes r { 40%, 100% { transform: rotate(-90deg); } }
+    @media (orientation: portrait) and (pointer: coarse) { #rot { display: flex; } }
+    #err { position: fixed; left: 16px; right: 16px; bottom: 16px; display: none; padding: 10px; border: 1px solid #ff4d5e; background: rgba(30,6,10,.94); color: #ffd0d6; font-size: 13px; border-radius: 6px; z-index: 6; }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+  <div id="load"><div class="logo">NOVA BLADE<span>LEGENDS</span></div><div class="bar"><i id="fill"></i></div><div id="msg">กำลังโหลดเกม…</div></div>
+  <div id="rot"><div class="ph"></div><b>หมุนโทรศัพท์เป็นแนวนอน</b><span style="color:#b9c3bd;font-size:14px">เกมนี้เล่นแนวนอน · แตะจอเพื่อเต็มจอ</span></div>
+  <div id="err"></div>
+  <script>
+    var canvas = document.getElementById("unity-canvas");
+    // keys only reach the game while the canvas has focus; right-click is used to move, so no browser menu
+    canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+    window.addEventListener("load", function () { canvas.focus(); });
+    // (iPads report themselves as a Mac, so they are told apart by touch)
+    var mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    // two builds: this page at the site root is the phone build; PC browsers go to the sharper PC build in pc/
+    if (!mobile && !/\/pc\/?/.test(location.pathname) && !/[?&]phone/.test(location.search)) location.replace("pc/" + location.search);
+    var config = {
+      dataUrl: "Build/383455602238d349d7fdadf54bc25974.data.unityweb",
+      frameworkUrl: "Build/112031ce68f2483647fb83e81245d085.framework.js.unityweb",
+      codeUrl: "Build/35377686121266bd8c10d0703015cc63.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "home-redar",
+      productName: "Nova Blade Legends",
+      productVersion: "1.0",
+      matchWebGLToCanvasSize: true,
+      // the joined data blob has a new URL every visit: keep it out of the IndexedDB cache (the parts sit in the browser cache)
+      cacheControl: function (url) { return url.indexOf("blob:") === 0 ? "no-store" : "must-revalidate"; },
+      // phones: render a little below native resolution to keep the frame rate up
+      devicePixelRatio: mobile ? Math.min(window.devicePixelRatio || 1, 1.5) : undefined,
+      showBanner: function (msg, type) { if (type === "error") { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = msg; } }
+    };
+    // tap once to go full screen (and lock landscape where the browser allows it)
+    document.addEventListener("pointerdown", function () {
+      if (!mobile || document.fullscreenElement) return;
+      var el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {}); }).catch(function () {});
+    }, { passive: true });
+    // the build sets this when the data file was cut into parts (GitHub Pages: 100 MB per file)
+    var dataParts = 3;
+    var blobUrl = null;   // the joined download: let go of it as soon as the game has loaded it (phones have little memory to spare)
+    function fetchData() {
+      if (!dataParts) return Promise.resolve();
+      var done = 0, urls = [];
+      for (var i = 0; i < dataParts; i++) urls.push(config.dataUrl + ".part" + i);
+      return Promise.all(urls.map(function (u) {
+        return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.arrayBuffer(); })
+          .then(function (b) { done++; document.getElementById("fill").style.width = Math.round(done / dataParts * 80) + "%"; return b; });
+      })).then(function (bufs) { blobUrl = config.dataUrl = URL.createObjectURL(new Blob(bufs)); });
+    }
+    var script = document.createElement("script");
+    script.src = "Build/d0d1ed31b0b87bfca1ec3eabdbbb9e61.loader.js";
+    script.onload = function () {
+      fetchData().then(function () { return createUnityInstance(canvas, config, function (p) { document.getElementById("fill").style.width = Math.round((dataParts ? 80 + p * 20 : p * 100)) + "%"; }); })
+        .then(function () { if (blobUrl) URL.revokeObjectURL(blobUrl); document.getElementById("load").style.display = "none"; })
+        .catch(function (m) { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: " + m; });
+    };
+    script.onerror = function () { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: ไม่พบไฟล์เกม " + script.src; };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
