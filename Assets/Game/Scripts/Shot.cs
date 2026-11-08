@@ -63,9 +63,9 @@ namespace NovaBlade
             else
             {   // enemy shots hit the player and, in lane mode, the player's side
                 foreach (var t in G.Opponents(1))
-                    if (Main.Flat(t.Pos - p).magnitude < r + t.Rad && p.y < 2.6f) { t.Take(dmg, p); Fx.Burst(p, 10, col, 3); life = 0; break; }
+                    if (Main.Flat(t.Pos - p).magnitude < r + t.Rad && p.y - t.Pos.y < 2.6f) { t.Take(dmg, p); Fx.Burst(p, 10, col, 3); life = 0; break; }   // height over the target's own feet: raised and sunken ground count
             }
-            if (Main.Flat(p).magnitude > 34 || p.y < -1) life = 0;
+            if (Main.Flat(p).magnitude > (G.lane ? 80 : 34) || p.y < -1) life = 0;   // lane maps reach 44 m and more from the middle: their cores and far towers fire from there
             if (life <= 0) Kill();
         }
         void Explode()

@@ -23,7 +23,7 @@ namespace NovaBlade
         public GameObject Fx(string id) => Find(fx, id, "fx_");
         static GameObject Find(List<Entry> list, string id, string prefix)
         {
-            foreach (var e in list) if (e.id == id) return e.prefab ? e.prefab : Resources.Load<GameObject>("Cat/" + prefix + id);
+            foreach (var e in list) if (e.id == id) { if (e.prefab) return e.prefab; float t0 = Time.realtimeSinceStartup; var g = Resources.Load<GameObject>("Cat/" + prefix + id); float ms = (Time.realtimeSinceStartup - t0) * 1000; if (ms > 30) Debug.Log($"[Lazy] {prefix}{id} loaded in {ms:0} ms"); return g; }   // a slow first load shows in the log
             return null;
         }
         public ClipInfo Clip(string set, string id) { if (set != null) foreach (var c in clips) if (c.id == set + ":" + id) return c; return Clip(id); }

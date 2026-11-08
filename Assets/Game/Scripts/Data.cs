@@ -14,7 +14,7 @@ namespace NovaBlade
     public class WingDef { public string id, name, desc; public Color glow; public int gems; }
     public class PetDef { public string id, name, desc, kind; public Color color; public float cd, dmg, h, steal; public bool fly, gold; }
     public class SkillDef { public string id, n; public float cd; public Color c; public string icon; }
-    public class FoeDef { public string id, model, name, kind; public float hp, spd, dmg, range, scale, rad; public int gold; public bool fly; }
+    public class FoeDef { public string id, model, name, kind; public float hp, spd, dmg, range, scale, rad; public int gold; public bool fly, shoot; }   // shoot: an AI hero that fights from range
     public class BossDef { public string model, name, summon; public float scale, hp; public Color tint, glow, rage, color; public bool fly; public float dmg, spd, poise; public int summonN = 3; public string[] near, far; public float hits, takes; }   // hits/takes > 0: a fair duel (Main.DuelSync); dmg/spd/poise 0 = the usual; near/far: the duel moves picked close up / at range (null = the stage boss set)
     public class ThemeDef { public string id, name, desc; public (string foe, int n)[][] waves; public BossDef boss; }
 

@@ -1268,9 +1268,9 @@ public static class NovaBuild
             var r = q.GetComponent<Renderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
             if (drift != 0) { var d = q.AddComponent<Drift>(); d.speed = new Vector2(drift, drift * .4f); d.tile = tile; }
         }
-        Layer("CloudFloor", -34, 700, 1, Mat("SkyCloudFloor", new Color(.8f, .86f, .94f), false), 0);
-        Layer("CloudLow", -22, 420, 3, Mat("SkyCloudLow", new Color(.9f, .94f, 1f, 1), true), .004f);
-        Layer("CloudHigh", -11, 300, 2.2f, Mat("SkyCloudHigh", new Color(1, 1, 1, .85f), true), .007f);
+        Layer("CloudFloor", -34, 700, 1, Mat("SkyCloudFloor", new Color(.6f, .74f, .95f), false), 0);
+        Layer("CloudLow", -22, 420, 7, Mat("SkyCloudLow", new Color(.96f, .98f, 1f, 1), true), .004f);
+        Layer("CloudHigh", -12, 300, 5, Mat("SkyCloudHigh", new Color(1, 1, 1, .95f), true), .007f);
     }
     // value noise that repeats every 'period' units, so the cloud picture tiles without a seam
     static float TileNoise(float x, float y, float period)
@@ -1280,105 +1280,368 @@ public static class NovaBuild
         float sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
         return Mathf.Lerp(Mathf.Lerp(H(x0, y0), H(x0 + 1, y0), sx), Mathf.Lerp(H(x0, y0 + 1), H(x0 + 1, y0 + 1), sx), sy);
     }
-    // Sky Lanes (SKY-LANES-3V3.md): the floating 3v3 map. The walkable ground (SkyLanes: the lane stretches with round joins and the two bases)
-    // is one paved mesh textured in world space, so where pieces overlap they match; the jungle is a grass disc just below it; a stone edge
-    // hangs under every rim and rocks hang beneath. Our base (+Z) is a ruined altar court (Altar Ruins), the enemy's (-Z) a dark stone fort.
-    // Only pieces at the rims are solid; scenery off the ground sits in groups the obstacle map does not read.
+    // Sky Lanes (SKY-LANES-3V3.md): the floating 3v3 map, after the owner's painting (semi-realistic, muted, mossy stone): grass islands with stone roads on them, low walls
+    // and fire posts along the lanes, two stone bridges on the curved lane, a blue ruined temple with waterfalls for our base (+Z) and a
+    // dark spired castle for theirs (-Z), a lush jungle with a glowing cave, small floating islands round about, a sea of cloud below.
+    // Walkable ground is SkyLanes (lanes, bridges, jungle, bases); the grass shoulders and everything else are scenery off the obstacle map.
     static Transform SkyLanesStage()
     {
-        NewRoot("Stage_skylanes", new Color(.7f, .8f, .93f), .0035f, new Color(.8f, .87f, .98f), new Color(.6f, .63f, .68f), new Color(.36f, .34f, .32f));
-        var look = root.GetComponent<StageLook>(); look.sun = Sun(new Color(1f, .93f, .8f), 1.9f, new Vector3(40, 150, 0)); look.sky = SkyDome();
+        NewRoot("Stage_skylanes", new Color(.62f, .72f, .86f), .0058f, new Color(.7f, .78f, .92f), new Color(.55f, .58f, .62f), new Color(.32f, .3f, .28f));
+        var look = root.GetComponent<StageLook>(); look.sun = Sun(new Color(1f, .9f, .76f), 2f, new Vector3(40, 140, 0)); look.sky = SkyDome();
+        Grade();
         const string PT = "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/", AR = "Assets/Altar_Ruins_FREE/Prefabs/", D = "Assets/ThirdParty/Dungeon/Prefabs/";
         string N(string n) => $"Assets/Game/Models/Nature/{n}.glb";
         Transform Group(string n) { var g = new GameObject(n).transform; g.SetParent(root); return g; }
-        const float Skirt = 1.6f, UvScale = 4;
-        // ---- ground meshes ----
-        var pv = new List<Vector3>(); var pt = new List<int>(); var sv = new List<Vector3>(); var st = new List<int>(); var jv = new List<Vector3>(); var jt = new List<int>();
-        void Disc(List<Vector3> v, List<int> t, Vector2 c, float r, float y, int seg = 40)
+        const float Shoulder = 2.2f, Road = .4f, Cliff = 4.5f, Uv = 3.5f, FireSize = .16f; var Pale = new Color(2.1f, 2.2f, 1.95f);   // Pale: the ruin pieces' own textures read near black from above; a mossy grey-green lift
+
+        // ---- painted textures (made once, kept in Generated) ----
+        Texture2D Paint(string name, int w, int h, System.Func<float, float, Color> px)
         {
-            int c0 = v.Count; v.Add(new Vector3(c.x, y, c.y));
-            for (int i = 0; i <= seg; i++) { float a = -i / (float)seg * Mathf.PI * 2; v.Add(new Vector3(c.x + Mathf.Cos(a) * r, y, c.y + Mathf.Sin(a) * r)); if (i > 0) { t.Add(c0); t.Add(c0 + i); t.Add(c0 + i + 1); } }
-        }
-        void Wall(Vector3 a, Vector3 b)
-        {   // a stone face hanging from the rim, seen from outside
-            int k = sv.Count; sv.Add(a); sv.Add(b); sv.Add(b + Vector3.down * Skirt); sv.Add(a + Vector3.down * Skirt);
-            st.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });   // one face; the material draws both sides (a mesh holding both windings on shared corners gets no usable normals)
-        }
-        void Rim(Vector2 c, float r, int seg = 40) { for (int i = 0; i < seg; i++) { float a0 = i / (float)seg * Mathf.PI * 2, a1 = (i + 1) / (float)seg * Mathf.PI * 2; Wall(new Vector3(c.x + Mathf.Cos(a0) * r, 0, c.y + Mathf.Sin(a0) * r), new Vector3(c.x + Mathf.Cos(a1) * r, 0, c.y + Mathf.Sin(a1) * r)); } }
-        float H = SkyLanes.LaneHalf;
-        foreach (var path in SkyLanes.Paths)
-        {
-            for (int i = 0; i + 1 < path.Length; i++)
+            var png = $"{Gen}/{name}.png";
+            if (!File.Exists(png))
             {
-                var a = path[i]; var b = path[i + 1]; var d = (b - a).normalized; var n = new Vector2(-d.y, d.x) * H; int k = pv.Count;
-                pv.Add(new Vector3(a.x + n.x, 0, a.y + n.y)); pv.Add(new Vector3(b.x + n.x, 0, b.y + n.y)); pv.Add(new Vector3(b.x - n.x, 0, b.y - n.y)); pv.Add(new Vector3(a.x - n.x, 0, a.y - n.y));
-                pt.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
-                Wall(pv[k], pv[k + 1]); Wall(pv[k + 3], pv[k + 2]);
+                var t = new Texture2D(w, h, TextureFormat.RGBA32, false); var cols = new Color[w * h];
+                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) cols[y * w + x] = px((x + .5f) / w, (y + .5f) / h);
+                t.SetPixels(cols); File.WriteAllBytes(png, t.EncodeToPNG()); AssetDatabase.ImportAsset(png);
+                var ti = (TextureImporter)AssetImporter.GetAtPath(png); ti.wrapMode = TextureWrapMode.Repeat; ti.alphaIsTransparency = true; ti.maxTextureSize = 512; ti.SaveAndReimport();
             }
-            foreach (var j in path) { Disc(pv, pt, j, H, 0, 24); Rim(j, H, 24); }   // round joins (and round ends), matching SkyLanes.Walk
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(png);
         }
-        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Disc(pv, pt, b, SkyLanes.BaseR, 0); Rim(b, SkyLanes.BaseR); }
-        Disc(jv, jt, SkyLanes.Jungle, SkyLanes.JungleR, -.02f, 56); Rim(SkyLanes.Jungle, SkyLanes.JungleR, 56);
-        GameObject MeshGo(string name, List<Vector3> v, List<int> t, Material mat, bool worldUv)
+        float Fbm(float x, float y, float p) { float v = 0, a = .5f, f = 1; for (int o = 0; o < 4; o++) { v += a * TileNoise(x * f, y * f, p * f); a *= .5f; f *= 2; } return v; }
+        // flagstones: cells round jittered points (wrapping, so the picture tiles), each a warm grey of its own, dark joints, a lighter worn middle
+        var stoneTex = Paint("SkyStoneMoss2", 512, 512, (u, v) =>
+        {
+            const int G = 5; float best = 9, second = 9; int cell = 0;
+            for (int gy = -1; gy <= G; gy++) for (int gx = -1; gx <= G; gx++)
+            {
+                int wx = (gx % G + G) % G, wy = (gy % G + G) % G; float j = TileNoise(wx * 7.3f, wy * 3.1f, 64), k = TileNoise(wx * 2.9f + 5, wy * 6.7f + 3, 64);
+                var c = new Vector2((gx + .2f + .6f * j) / G, (gy + .2f + .6f * k) / G); float d = Vector2.Distance(new Vector2(u, v), c);
+                if (d < best) { second = best; best = d; cell = wx * 31 + wy * 17; } else if (d < second) second = d;
+            }
+            float edge = (second - best) * G, tone = .66f + .14f * TileNoise(cell * .37f, cell * .11f, 64), grain = .9f + .2f * Fbm(u * 16, v * 16, 16);
+            float joint = Mathf.SmoothStep(.03f, .11f, edge), worn = 1 + .07f * Mathf.SmoothStep(.15f, .5f, edge);
+            float l = tone * grain * worn * Mathf.Lerp(.42f, 1, joint); var stone = new Color(l * .98f, l * .98f, l * .92f, 1);
+            float moss = Mathf.Max(Mathf.SmoothStep(.64f, .8f, Fbm(u * 5 + 3, v * 5 + 9, 5)) * .35f, (1 - joint) * .3f);   // a little moss in the joints and here and there: the road must read as stone
+            var mossCol = new Color(.3f, .42f, .18f) * (.75f + .5f * grain); mossCol.a = 1; return Color.Lerp(stone, mossCol, moss);
+        });
+        float StoneHeight(float u, float v)
+        {
+            const int G = 5; float best = 9, second = 9; int cell = 0;
+            for (int gy = -1; gy <= G; gy++) for (int gx = -1; gx <= G; gx++)
+            {
+                int wx = (gx % G + G) % G, wy = (gy % G + G) % G; float j = TileNoise(wx * 7.3f, wy * 3.1f, 64), k = TileNoise(wx * 2.9f + 5, wy * 6.7f + 3, 64);
+                var c = new Vector2((gx + .2f + .6f * j) / G, (gy + .2f + .6f * k) / G); float d = Vector2.Distance(new Vector2(u, v), c);
+                if (d < best) { second = best; best = d; cell = wx * 31 + wy * 17; } else if (d < second) second = d;
+            }
+            float edge = (second - best) * G; return Mathf.SmoothStep(.02f, .14f, edge) * (.85f + .15f * TileNoise(cell * .37f, cell * .11f, 64)) + .04f * Fbm(u * 24, v * 24, 24);
+        }
+        var stoneNrm = Paint("SkyStoneMoss2_N", 512, 512, (u, v) =>
+        {
+            const float e = 1f / 512, k = 6; float dx = (StoneHeight(u + e, v) - StoneHeight(u - e, v)) * k, dy = (StoneHeight(u, v + e) - StoneHeight(u, v - e)) * k;
+            var n = new Vector3(-dx, -dy, 1).normalized; return new Color(n.x * .5f + .5f, n.y * .5f + .5f, n.z * .5f + .5f, 1);
+        });
+        { var ni = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(stoneNrm)); if (ni.textureType != TextureImporterType.NormalMap) { ni.textureType = TextureImporterType.NormalMap; ni.sRGBTexture = false; ni.SaveAndReimport(); } }
+        var grassTex = Paint("SkyGrass", 512, 512, (u, v) =>
+        {
+            float n = Fbm(u * 6, v * 6, 6), fine = TileNoise(u * 64, v * 64, 64), dry = Mathf.SmoothStep(.62f, .8f, Fbm(u * 3 + 7, v * 3 + 2, 3));
+            var g = Color.Lerp(new Color(.27f, .5f, .16f), new Color(.42f, .66f, .22f), n); g = Color.Lerp(g, new Color(.56f, .62f, .25f), dry * .5f);
+            return g * (.88f + .24f * fine);
+        });
+        var waterTex = Paint("SkyWaterfall", 64, 256, (u, v) =>
+        {   // falling streaks, soft at the sides
+            float streak = TileNoise(u * 12, v * 1.5f, 12) * .6f + TileNoise(u * 24 + 3, v * 3, 24) * .4f, side = Mathf.SmoothStep(0, .18f, u) * Mathf.SmoothStep(1, .82f, u);
+            float a = side * Mathf.Lerp(.35f, .95f, Mathf.SmoothStep(.35f, .75f, streak)); return new Color(.85f + .15f * streak, .93f + .07f * streak, 1, a);
+        });
+        Material TexMat(string name, Texture2D tex, Color tint, float smooth)
+        {
+            var path = $"{Gen}/{name}.mat"; var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (!m) { m = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(m, path); }
+            m.SetTexture("_BaseMap", tex); m.SetColor("_BaseColor", tint); m.SetFloat("_Smoothness", smooth); m.SetFloat("_Cull", 0); m.enableInstancing = true; EditorUtility.SetDirty(m); return m;
+        }
+        var stoneMat = TexMat("SkyLanesStone", stoneTex, new Color(.95f, .95f, .92f), .1f); stoneMat.SetTexture("_BumpMap", stoneNrm); stoneMat.SetFloat("_BumpScale", 1.2f); stoneMat.EnableKeyword("_NORMALMAP"); var grassMat = TexMat("SkyLanesGrassTop", grassTex, new Color(.5f, .62f, .42f), .04f); grassMat.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Game/Textures/PBR/leafy_grass_nor_gl_1k.jpg")); grassMat.EnableKeyword("_NORMALMAP");
+        var rockMat = Lit("SkyLanesCliff", "rock_face_04", 1, .06f, new Color(.56f, .53f, .5f)); rockMat.SetFloat("_Cull", 0);
+        // a copy of a model's materials with their colour multiplied, kept in Generated/Tinted (dark castle stone, a brighter altar)
+        GameObject Tint(GameObject go, string tag, Color mul)
+        {
+            if (!go) return go; Directory.CreateDirectory($"{Gen}/Tinted");
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    if (!mats[i]) continue; var path = $"{Gen}/Tinted/{mats[i].name}_{tag}.mat"; var c = AssetDatabase.LoadAssetAtPath<Material>(path);
+                    if (!c) { c = new Material(mats[i]); foreach (var p in new[] { "_BaseColor", "_Color" }) if (c.HasProperty(p)) c.SetColor(p, c.GetColor(p) * mul); AssetDatabase.CreateAsset(c, path); }
+                    mats[i] = c;
+                }
+                r.sharedMaterials = mats;
+            }
+            return go;
+        }
+        // a glowing crystal: a stretched eight-sided gem
+        Mesh gem = null; Material GlowMat(string name, Color c) { var path = $"{Gen}/{name}.mat"; var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m) { m = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(m, path); } m.SetColor("_BaseColor", c * .75f); m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", c * .8f); m.SetFloat("_Smoothness", .85f); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None; EditorUtility.SetDirty(m); return m; }
+        GameObject Crystal(Vector3 at, float h, Material m, Transform parent, float tilt = 0)
+        {
+            if (!gem)
+            {
+                var path = $"{Gen}/SkyGem.asset"; gem = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+                if (!gem)
+                {
+                    var v = new List<Vector3> { new(0, 1, 0), new(0, -.35f, 0) }; for (int i = 0; i < 6; i++) { float a = i / 6f * Mathf.PI * 2; v.Add(new Vector3(Mathf.Cos(a) * .28f, .2f, Mathf.Sin(a) * .28f)); }
+                    var t = new List<int>(); for (int i = 0; i < 6; i++) { int a = 2 + i, b = 2 + (i + 1) % 6; t.AddRange(new[] { 0, b, a, 1, a, b }); }
+                    gem = new Mesh { name = "SkyGem", vertices = v.ToArray(), triangles = t.ToArray() }; gem.RecalculateNormals(); gem.RecalculateBounds(); AssetDatabase.CreateAsset(gem, path);
+                }
+            }
+            var go = new GameObject("Crystal"); go.transform.SetParent(parent); go.transform.position = at; go.transform.rotation = Quaternion.Euler(tilt, R(0, 360), R(-tilt, tilt)); go.transform.localScale = Vector3.one * h;
+            go.AddComponent<MeshFilter>().sharedMesh = gem; go.AddComponent<MeshRenderer>().sharedMaterial = m; return go;
+        }
+
+        // ---- ground: grass islands (the lanes' shoulders, the bases, the jungle), stone roads and plazas on them, rock cliffs under the rims ----
+        // layers 6–14 cm apart: on the ramps the road, its curb and the grass under it are each bent their own way, closer they cut through each other
+        var gv = new List<Vector3>(); var gt = new List<int>(); var rv = new List<Vector3>(); var rt = new List<int>(); var cv = new List<Vector3>(); var ct = new List<int>();
+        float H(float x, float z) => SkyLanes.Height(x, z);
+        void Disc(List<Vector3> v, List<int> t, Vector2 c, float r, float y, int seg = 40)
+        {   // in rings about 1.5 m apart, each point at the land's height (raised bases, the sunken jungle)
+            int rings = Mathf.Max(1, Mathf.CeilToInt(r / 1.5f)), c0 = v.Count; v.Add(new Vector3(c.x, y + H(c.x, c.y), c.y));
+            for (int k = 1; k <= rings; k++)
+            {
+                float rr = r * k / rings;
+                for (int i = 0; i <= seg; i++) { float a = -i / (float)seg * Mathf.PI * 2, px = c.x + Mathf.Cos(a) * rr, pz = c.y + Mathf.Sin(a) * rr; v.Add(new Vector3(px, y + H(px, pz), pz)); }
+                int row = c0 + 1 + (k - 1) * (seg + 1);
+                for (int i = 0; i < seg; i++) { if (k == 1) { t.Add(c0); t.Add(row + i); t.Add(row + i + 1); } else { int prev = row - (seg + 1); t.AddRange(new[] { prev + i, row + i, row + i + 1, prev + i, row + i + 1, prev + i + 1 }); } }
+            }
+        }
+        void Wall(Vector3 a, Vector3 b, float depth) { int k = cv.Count; cv.Add(a); cv.Add(b); cv.Add(b + Vector3.down * depth); cv.Add(a + Vector3.down * depth); ct.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 }); }
+        void Rim(Vector2 c, float r, float y, int seg = 40) { for (int i = 0; i < seg; i++) { float a0 = i / (float)seg * Mathf.PI * 2, a1 = (i + 1) / (float)seg * Mathf.PI * 2; float x0 = c.x + Mathf.Cos(a0) * r, z0 = c.y + Mathf.Sin(a0) * r, x1 = c.x + Mathf.Cos(a1) * r, z1 = c.y + Mathf.Sin(a1) * r; Wall(new Vector3(x0, y + H(x0, z0), z0), new Vector3(x1, y + H(x1, z1), z1), Cliff + R(-.5f, 1.5f)); } }
+        void Strip(List<Vector3> v, List<int> t, int lane, float half, float y, bool rim)
+        {   // the lane in 1 m steps (bridges left open), round joins at the bends
+            float len = SkyLanes.Length(lane);
+            for (float s = 0; s < len; s += 1)
+            {
+                float s1 = Mathf.Min(len, s + 1); if (SkyLanes.OnBridge(lane, (s + s1) / 2)) continue;
+                var a = SkyLanes.PointAt(lane, s); var b = SkyLanes.PointAt(lane, s1); var d = (b - a).normalized; var n = new Vector2(-d.y, d.x) * half; int k = v.Count;
+                Vector3 At(Vector2 p2) => new(p2.x, y + H(p2.x, p2.y), p2.y); v.Add(At(a + n)); v.Add(At(b + n)); v.Add(At(b - n)); v.Add(At(a - n)); t.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
+                if (rim) { Wall(v[k], v[k + 1], Cliff); Wall(v[k + 3], v[k + 2], Cliff); if (SkyLanes.OnBridge(lane, s1 + .5f)) Wall(v[k + 1], v[k + 2], Cliff); if (SkyLanes.OnBridge(lane, s - .5f)) Wall(v[k + 3], v[k], Cliff); }
+            }
+            float run = 0; var p = SkyLanes.Paths[lane];
+            for (int i = 0; i < p.Length; i++) { if (i > 0) run += Vector2.Distance(p[i - 1], p[i]); if (SkyLanes.OnBridge(lane, run)) continue; Disc(v, t, p[i], half, y, 24); if (rim) Rim(p[i], half, y, 24); }
+        }
+        for (int l = 0; l < SkyLanes.Paths.Length; l++) { Strip(gv, gt, l, SkyLanes.LaneHalf + Shoulder, -.14f, true); Strip(rv, rt, l, SkyLanes.LaneHalf - Road, 0, false); }
+        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Disc(gv, gt, b, SkyLanes.BaseR + 3, -.14f); Rim(b, SkyLanes.BaseR + 3, -.14f); Disc(rv, rt, b, SkyLanes.BaseR, 0); }
+        Disc(gv, gt, SkyLanes.Jungle, SkyLanes.JungleR + 1, -.04f, 56); Rim(SkyLanes.Jungle, SkyLanes.JungleR + 1, -.04f, 56);
+        // the small floating islands round about: grass on a rock, a tree or a ruin on top
+        var isles = new[] { (new Vector2(-16, 24), 4.5f), (new Vector2(-18, -20), 5f), (new Vector2(54, 26), 4f), (new Vector2(56, -16), 5.5f), (new Vector2(18, 58), 4f), (new Vector2(30, -56), 4.5f), (new Vector2(-14, 0), 3.5f), (new Vector2(46, 2), 3f) };
+        foreach (var (c, r) in isles) { Disc(gv, gt, c, r, -.03f, 28); Rim(c, r, -.03f, 28); }
+        GameObject MeshGo(string name, List<Vector3> v, List<int> t, Material mat, bool flat)
         {
             var mesh = new Mesh { name = name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; mesh.SetVertices(v); mesh.SetTriangles(t, 0);
-            mesh.SetUVs(0, v.Select(p => worldUv ? new Vector2(p.x / UvScale, p.z / UvScale) : new Vector2((p.x + p.z) / UvScale, p.y / UvScale)).ToList());
-            if (worldUv) mesh.SetNormals(v.Select(_ => Vector3.up).ToList()); else mesh.RecalculateNormals(); mesh.RecalculateBounds();   // flat ground faces straight up
-            mat.SetFloat("_Cull", 0); EditorUtility.SetDirty(mat);   // both sides: the rim faces are seen from outside, whichever way they were wound
+            mesh.SetUVs(0, v.Select(p => flat ? new Vector2(p.x / Uv, p.z / Uv) : new Vector2((p.x + p.z) / Uv, p.y / Uv)).ToList());
+            mesh.RecalculateNormals(); mesh.RecalculateBounds();   // the land is no longer level: real normals
             var path = $"{Gen}/{name}.asset"; if (File.Exists(path)) AssetDatabase.DeleteAsset(path); AssetDatabase.CreateAsset(mesh, path);
             var go = new GameObject(name); go.transform.SetParent(root); go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterial = mat; return go;
         }
-        MeshGo("SkyLanesPaving", pv, pt, Lit("SkyLanesPave", "mossy_brick", 1, .12f, new Color(1.3f, 1.15f, .95f)), true);
-        MeshGo("SkyLanesJungleGround", jv, jt, Lit("SkyLanesGrass", "leafy_grass", 1, .05f, new Color(.85f, 1f, .8f)), true);
-        MeshGo("SkyLanesRim", sv, st, Lit("SkyLanesRock", "rock_face_04", 1, .08f, new Color(.62f, .58f, .55f)), false).GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        // ---- rock hanging under the ground ----
+        foreach (var old in new[] { "SkyLanesPaving", "SkyLanesJungleGround", "SkyLanesRim" }) if (File.Exists($"{Gen}/{old}.asset")) AssetDatabase.DeleteAsset($"{Gen}/{old}.asset");
+        var kv = new List<Vector3>(); var kt = new List<int>();
+        for (int l = 0; l < SkyLanes.Paths.Length; l++) Strip(kv, kt, l, SkyLanes.LaneHalf - Road + .35f, -.06f, false);
+        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) Disc(kv, kt, b, SkyLanes.BaseR + .35f, -.06f);
+        MeshGo("SkyLanesGrass", gv, gt, grassMat, true); MeshGo("SkyLanesRoad", rv, rt, stoneMat, true); MeshGo("SkyLanesCurb", kv, kt, TexMat("SkyLanesCurbStone", stoneTex, new Color(.5f, .5f, .47f), .1f), true);
+        MeshGo("SkyLanesCliffs", cv, ct, rockMat, false).GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        // ---- rock hanging under everything ----
         var under = Group("Underside");
         GameObject Hang(Vector2 at, float h, float top, Transform parent) { var g = Fit(Load(N("namaqualand_boulder_03")), new Vector3(at.x, 0, at.y), R(0, 360), h, parent); if (!g) return null; g.transform.position += Vector3.up * (top - Bounds(g).max.y); return g; }
-        for (int l = 0; l < SkyLanes.Paths.Length; l++) { float len = SkyLanes.Length(l); for (float s = 4; s < len - 4; s += 9) Hang(SkyLanes.PointAt(l, s), R(7, 11), -1.2f, under); }
-        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Hang(b, 16, -1.3f, under); Hang(b + new Vector2(R(-3, 3), R(-3, 3)), 9, -9, under); }
-        Hang(SkyLanes.Jungle, 18, -1.3f, under); foreach (var o in new[] { new Vector2(-6, 5), new Vector2(6, -5), new Vector2(5, 6), new Vector2(-5, -6) }) Hang(SkyLanes.Jungle + o, R(8, 11), -1.2f, under);
-        // ---- jungle: trees round its edge, bushes and rocks, the middle kept open for camps later ----
-        var pines = new[] { PT + "Trees/PT_Pine_Tree_03_green.prefab", PT + "Trees/PT_Pine_Tree_03_green_cut.prefab" };
-        bool OnLane(Vector2 q, float pad) { for (int l = 0; l < SkyLanes.Paths.Length; l++) if (SkyLanes.Nearest(l, q, out _, out _) < SkyLanes.LaneHalf + pad) return true; return false; }
-        for (int i = 0; i < 26; i++)
-        {
-            float a = i / 26f * Mathf.PI * 2 + R(-.08f, .08f), r = R(7.5f, 11.2f); var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, 1.2f)) continue;
-            int kind = rnd.Next(5); var at = new Vector3(q.x, 0, q.y);
-            if (kind < 2) Fit(Load(pines[rnd.Next(2)]), at, R(0, 360), R(6, 9)); else if (kind < 3) PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), at, R(0, 360), R(4.5f, 6)));
-            else if (kind < 4) Fit(Load(PT + "Shrubs/PT_Generic_Shrub_01_green.prefab"), at, R(0, 360), R(1, 1.6f)); else Place(Load(N("namaqualand_boulder_03")), at, R(0, 360), R(.35f, .6f));
-        }
-        // ---- our base (+Z): a ruined altar court ----
-        var home = new Vector3(0, 0, SkyLanes.Base.y);
-        var plat = Fit(Load(AR + "Platform_circle.prefab"), home, 0, .6f); if (plat) { plat.name = "BasePlatform"; plat.transform.localScale = new Vector3(plat.transform.localScale.x * 1.5f, plat.transform.localScale.y, plat.transform.localScale.z * 1.5f); var pb = Bounds(plat); plat.transform.position += new Vector3(home.x - pb.center.x, .03f - pb.max.y, home.z - pb.center.z); }
-        string[] arches = { "Arch_1", "Arch_2", "Arch_3", "Arch_4", "Arch_5" };
-        for (int i = 0; i < 5; i++)
-        {   // arches standing round the back of the court, facing in
-            float a = Mathf.Lerp(30, 150, i / 4f) * Mathf.Deg2Rad; var p = home + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (SkyLanes.BaseR - 1.2f);
-            Fit(Load(AR + arches[i] + ".prefab"), p, Mathf.Atan2(home.x - p.x, home.z - p.z) * Mathf.Rad2Deg + 90, R(5.5f, 6.6f));
-        }
-        foreach (int sd in new[] { -1, 1 }) { Fit(Load(AR + "Column.prefab"), home + new Vector3(sd * 8.6f, 0, -3.5f), R(0, 360), 4.6f); Fit(Load(AR + "Broken_column.prefab"), home + new Vector3(sd * 9.4f, 0, 1.5f), R(0, 360), 1.9f); }
-        Fit(Load(AR + "Stone_structure.prefab"), home + new Vector3(0, 0, SkyLanes.BaseR + 2.5f), 180, 7.3f);
-        Fit(Load(AR + "Tree.prefab"), home + new Vector3(-7.5f, 0, 6.5f), R(0, 360), 4.1f);
-        foreach (var (x, z) in new[] { (-4.2f, 4f), (4.2f, 4.5f), (-6.5f, -1f), (6.8f, -1.5f) }) Place(Load(AR + $"Rubble_{rnd.Next(1, 9)}.prefab"), home + new Vector3(x, 0, z), R(0, 360), 1);
-        // ---- the enemy base (-Z): a dark fort: stone walls round its back, pillars and the ruined archway pillars at its mouth ----
-        var foe = new Vector3(0, 0, -SkyLanes.Base.y); var walls = new[] { Load(D + "Walls/Wall_A.prefab"), Load(D + "Walls/Wall_B.prefab"), Load(D + "Walls/Wall_C.prefab") };
-        for (int i = 0; i < 7; i++)
-        {
-            float a = -Mathf.Lerp(20, 160, i / 6f) * Mathf.Deg2Rad; var p = foe + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (SkyLanes.BaseR - .6f);
-            var w = Place(walls[rnd.Next(3)], p, Mathf.Atan2(foe.x - p.x, foe.z - p.z) * Mathf.Rad2Deg); if (w) w.name = "FortWall";
-        }
-        var pillar = Load(D + "Pillars/Pillar_A.prefab"); foreach (int sd in new[] { -1, 1 }) { Fit(pillar, foe + new Vector3(sd * 8.2f, 0, 2.5f), 0, 6); Fit(Load("Assets/Symphonie/Ruins/URP/Prefabs/archway_pillar02.prefab"), foe + new Vector3(sd * 6f, 0, 8.6f), sd * 90, 7); }
-        var post = Load(AR + "Column_broken_small.prefab"); var fire = Load("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
-        foreach (var (b, col) in new[] { (home, new Color(.55f, .8f, 1f)), (foe, new Color(1, .4f, .25f)) })
-            foreach (int sd in new[] { -1, 1 })
-            {   // a fire on a broken column either side of each base mouth, and a coloured light over the court
-                var tp = b + new Vector3(sd * 4.5f, 0, b.z > 0 ? -SkyLanes.BaseR + 1.2f : SkyLanes.BaseR - 1.2f); var pg = Fit(post, tp, R(0, 360), 1.1f); float top = pg ? Bounds(pg).max.y : 1.1f; Place(fire, new Vector3(tp.x, top, tp.z), 0, .3f);
-                if (sd > 0) { var l = PointLight(b + Vector3.up * 5, col, 6, 16); l.name = "BaseLight"; }
+        for (int l = 0; l < SkyLanes.Paths.Length; l++) { float len = SkyLanes.Length(l); for (float s = 3; s < len - 3; s += 7) if (!SkyLanes.OnBridge(l, s)) Hang(SkyLanes.PointAt(l, s), R(8, 13), -Cliff + 1, under); }
+        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Hang(b, 20, -Cliff + 1, under); Hang(b + new Vector2(R(-4, 4), R(-4, 4)), 11, -Cliff - 8, under); }
+        Hang(SkyLanes.Jungle, 22, -Cliff + 1, under); foreach (var o in new[] { new Vector2(-7, 5), new Vector2(7, -5), new Vector2(5, 7), new Vector2(-5, -7) }) Hang(SkyLanes.Jungle + o, R(10, 14), -Cliff + 1, under);
+        foreach (var (c, r) in isles) Hang(c, r * 2.2f, -Cliff + 1, under);
+
+        {   // boulders set into the rims at a few depths, so the island edges read as broken rock and not one straight wall
+            var edge = Group("CliffEdge"); var boulder = Load(N("namaqualand_boulder_03"));
+            void Edge(Vector2 at, Vector2 outward) { var p = at + outward * R(.2f, .9f); var g = Fit(boulder, new Vector3(p.x, 0, p.y), R(0, 360), R(2.2f, 3.8f), edge); if (g) g.transform.position += Vector3.up * (R(-1.6f, -.25f) - Bounds(g).max.y); }
+            for (int l = 0; l < SkyLanes.Paths.Length; l++)
+            {
+                float len = SkyLanes.Length(l);
+                for (float s = 1; s < len - 1; s += R(3.5f, 5.5f))
+                {
+                    if (SkyLanes.OnBridge(l, s)) continue; var a = SkyLanes.PointAt(l, s); var dn = (SkyLanes.PointAt(l, s + .5f) - SkyLanes.PointAt(l, s - .5f)).normalized; var side = new Vector2(-dn.y, dn.x);
+                    foreach (int sd in new[] { -1, 1 }) { var q = a + side * sd * (SkyLanes.LaneHalf + Shoulder); if (SkyLanes.Inside(q, .8f)) continue; Edge(q, side * sd); }   // not where the lane opens into a base or the jungle
+                }
             }
-        // ---- far scenery: drifting rocks, spires in the haze, the sea of cloud ----
+            foreach (var (c, r, n) in new[] { (SkyLanes.BaseOf(0), SkyLanes.BaseR + 3, 22), (SkyLanes.BaseOf(1), SkyLanes.BaseR + 3, 22), (SkyLanes.Jungle, SkyLanes.JungleR + 1, 26) })
+                for (int i = 0; i < n; i++) { float a = i / (float)n * Mathf.PI * 2 + R(-.1f, .1f); var o = new Vector2(Mathf.Cos(a), Mathf.Sin(a)); var q = c + o * r; if (SkyLanes.Inside(q, 1)) continue; Edge(q, o); }
+        }
+        // ---- bridges: a stone deck with parapets over each gap of the curved lane ----
+        var walls = Group("LaneWalls"); var wallSmall = Load(AR + "Wall_small.prefab"); var fire = Load("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
+        string[] posts = { "Stone_post_1", "Stone_post_2", "Stone_post_3", "Stone_post_5" };
+        foreach (var br in SkyLanes.Bridges)
+        {
+            var a = SkyLanes.PointAt(1, br.x - 1.5f); var b = SkyLanes.PointAt(1, br.y + 1.5f); var d = (b - a); float len = d.magnitude; var mid = (a + b) / 2;
+            var deck = GameObject.CreatePrimitive(PrimitiveType.Cube); Object.DestroyImmediate(deck.GetComponent<Collider>()); deck.name = "BridgeDeck"; deck.transform.SetParent(walls);
+            deck.transform.position = new Vector3(mid.x, -.4f, mid.y); deck.transform.rotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y)); deck.transform.localScale = new Vector3(SkyLanes.BridgeHalf * 2 + .8f, .8f, len); deck.GetComponent<Renderer>().sharedMaterial = stoneMat;
+            var keel = GameObject.CreatePrimitive(PrimitiveType.Cube); Object.DestroyImmediate(keel.GetComponent<Collider>()); keel.name = "BridgeArch"; keel.transform.SetParent(walls);
+            keel.transform.position = new Vector3(mid.x, -2.2f, mid.y); keel.transform.rotation = deck.transform.rotation; keel.transform.localScale = new Vector3(SkyLanes.BridgeHalf * 2 - 1, 2.8f, len * .5f); keel.GetComponent<Renderer>().sharedMaterial = rockMat;
+            var dn = d.normalized; var side = new Vector2(-dn.y, dn.x); float yaw = Mathf.Atan2(dn.x, dn.y) * Mathf.Rad2Deg;
+            for (float t = 1.2f; t < len - 1; t += 2.15f) foreach (int sd in new[] { -1, 1 }) { var q = a + dn * t + side * sd * (SkyLanes.BridgeHalf + .35f); Tint(Fit(wallSmall, new Vector3(q.x, 0, q.y), yaw, 1.1f, walls), "moss", Pale); }
+            foreach (var e in new[] { a, b }) foreach (int sd in new[] { -1, 1 }) { var q = e + side * sd * (SkyLanes.BridgeHalf + .6f); var pg = Tint(Fit(Load(AR + posts[rnd.Next(posts.Length)] + ".prefab"), new Vector3(q.x, 0, q.y), R(0, 360), 2.4f, walls), "moss", Pale); if (pg) Place(fire, new Vector3(q.x, Bounds(pg).max.y, q.y), 0, FireSize, false, walls); }
+        }
+        // ---- low walls along the lanes, a fire post every so often, kept off the walkable ground ----
+        for (int l = 0; l < SkyLanes.Paths.Length; l++)
+        {
+            float len = SkyLanes.Length(l); int n = 0;
+            for (float s = 2; s < len - 2; s += 2.3f)
+            {
+                if (SkyLanes.OnBridge(l, s) || SkyLanes.OnBridge(l, s + 1.5f) || SkyLanes.OnBridge(l, s - 1.5f)) continue;
+                var a = SkyLanes.PointAt(l, s); var dn = (SkyLanes.PointAt(l, s + .5f) - SkyLanes.PointAt(l, s - .5f)).normalized; var side = new Vector2(-dn.y, dn.x); float yaw = Mathf.Atan2(dn.x, dn.y) * Mathf.Rad2Deg;
+                foreach (int sd in new[] { -1, 1 })
+                {
+                    var q = a + side * sd * (SkyLanes.LaneHalf + .8f); if (SkyLanes.Inside(q, .4f)) continue;   // where the lane opens into a base or the jungle
+                    if (++n % 3 == 0) { var pg = Tint(Fit(Load(AR + posts[rnd.Next(posts.Length)] + ".prefab"), new Vector3(q.x, 0, q.y), R(0, 360), 2.2f, walls), "moss", Pale); if (pg) Place(fire, new Vector3(q.x, Bounds(pg).max.y, q.y), 0, FireSize, false, walls); }   // a fire post about every 7 m, as in the painting
+                    else if (rnd.Next(10) < 8) Tint(Fit(wallSmall, new Vector3(q.x, 0, q.y), yaw + R(-4, 4), R(.9f, 1.3f), walls), "moss", Pale);
+                }
+            }
+        }
+        {   // grass tufts and flowers along the shoulders, off the walls and the walkable ground
+            var tufts = Group("Tufts");
+            for (int l = 0; l < SkyLanes.Paths.Length; l++) { float len = SkyLanes.Length(l); for (float s = 1; s < len - 1; s += 1.4f) { if (SkyLanes.OnBridge(l, s)) continue; var a = SkyLanes.PointAt(l, s); var dn = (SkyLanes.PointAt(l, s + .5f) - SkyLanes.PointAt(l, s - .5f)).normalized; var side = new Vector2(-dn.y, dn.x);
+                foreach (int sd in new[] { -1, 1 }) { if (rnd.Next(3) == 0) continue; var q = a + side * sd * (SkyLanes.LaneHalf + R(1.3f, 2.1f)) + dn * R(-.5f, .5f); if (SkyLanes.Inside(q, .3f)) continue; var at = new Vector3(q.x, 0, q.y);
+                    if (rnd.Next(4) == 0) Fit(Load(PT + "Flowers/PT_Poppy_02.prefab"), at, R(0, 360), R(.3f, .5f), tufts); else Fit(Load(PT + "Plants/PT_Grass_02.prefab"), at, R(0, 360), R(.35f, .6f), tufts); } } }
+        }
+        // ---- team banners on tall poles near each base, both lanes ----
+        var wood = Lit("SkyWood", "weathered_brown_planks", 1, .1f, new Color(.78f, .6f, .45f));
+        Material Cloth(string name, Color c) { var path = $"{Gen}/{name}.mat"; var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m) { m = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(m, path); } m.SetColor("_BaseColor", c); m.SetFloat("_Smoothness", .2f); m.SetFloat("_Cull", 0); EditorUtility.SetDirty(m); return m; }
+        var clothBlue = Cloth("SkyBannerBlue", new Color(.18f, .38f, .85f)); var clothRed = Cloth("SkyBannerRed", new Color(.75f, .14f, .12f)); var gold = Cloth("SkyBannerTrim", new Color(1f, .78f, .3f));
+        for (int team = 0; team < 2; team++)
+            for (int l = 0; l < SkyLanes.Paths.Length; l++)
+                foreach (float k in new[] { 7f, 15f })
+                {
+                    float len = SkyLanes.Length(l), s = team == 0 ? k : len - k; var a = SkyLanes.PointAt(l, s); var dn = (SkyLanes.PointAt(l, s + .5f) - SkyLanes.PointAt(l, s - .5f)).normalized; var side = new Vector2(-dn.y, dn.x);
+                    foreach (int sd in new[] { -1, 1 })
+                    {
+                        var q = a + side * sd * (SkyLanes.LaneHalf + 1.6f); if (SkyLanes.Inside(q, .2f)) continue; var at = new Vector3(q.x, 0, q.y);
+                        var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder); Object.DestroyImmediate(pole.GetComponent<Collider>()); pole.name = "BannerPole"; pole.transform.SetParent(walls); pole.transform.position = at + Vector3.up * 2.6f; pole.transform.localScale = new Vector3(.14f, 2.6f, .14f); pole.GetComponent<Renderer>().sharedMaterial = wood;
+                        var bar = GameObject.CreatePrimitive(PrimitiveType.Cube); Object.DestroyImmediate(bar.GetComponent<Collider>()); bar.name = "BannerBar"; bar.transform.SetParent(walls); bar.transform.position = at + Vector3.up * 4.9f; bar.transform.rotation = Quaternion.LookRotation(new Vector3(dn.x, 0, dn.y)); bar.transform.localScale = new Vector3(.08f, .08f, 1.3f); bar.GetComponent<Renderer>().sharedMaterial = gold;
+                        var cl = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(cl.GetComponent<Collider>()); cl.name = "BannerCloth"; cl.transform.SetParent(walls); cl.transform.position = at + Vector3.up * 3.85f; cl.transform.rotation = Quaternion.LookRotation(new Vector3(side.x, 0, side.y)); cl.transform.localScale = new Vector3(1.1f, 2.1f, 1); cl.GetComponent<Renderer>().sharedMaterial = team == 0 ? clothBlue : clothRed;
+                    }
+                }
+
+        // ---- our base (+Z): a ruined temple court, blue crystals, waterfalls pouring off the back of the island ----
+        var home = new Vector3(0, 0, SkyLanes.Base.y); var blue = GlowMat("SkyCrystalBlue", new Color(.35f, .75f, 1f)); var deco = Group("BaseDecor");
+        var plat = Tint(Fit(Load(AR + "Platform_circle.prefab"), home, 0, .6f), "moss", new Color(2.3f, 2.35f, 2.15f)); if (plat) { plat.name = "BasePlatform"; plat.transform.localScale = new Vector3(plat.transform.localScale.x * 1.5f, plat.transform.localScale.y, plat.transform.localScale.z * 1.5f); var pb = Bounds(plat); plat.transform.position += new Vector3(home.x - pb.center.x, .03f - pb.max.y, home.z - pb.center.z); }
+        string[] arches = { "Arch_1", "Arch_2", "Arch_3", "Arch_4", "Arch_5" };
+        for (int i = 0; i < 5; i++) { float a = Mathf.Lerp(25, 155, i / 4f) * Mathf.Deg2Rad; var p = home + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (SkyLanes.BaseR + 1.4f); Tint(Fit(Load(AR + arches[i] + ".prefab"), p, Mathf.Atan2(home.x - p.x, home.z - p.z) * Mathf.Rad2Deg + 90, R(7.5f, 9f), deco), "moss", Pale); }
+        foreach (int sd in new[] { -1, 1 }) { Tint(Fit(Load(AR + "Column.prefab"), home + new Vector3(sd * 9.2f, 0, -4f), R(0, 360), 5.2f), "moss", Pale); Tint(Fit(Load(AR + "Broken_column.prefab"), home + new Vector3(sd * 10f, 0, 2f), R(0, 360), 2.1f, deco), "moss", Pale); }
+        Tint(Fit(Load(AR + "Stone_structure.prefab"), home + new Vector3(0, 0, SkyLanes.BaseR + 4f), 180, 12f, deco), "moss", Pale);
+        PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), home + new Vector3(-11.5f, 0, 5), R(0, 360), 6.5f, deco)); PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), home + new Vector3(11.8f, 0, 6), R(0, 360), 6f, deco));
+        foreach (var (x, z, h) in new[] { (-8f, 7f, 2.6f), (-9f, 5.5f, 1.6f), (8.5f, 7.5f, 2.9f), (9.5f, 6f, 1.7f), (-3.5f, 11.5f, 3.4f), (3.8f, 11.8f, 3f), (0f, 13.2f, 4.2f) }) Crystal(home + new Vector3(x, 0, z), h, blue, deco, 14);
+
+        var waterMat = AssetDatabase.LoadAssetAtPath<Material>($"{Gen}/SkyWaterfall.mat"); if (!waterMat) { waterMat = new Material(Shader.Find("Universal Render Pipeline/Unlit")); AssetDatabase.CreateAsset(waterMat, $"{Gen}/SkyWaterfall.mat"); }
+        waterMat.SetTexture("_BaseMap", waterTex); waterMat.SetColor("_BaseColor", new Color(.85f, .95f, 1f, .9f)); waterMat.SetFloat("_Surface", 1); waterMat.SetFloat("_Blend", 0); waterMat.SetFloat("_ZWrite", 0); waterMat.SetFloat("_Cull", 0);
+        waterMat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); waterMat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha); waterMat.SetOverrideTag("RenderType", "Transparent"); waterMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); waterMat.renderQueue = 3000; EditorUtility.SetDirty(waterMat);
+        foreach (var (ang, w) in new[] { (60f, 3.4f), (90f, 4.2f), (120f, 3.2f), (20f, 2.4f), (160f, 2.6f) })
+        {   // a sheet of water falling from the rim, a pool of mist where it leaves
+            float a = ang * Mathf.Deg2Rad; var p = home + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (SkyLanes.BaseR + 3.05f);
+            var fall = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(fall.GetComponent<Collider>()); fall.name = "Waterfall"; fall.transform.SetParent(deco);
+            fall.transform.position = p + Vector3.down * 17; fall.transform.rotation = Quaternion.LookRotation(new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a))); fall.transform.localScale = new Vector3(w, 34, 1);
+            var mr = fall.GetComponent<MeshRenderer>(); mr.sharedMaterial = waterMat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; var dr = fall.AddComponent<Drift>(); dr.speed = new Vector2(0, .45f); dr.tile = 1;
+            var lip = GameObject.CreatePrimitive(PrimitiveType.Cube); Object.DestroyImmediate(lip.GetComponent<Collider>()); lip.name = "WaterLip"; lip.transform.SetParent(deco); lip.transform.position = p + Vector3.up * .02f - new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * 1.4f; lip.transform.rotation = fall.transform.rotation; lip.transform.localScale = new Vector3(w * .9f, .04f, 2.8f); lip.GetComponent<Renderer>().sharedMaterial = waterMat;
+        }
+        // ---- their base (-Z): a dark castle with spires, orange crystals ----
+        var foe = new Vector3(0, 0, -SkyLanes.Base.y); var orange = GlowMat("SkyCrystalOrange", new Color(1f, .5f, .15f)); var dark = new Color(.42f, .38f, .48f);
+        var fortWalls = new[] { Load(D + "Walls/Wall_A.prefab"), Load(D + "Walls/Wall_B.prefab"), Load(D + "Walls/Wall_C.prefab") };
+        for (int i = 0; i < 7; i++) { float a = -Mathf.Lerp(18, 162, i / 6f) * Mathf.Deg2Rad; var p = foe + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (SkyLanes.BaseR + .6f); var w = Tint(Place(fortWalls[rnd.Next(3)], p, Mathf.Atan2(foe.x - p.x, foe.z - p.z) * Mathf.Rad2Deg), "dark", dark); if (w) w.name = "FortWall"; }
+        foreach (var (x, z, h) in new[] { (-11f, -6f, 17f), (11f, -6f, 17f), (-6.5f, -12.5f, 22f), (6.5f, -12.5f, 22f), (0f, -14.5f, 28f) })
+        {   // spires: a dark column with a dark spike on top
+            var col = Tint(Fit(Load(AR + "Column.prefab"), foe + new Vector3(x, 0, z), R(0, 360), h, deco), "dark", dark); if (!col) continue; col.transform.localScale = Vector3.Scale(col.transform.localScale, new Vector3(1.8f, 1, 1.8f));
+            var spike = Crystal(foe + new Vector3(x, Bounds(col).max.y - .3f, z), h * .35f, Cloth("SkyCastleSpike", new Color(.18f, .14f, .22f)), deco); spike.transform.rotation = Quaternion.identity;
+        }
+        foreach (int sd in new[] { -1, 1 }) Fit(Load("Assets/Symphonie/Ruins/URP/Prefabs/archway_pillar02.prefab"), foe + new Vector3(sd * 6.2f, 0, 8.4f), sd * 90, 7.5f);
+        foreach (var (x, z, h) in new[] { (-8f, -7f, 2.6f), (8.5f, -7.5f, 2.9f), (-3.5f, -11.2f, 3.2f), (3.8f, -11.5f, 3f) }) Crystal(foe + new Vector3(x, 0, z), h, orange, deco, 14);
+        {   // each side's spawn pool behind its core: a stone basin of water ringed in the side's colour, a faint wall of light round it (the other side cannot enter)
+            var pools = Group("Fountains"); var basin = Lit("SkyPoolStone", "mossy_brick", 2, .1f, new Color(.62f, .64f, .6f));
+            Material Water(string name, Color c)
+            {   // deep, glossy, a little see-through: the sky and the lights read in it
+                var path = $"{Gen}/{name}.mat"; var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m) { m = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(m, path); }
+                m.SetColor("_BaseColor", c); m.SetFloat("_Smoothness", .96f); m.SetFloat("_Metallic", .1f); m.SetFloat("_Surface", 1); m.SetFloat("_Blend", 0); m.SetFloat("_ZWrite", 0);
+                m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha); m.SetOverrideTag("RenderType", "Transparent"); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 3000;
+                m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", c * .25f); EditorUtility.SetDirty(m); return m;
+            }
+            GameObject Tube(string name, Vector3 at, float r, float h, Material m)
+            {   // an open ring wall of light: no lid, which washed the whole pool white
+                const int seg = 40; var v = new Vector3[(seg + 1) * 2]; var uv = new Vector2[v.Length]; var t = new int[seg * 6];
+                for (int i = 0; i <= seg; i++) { float a = i / (float)seg * Mathf.PI * 2; var d = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * r; v[i * 2] = d; v[i * 2 + 1] = d + Vector3.up * h; uv[i * 2] = new Vector2(i / (float)seg, 0); uv[i * 2 + 1] = new Vector2(i / (float)seg, 1); if (i < seg) { int k = i * 6, b = i * 2; t[k] = b; t[k + 1] = b + 1; t[k + 2] = b + 2; t[k + 3] = b + 1; t[k + 4] = b + 3; t[k + 5] = b + 2; } }
+                var mesh = new Mesh { name = "PoolVeil", vertices = v, uv = uv, triangles = t }; mesh.RecalculateBounds(); var mp = $"{Gen}/PoolVeil.asset"; if (!File.Exists(mp)) AssetDatabase.CreateAsset(mesh, mp); else mesh = AssetDatabase.LoadAssetAtPath<Mesh>(mp);
+                var go = new GameObject(name); go.transform.SetParent(pools); go.transform.position = at; go.AddComponent<MeshFilter>().sharedMesh = mesh; var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = m; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; return go;
+            }
+            Material Veil(string name, Color c)
+            {
+                var path = $"{Gen}/{name}.mat"; var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m) { m = new Material(Shader.Find("Universal Render Pipeline/Unlit")); AssetDatabase.CreateAsset(m, path); }
+                m.SetColor("_BaseColor", c); m.SetFloat("_Surface", 1); m.SetFloat("_Blend", 2); m.SetFloat("_ZWrite", 0); m.SetFloat("_Cull", 0);
+                m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.One); m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One); m.SetOverrideTag("RenderType", "Transparent"); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 3010; EditorUtility.SetDirty(m); return m;
+            }
+            GameObject Cyl(string name, Vector3 at, float r, float h, Material m) { var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder); Object.DestroyImmediate(c.GetComponent<Collider>()); c.name = name; c.transform.SetParent(pools); c.transform.position = at + Vector3.up * h / 2; c.transform.localScale = new Vector3(r * 2, h / 2, r * 2); c.GetComponent<Renderer>().sharedMaterial = m; c.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; return c; }
+            for (int team = 0; team < 2; team++)
+            {
+                var at = SkyLanes.Fountain(team); var col = team == 0 ? new Color(.35f, .75f, 1f) : new Color(1f, .45f, .2f); float r = SkyLanes.FountainR;
+                {   // a raised stone rim with real thickness (outer wall, top, inner wall) round shallow water, a lower step outside it
+                    GameObject Ring(string name, float r0, float r1, float h, float y0)
+                    {
+                        const int seg = 48; var v = new List<Vector3>(); var tt = new List<int>();
+                        for (int i = 0; i <= seg; i++) { float a = i / (float)seg * Mathf.PI * 2; var d = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)); v.Add(d * r1 + Vector3.up * y0); v.Add(d * r1 + Vector3.up * (y0 + h)); v.Add(d * r0 + Vector3.up * (y0 + h)); v.Add(d * r0 + Vector3.up * y0); }
+                        for (int i = 0; i < seg; i++) { int b = i * 4, n = b + 4; tt.AddRange(new[] { b, n, b + 1, b + 1, n, n + 1, b + 1, n + 1, b + 2, b + 2, n + 1, n + 2, b + 2, n + 2, b + 3, b + 3, n + 2, n + 3 }); }
+                        var mesh = new Mesh { name = name }; mesh.SetVertices(v); mesh.SetTriangles(tt, 0); mesh.SetUVs(0, v.Select(p => new Vector2((p.x + p.z) * .5f, p.y * .5f)).ToList()); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+                        var mp = $"{Gen}/{name}.asset"; if (File.Exists(mp)) AssetDatabase.DeleteAsset(mp); AssetDatabase.CreateAsset(mesh, mp);
+                        var go = new GameObject(name); go.transform.SetParent(pools); go.transform.position = at; go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterial = basin; return go;
+                    }
+                    Ring("PoolStep" + team, r + .55f, r + 1.35f, .22f, 0);   // a broad low step all round
+                    Ring("PoolRimStone" + team, r, r + .6f, .55f, 0);       // the basin's edge, knee high
+                }
+                Cyl("PoolWater", at + Vector3.up * .14f, r, .02f,   // shallow water inside the rim: heroes stand in it ankle deep
+                    Water(team == 0 ? "SkyPoolWaterBlue" : "SkyPoolWaterRed", team == 0 ? new Color(.06f, .2f, .34f, .62f) : new Color(.3f, .11f, .07f, .62f)));
+                Tube("PoolRim", at + Vector3.up * .15f, r - .02f, .08f, Veil(team == 0 ? "SkyPoolRimBlue" : "SkyPoolRimRed", col * .6f));   // a glowing lip round the water (a filled glow disc hid the water)
+                Tube("PoolVeil", at, r + .45f, 2.2f, Veil(team == 0 ? "SkyPoolVeilBlue" : "SkyPoolVeilRed", col * .1f));
+                for (int i = 0; i < 6; i++) { float a = i / 6f * Mathf.PI * 2; var p = at + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * (r + .55f); var pg = Tint(Fit(Load(AR + "Column_broken_small.prefab"), p, R(0, 360), 1.2f, pools), "moss", Pale); if (pg) Place(fire, new Vector3(p.x, Bounds(pg).max.y, p.z), 0, FireSize, false, pools); }
+                var pl = PointLight(at + Vector3.up * 1.5f, col, 1.2f, 8); pl.name = "PoolLight"; pl.transform.SetParent(pools);
+                {   // a jet of water rising from the middle and falling back in drops, catching the side's light
+                    var jet = new GameObject("PoolJet"); jet.transform.SetParent(pools); jet.transform.position = at + Vector3.up * .15f; var ps = jet.AddComponent<ParticleSystem>(); ps.Stop();
+                    var mm = ps.main; mm.loop = true; mm.startLifetime = new ParticleSystem.MinMaxCurve(.9f, 1.3f); mm.startSpeed = new ParticleSystem.MinMaxCurve(4.2f, 5.2f); mm.startSize = new ParticleSystem.MinMaxCurve(.08f, .16f); mm.gravityModifier = .9f; mm.maxParticles = 160; mm.startColor = Color.Lerp(col, Color.white, .55f); mm.simulationSpace = ParticleSystemSimulationSpace.World;
+                    var em = ps.emission; em.rateOverTime = 70; var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 9; sh.radius = .12f; sh.rotation = new Vector3(-90, 0, 0);
+                    var cl = ps.colorOverLifetime; cl.enabled = true; var g = new Gradient(); g.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(.9f, 0), new GradientAlphaKey(.7f, .7f), new GradientAlphaKey(0, 1) }); cl.color = g;
+                    var pr = jet.GetComponent<ParticleSystemRenderer>(); var dropTex = Paint("SkyDrop2", 32, 32, (u, v) => { float d = Vector2.Distance(new Vector2(u, v), new Vector2(.5f, .5f)) * 2, k = Mathf.Clamp01(1 - d) * Mathf.Clamp01(1 - d); return new Color(k, k, k, k); });   // a soft round drop, dark at the edge: the additive blend ignores alpha
+                    var dropMat = Veil("SkyPoolDrops", Color.white * .7f); dropMat.SetTexture("_BaseMap", dropTex); pr.sharedMaterial = dropMat; pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+
+            }
+        }
+        foreach (var (b, col) in new[] { (home, new Color(.55f, .8f, 1f)), (foe, new Color(1, .45f, .2f)) }) { var lt = PointLight(b + Vector3.up * 6 + new Vector3(0, 0, b.z > 0 ? 4 : -4), col, 7, 20); lt.name = "BaseLight"; }
+
+        // ---- jungle: trees round the edge, flowers, mushrooms and grass tufts inside, a glowing cave, the middle kept open for camps ----
+        var jungle = Group("JungleDecor"); var violet = GlowMat("SkyCrystalViolet", new Color(.75f, .35f, 1f));
+        var pines = new[] { PT + "Trees/PT_Pine_Tree_03_green.prefab", PT + "Trees/PT_Pine_Tree_03_green_cut.prefab" };
+        bool OnLane(Vector2 q, float pad) { for (int l = 0; l < SkyLanes.Paths.Length; l++) { float dd = SkyLanes.Nearest(l, q, out _, out float s); if (dd < SkyLanes.HalfAt(l, s) + pad) return true; } return false; }
+        for (int i = 0; i < 30; i++)
+        {
+            float a = i / 30f * Mathf.PI * 2 + R(-.08f, .08f), r = R(8, 12.5f); var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, 1.2f)) continue; var at = new Vector3(q.x, 0, q.y);
+            int kind = rnd.Next(6);
+            if (kind < 2) Fit(Load(pines[rnd.Next(2)]), at, R(0, 360), R(6.5f, 9.5f)); else if (kind < 4) PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), at, R(0, 360), R(4.5f, 6.5f)));
+            else if (kind < 5) Fit(Load(PT + "Shrubs/PT_Generic_Shrub_01_green.prefab"), at, R(0, 360), R(1.2f, 1.9f), jungle); else Place(Load(N("namaqualand_boulder_03")), at, R(0, 360), R(.35f, .7f));
+        }
+        for (int i = 0; i < 60; i++)
+        {
+            float a = R(0, Mathf.PI * 2), r = Mathf.Sqrt(R(.1f, 1)) * 10.5f; var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, .5f)) continue; var at = new Vector3(q.x, 0, q.y); int kind = rnd.Next(10);
+            if (kind < 4) Fit(Load(PT + "Flowers/PT_Poppy_02.prefab"), at, R(0, 360), R(.35f, .6f), jungle); else if (kind < 8) Fit(Load(PT + "Plants/PT_Grass_02.prefab"), at, R(0, 360), R(.4f, .7f), jungle); else Fit(Load(PT + "Mushrooms/PT_Caesars_Mushroom_01.prefab"), at, R(0, 360), R(.3f, .5f), jungle);
+        }
+        {   // the cave on the jungle's far side: a ruined arch with violet crystals glowing inside it
+            var cave = SkyLanes.Jungle + new Vector2(6.5f, -6.5f); var at = new Vector3(cave.x, 0, cave.y); var arch = Fit(Load(AR + "Arch_5.prefab"), at, 45, 5.2f, jungle);
+            foreach (var o in new[] { new Vector3(-.8f, 0, -.5f), new Vector3(.7f, 0, -.8f), new Vector3(0, 0, -1.4f) }) Crystal(at + o, R(1.2f, 2), violet, jungle, 18);
+            var cl = PointLight(at + Vector3.up * 1.6f, new Color(.35f, .75f, 1f), 4, 10); cl.name = "CaveLight";
+            for (int i = 0; i < 14; i++) { float a = R(0, Mathf.PI * 2), r = R(3, 10); var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, .5f)) continue; Crystal(new Vector3(q.x, 0, q.y), R(.25f, .5f), violet, jungle, 25); }   // glowing violet blooms
+            foreach (var o in new[] { new Vector2(-5, 3), new Vector2(4, 5) }) { var vl = PointLight(new Vector3(SkyLanes.Jungle.x + o.x, 1.2f, SkyLanes.Jungle.y + o.y), new Color(.7f, .4f, 1f), 1.6f, 6); vl.name = "BloomLight"; }
+        }
+        // ---- the small islands' trees and ruins ----
         var far = Group("Scenery");
-        foreach (var (x, y, z, h) in new[] { (-22f, -3f, 20f, 6f), (-26f, 2f, -14f, 5f), (55f, -4f, 18f, 7f), (58f, 3f, -22f, 5f), (-18f, -8f, 58f, 6f), (30f, 5f, 60f, 4f), (24f, -6f, -60f, 6f), (-30f, 1f, -55f, 5f), (48f, 6f, 40f, 4f), (50f, -2f, -45f, 6f) })
-        { var r = Fit(Load(N("namaqualand_boulder_03")), new Vector3(x, y, z), R(0, 360), h, far); if (r) r.transform.rotation = Quaternion.Euler(R(150, 210), R(0, 360), 0); }
+        foreach (var (c, r) in isles) { var at = new Vector3(c.x, 0, c.y); int k = rnd.Next(3); if (k == 0) PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), at, R(0, 360), r * 1.3f, far)); else if (k == 1) Fit(Load(pines[0]), at, R(0, 360), r * 1.8f, far); else Tint(Fit(Load(AR + "Broken_column.prefab"), at, R(0, 360), r * .7f, far), "moss", Pale); }
+        // ---- drifting rocks, spires in the haze, the sea of cloud ----
+        foreach (var (x, y, z, h) in new[] { (-30f, -4f, 36f, 6f), (-32f, 3f, -34f, 5f), (66f, -5f, 30f, 7f), (68f, 4f, -32f, 5f), (-22f, -9f, 66f, 6f), (36f, 6f, 70f, 4f), (26f, -7f, -70f, 6f), (-34f, 2f, -62f, 5f), (-6f, 8f, 52f, 2.5f), (44f, 9f, 48f, 2f), (62f, 7f, 0f, 3f), (-26f, 10f, 6f, 2.2f), (40f, 11f, -52f, 2.4f), (-12f, 7f, -50f, 2f), (14f, 12f, 64f, 1.8f), (70f, 10f, 16f, 2f) })
+        { var rk = Fit(Load(N("namaqualand_boulder_03")), new Vector3(x, y, z), R(0, 360), h, far); if (rk) rk.transform.rotation = Quaternion.Euler(R(150, 210), R(0, 360), 0); }
         foreach (var (a, d, h) in new[] { (-150f, 130f, 70f), (-110f, 140f, 60f), (-70f, 125f, 85f), (-35f, 145f, 65f), (0f, 150f, 80f), (40f, 135f, 70f), (80f, 140f, 60f), (115f, 125f, 75f), (150f, 140f, 55f), (180f, 135f, 65f) })
         {
             float ar = a * Mathf.Deg2Rad; var sp = Fit(Load(N("namaqualand_boulder_03")), Vector3.zero, R(0, 360), h, far); if (!sp) continue;
@@ -1386,8 +1649,44 @@ public static class NovaBuild
             sp.transform.position += new Vector3(18 + Mathf.Sin(ar) * d - bb.center.x, -40 - bb.min.y, -Mathf.Cos(ar) * d - bb.center.z);
         }
         CloudSea(far);
-        Static(root); foreach (var t in far.GetComponentsInChildren<Drift>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        {   // a cool light from behind the scene: edges of walls, towers and trees catch it, the shapes separate from the ground
+            var rim = new GameObject("RimLight").AddComponent<Light>(); rim.transform.SetParent(root); rim.type = LightType.Directional; rim.color = new Color(.62f, .74f, 1f); rim.intensity = .55f; rim.shadows = LightShadows.None; rim.transform.rotation = Quaternion.Euler(28, -40, 0);
+        }
+        {   // soft clouds drifting at the map's edges, above the ground: something in front of the far scene
+            var puff = Load("Assets/KayKit_MedievalHexagon/Models/decoration/nature/cloud_big.fbx"); var puffMat = AssetDatabase.LoadAssetAtPath<Material>($"{Gen}/SkyCloudHigh.mat");
+            for (int i = 0; i < 12; i++)
+            {
+                float a = i / 12f * Mathf.PI * 2 + R(-.15f, .15f); var at = new Vector3(18 + Mathf.Cos(a) * R(52, 66), R(4, 9), Mathf.Sin(a) * R(64, 78));
+                var cl = Fit(puff, at, R(0, 360), R(5, 8), far); if (cl) foreach (var r in cl.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+        }
+        {   // grass blades on the shoulders, round the bases and in the jungle (drawn near the camera only)
+            var gf = Grass(new Color(.05f, .12f, .04f), new Color(.17f, .3f, .09f), new Color(.4f, .5f, .2f), .42f, .5f, 80); gf.skyLanes = true; gf.maxDistance = 34; gf.seed = 19;
+        }
+        {   // everything placed on level ground sits up on the raised bases and down in the jungle: each piece lifted by the land's height under it
+            foreach (Transform g in root)
+            {
+                if (g.name.StartsWith("SkyLanes") || g.name is "Sun" or "RimLight" or "StageGrade" or "Scenery" || g.GetComponent<GrassField>()) continue;
+                bool group = g.GetComponents<Component>().Length == 1 && g.childCount > 0;
+                if (group) foreach (Transform c in g) c.position += Vector3.up * H(c.position.x, c.position.z);
+                else g.position += Vector3.up * H(g.position.x, g.position.z);
+            }
+        }
+        Static(root); foreach (var t in root.GetComponentsInChildren<Drift>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0); foreach (var t in root.GetComponentsInChildren<Spin>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         return root;
+    }
+    // Sky Lanes' own colour grade (a volume under the stage root, so it is on only while the map shows): richer colour, warm light, cool shadows
+    static void Grade()
+    {
+        var go = new GameObject("StageGrade"); go.transform.SetParent(root); var vol = go.AddComponent<Volume>(); vol.isGlobal = true; vol.priority = 10;
+        var path = $"{Gen}/SkyLanesGrade.asset"; if (File.Exists(path)) AssetDatabase.DeleteAsset(path);
+        var prof = ScriptableObject.CreateInstance<VolumeProfile>();
+        var ca = prof.Add<ColorAdjustments>(true); ca.saturation.Override(4); ca.contrast.Override(12); ca.postExposure.Override(-.1f);
+        var wb = prof.Add<WhiteBalance>(true); wb.temperature.Override(-4); wb.tint.Override(2);   // cool, as in the painting
+        var bl = prof.Add<Bloom>(true); bl.intensity.Override(.55f); bl.threshold.Override(1f); bl.scatter.Override(.7f);
+        var smh = prof.Add<ShadowsMidtonesHighlights>(true); smh.shadows.Override(new Vector4(.88f, .95f, 1.12f, 0)); smh.highlights.Override(new Vector4(1.08f, 1.03f, .92f, 0));
+        var vg = prof.Add<Vignette>(true); vg.intensity.Override(.26f); vg.smoothness.Override(.55f);
+        AssetDatabase.CreateAsset(prof, path); foreach (var c in prof.components) AssetDatabase.AddObjectToAsset(c, prof); vol.sharedProfile = prof;
     }
     // puts the Sky Lanes map into the saved scene without rebuilding the rest, then the Windows player
     public static void AddSkyLanesAndWin()

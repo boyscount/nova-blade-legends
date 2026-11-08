@@ -10,6 +10,7 @@ namespace NovaBlade
         public const float HalfW = 2.6f, Depth = .75f;
         // the green valley: a shallow river (the ground dips .45 under the water) crossed by two bridges (BridgeDeck)
         public static bool Valley;
+        public static bool Sky;     // Sky Lanes: raised bases, a sunken jungle (SkyLanes.Height)
         public static bool Wilds;   // the Open World zone: its own land (WildsMap), with the same shallow water as the valley
         public static bool Wet => Active || Valley || Wilds;
         public static float WaterY => Valley || Wilds ? -.22f : -.32f;
@@ -32,6 +33,7 @@ namespace NovaBlade
         {
             if (BridgeDeck.Height(x, z, out var deck)) return deck;
             if (Wilds) return WildsMap.Height(x, z);
+            if (Sky) return SkyLanes.Height(x, z);
             if (Valley) return -.45f * (1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(2.4f - .6f, 2.4f + 1.2f, Mathf.Abs(z - VZ(x)))));
             if (!Active) return 0;
             if (OnBridge(x, z)) return .2f;

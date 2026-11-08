@@ -10,6 +10,66 @@ public static class NovaFx
     public static void ConvertHovl() => ConvertParticles("Assets/Hovl Studio");
     // Matthew Guz "Slash Effects FREE": Particles/Standard Unlit too
     public static void ConvertSlash() => ConvertParticles("Assets/Matthew Guz");
+    // KayKit Medieval Hexagon (CC0, Kay Lousberg): every model shares one gradient atlas. One URP Lit material for all of them, the
+    // towers, castles and flags the lane battle shows at runtime saved as prefabs under Resources/KayKit, and each model's size logged.
+    // KayKit Adventurers (CC0, Kay Lousberg): the Knight as the Sky Lanes soldier, blue and red capes, animated with the heroes' own
+    // clips through a Humanoid avatar (the free pack's own animations have no attacks). Prefabs Resources/Heroes/Hero_kk_knight_blue|red.
+    public static void ImportKayKitKnight()
+    {
+        const string Dir = "Assets/KayKit_Adventurers", Fbx = Dir + "/Knight.fbx";
+        var mi = (ModelImporter)AssetImporter.GetAtPath(Fbx); mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel; mi.importAnimation = false; mi.importCameras = false; mi.importLights = false; mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.SaveAndReimport();
+        var avatar = AssetDatabase.LoadAllAssetsAtPath(Fbx).OfType<Avatar>().FirstOrDefault();
+        Debug.Log($"[NovaFx] knight avatar {(avatar ? avatar.name : "none")} valid {avatar && avatar.isValid} human {avatar && avatar.isHuman}");
+        var ctrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Game/Animations/Hero.controller");
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>(Fbx); var sword = AssetDatabase.LoadAssetAtPath<GameObject>(Dir + "/sword_1handed.fbx");
+        foreach (var col in new[] { "blue", "red" })
+        {
+            var texPath = $"{Dir}/knight_{col}.png"; var ti = (TextureImporter)AssetImporter.GetAtPath(texPath); ti.maxTextureSize = 256; ti.filterMode = FilterMode.Bilinear; ti.SaveAndReimport();   // a gradient atlas: small is enough
+            var matPath = $"{Dir}/Knight_{col}.mat"; var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath); if (!mat) { mat = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(mat, matPath); }
+            mat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(texPath)); mat.SetColor("_BaseColor", Color.white); mat.SetFloat("_Smoothness", .15f); mat.SetFloat("_Metallic", 0); EditorUtility.SetDirty(mat);
+            var holder = new GameObject("Hero_kk_knight_" + col); var inst = (GameObject)PrefabUtility.InstantiatePrefab(src); inst.transform.SetParent(holder.transform, false);
+            foreach (var r in inst.GetComponentsInChildren<Renderer>(true)) r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray();
+            // the helmet with an open visor; the other heads hidden
+            foreach (var t in inst.GetComponentsInChildren<Transform>(true)) { var n = t.name.ToLowerInvariant(); if (t.GetComponent<Renderer>() && n.Contains("helmet") && !n.EndsWith("helmet")) t.gameObject.SetActive(false); }
+            var hand = inst.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name.ToLowerInvariant().Replace("_", ".").Contains("handslot.r"));
+            if (hand && sword) { var s = (GameObject)PrefabUtility.InstantiatePrefab(sword); s.transform.SetParent(hand, false); foreach (var r in s.GetComponentsInChildren<Renderer>(true)) r.sharedMaterials = Enumerable.Repeat(mat, r.sharedMaterials.Length).ToArray(); }
+            var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            inst.transform.localScale *= 1.75f / Mathf.Max(.01f, b.size.y);   // 1.75 m like the other rigs; the soldier def then scales it to 70%
+            var anim = inst.GetComponent<Animator>() ?? inst.AddComponent<Animator>(); anim.avatar = avatar; anim.runtimeAnimatorController = ctrl; anim.applyRootMotion = false; anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            PrefabUtility.SaveAsPrefabAsset(holder, $"Assets/Game/Resources/Heroes/Hero_kk_knight_{col}.prefab"); Object.DestroyImmediate(holder);
+            Debug.Log($"[NovaFx] knight {col}: sword {(hand != null && sword ? "in the right hand" : "missing")}, raw height {b.size.y:0.00}, renderers {rs.Length}");
+        }
+        foreach (var t in src.GetComponentsInChildren<Transform>(true)) if (t.GetComponent<Renderer>()) Debug.Log("[NovaFx] knight part " + t.name);
+        AssetDatabase.SaveAssets();
+    }
+
+    public const string KayKitDir = "Assets/KayKit_MedievalHexagon";
+    public static readonly string[] KayKitRuntime = { "building_tower_A_blue", "building_tower_A_red", "building_tower_B_blue", "building_tower_B_red", "building_castle_blue", "building_castle_red", "flag_blue", "flag_red" };
+    public static void ConvertKayKit()
+    {
+        var texPath = KayKitDir + "/Textures/hexagons_medieval.png"; var ti = (TextureImporter)AssetImporter.GetAtPath(texPath); ti.maxTextureSize = 1024; ti.mipmapEnabled = true; ti.SaveAndReimport();
+        var matPath = KayKitDir + "/KayKit.mat"; var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+        if (!mat) { mat = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(mat, matPath); }
+        mat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(texPath)); mat.SetColor("_BaseColor", Color.white); mat.SetFloat("_Smoothness", .12f); mat.SetFloat("_Metallic", 0); mat.enableInstancing = true; EditorUtility.SetDirty(mat);
+        foreach (var path in AssetDatabase.FindAssets("t:Model", new[] { KayKitDir }).Select(AssetDatabase.GUIDToAssetPath))
+        {
+            var mi = (ModelImporter)AssetImporter.GetAtPath(path); mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription; mi.importAnimation = false; mi.importCameras = false; mi.importLights = false;
+            foreach (var m in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Material>()) mi.AddRemap(new AssetImporter.SourceAssetIdentifier(typeof(Material), m.name), mat);
+            mi.SaveAndReimport();
+        }
+        System.IO.Directory.CreateDirectory("Assets/Game/Resources/KayKit");
+        foreach (var path in AssetDatabase.FindAssets("t:Model", new[] { KayKitDir }).Select(AssetDatabase.GUIDToAssetPath))
+        {
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(path); var name = System.IO.Path.GetFileNameWithoutExtension(path);
+            int tris = go.GetComponentsInChildren<MeshFilter>(true).Sum(f => f.sharedMesh ? f.sharedMesh.triangles.Length / 3 : 0);
+            var inst = (GameObject)Object.Instantiate(go); var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs.Length > 0 ? rs[0].bounds : new Bounds(); foreach (var r in rs) b.Encapsulate(r.bounds);
+            if (KayKitRuntime.Contains(name)) PrefabUtility.SaveAsPrefabAsset(inst, $"Assets/Game/Resources/KayKit/{name}.prefab");
+            Object.DestroyImmediate(inst);
+            Debug.Log($"[NovaFx] kaykit {name}: {tris} tris, size {b.size.x:0.00} x {b.size.y:0.00} x {b.size.z:0.00}");
+        }
+        AssetDatabase.SaveAssets();
+    }
+
     // "Altar Ruins Free" (built-in Standard Specular materials) -> URP Lit, metallic workflow; also reports each ruin mesh's triangles.
     // Its textures were shrunk to 1024 px and its EXR displacement maps, old meshes and demo scenes left out when it was copied in.
     public static void ConvertRuins()

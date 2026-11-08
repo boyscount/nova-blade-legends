@@ -15,6 +15,7 @@ namespace NovaBlade
         public int seed = 7;
         public bool river;   // skip the river channel (River stage)
         public bool wilds;   // the Open World zone: grass stands on its hills and stays off its stream and trail
+        public bool skyLanes;   // the floating 3v3 map: only on its grass (SkyLanes.Grassy), never on the roads or over the drop
         public bool meadow;   // short soft grass spread in a carpet, in drifts of colour, with patches of small flowers (four extra meshes)
         public float maxDistance; public float clearRadius; public Vector4 channel;   // a stage's own river to keep clear: z = x(offset) + sin(px * z(freq)) * y(amp), half width w (w = 0: none)   // keep a plaza of this radius free of grass
         readonly List<Mesh> meshes = new(), farMeshes = new();
@@ -43,15 +44,16 @@ namespace NovaBlade
                 {
                     float px = x + R(-step, step) * .45f, pz = z + R(-step, step) * .45f; float r = Mathf.Sqrt(px * px + pz * pz);
                     if (r > radius) continue;
-                    float d = Path(px, pz) + Noise(px, pz) * .6f; if (d < pathClear) continue; if (clearRadius > 0 && Mathf.Sqrt(px * px + pz * pz) < clearRadius + Noise(px, pz) * 1.5f) continue; if (channel.w > 0 && Mathf.Abs(pz - (channel.x + Mathf.Sin(px * channel.z) * channel.y)) < channel.w) continue;
+                    if (skyLanes && !SkyLanes.Grassy(new Vector2(px, pz))) continue;
+                    float d = skyLanes ? 9 : Path(px, pz) + Noise(px, pz) * .6f; if (d < pathClear) continue; if (clearRadius > 0 && Mathf.Sqrt(px * px + pz * pz) < clearRadius + Noise(px, pz) * 1.5f) continue; if (channel.w > 0 && Mathf.Abs(pz - (channel.x + Mathf.Sin(px * channel.z) * channel.y)) < channel.w) continue;
                     if (river && (River.Bed(px, pz) < -.08f || River.OnBridge(px, pz))) continue;
                     if (wilds && (!WildsMap.Dry(px, pz, -.6f) || Vector2.Distance(new Vector2(px, pz), WildsMap.House) < 8 || WildsMap.TrailDistance(px, pz) < 1.2f + Noise(px, pz) * .5f)) continue;
-                    float gy = wilds ? WildsMap.Height(px, pz) : 0;
+                    float gy = wilds ? WildsMap.Height(px, pz) : skyLanes ? SkyLanes.Height(px, pz) : 0;
                     float clump = Noise(px * .12f, pz * .12f);
                     float s = R(.7f, 1.25f) * (.6f + .8f * clump) * Mathf.Clamp01((d - pathClear) / .8f + .3f);
                     var key = (Mathf.FloorToInt(px / CellSize), Mathf.FloorToInt(pz / CellSize));
                     if (!cells.TryGetValue(key, out var cell)) { cell = new Cell { box = new Bounds(new Vector3((key.Item1 + .5f) * CellSize, height, (key.Item2 + .5f) * CellSize), new Vector3(CellSize + 1, height * 3 + 1, CellSize + 1)) }; cells[key] = cell; cellList.Add(cell); }
-                    if (wilds) { cell.box.Encapsulate(new Vector3(px, gy + height * 2, pz)); cell.box.Encapsulate(new Vector3(px, gy, pz)); }
+                    if (wilds || skyLanes) { cell.box.Encapsulate(new Vector3(px, gy + height * 2, pz)); cell.box.Encapsulate(new Vector3(px, gy, pz)); }
                     cell.mats[meadow ? MeadowKind(px, pz, R(0, 1)) : rnd.Next(4)].Add(Matrix4x4.TRS(new Vector3(px, gy, pz), Quaternion.Euler(0, R(0, 360), 0), new Vector3(s, s * R(.8f, 1.25f), s)));
                 }
             rp = new RenderParams(material) { shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false, lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.BlendProbes, worldBounds = new Bounds(Vector3.zero, Vector3.one * radius * 3) };

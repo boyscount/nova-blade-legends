@@ -153,7 +153,7 @@ namespace NovaBlade
         public void ResetForGame()
         {
             StopWalk(); mp = mpMax; offActive = false; swapCD = 0; G.runLoot.Clear(); G.runXp = 0;
-            transform.position = G.lane ? new Vector3(0, 0, Lane.SpawnZ) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
+            transform.position = G.lane ? Lane.SpawnOf(0) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
             buffT = shieldT = dodgeCD = orbAtkT = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
             if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
             Play("idle", .05f);
@@ -279,7 +279,7 @@ namespace NovaBlade
             if (mv.magnitude > .3f) { face = Mathf.Atan2(mv.x, mv.y); var e = G.Nearest(Pos, 2.5f); if (e && Mathf.Abs(Main.AngDiff(face, Main.Ang(e.Pos - Pos))) < .9f) FaceTo(e); }
             else FaceTo(G.Nearest(Pos, r));
         }
-        void MoveBy(float dx, float dz) { transform.position = G.Clamp(Pos + new Vector3(dx, 0, dz)); }
+        void MoveBy(float dx, float dz) { var p = G.Clamp(Pos + new Vector3(dx, 0, dz)); if (G.lane && Lane.Lanes == 2) p = SkyLanes.KeepOut(p, 0); transform.position = p; }   // never into the enemy's spawn pool
         public void Heal(float v, bool quiet = false)
         {
             v = Mathf.Round(Mathf.Min(v, max - hp)); if (v <= 0) return; hp += v;
@@ -319,7 +319,7 @@ namespace NovaBlade
         void Respawn()
         {
             if (!G.lane || G.mode != Main.Mode.Game) return;
-            transform.position = new Vector3(0, 0, Lane.SpawnZ); dead = false; hp = max; inv = 2; state = St.Idle; Play("idle", .05f);
+            transform.position = Lane.SpawnOf(0); dead = false; hp = max; inv = 2; state = St.Idle; Play("idle", .05f);
             Fx.Ring(Pos, 2, Lane.TeamColor(0) / 2.2f, .6f); G.ui.Banner(Loc.S("กลับสู่สนาม", "Back in the fight"), "");
         }
 

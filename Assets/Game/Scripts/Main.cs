@@ -860,28 +860,52 @@ namespace NovaBlade
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.hero = "warrior"; hero.Equip();
             void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
-            StartLane(3, 2); yield return new WaitForSecondsRealtime(2); hero.max = hero.hp = 999999;
+            StartLane(3, 2); yield return new WaitForSecondsRealtime(2); hero.max = hero.hp = 999999; hitchLog = true;   // slow frames go to the log with what happened before them
             log.AppendLine($"stage {System.Array.Find(stageRoots, r => r && r.gameObject.activeSelf)?.name} · towers+core ours {TowersLeft(0)} theirs {TowersLeft(1)} · heroes {foes.Count(f => f && f.d.kind == "champ")} · lane lengths {SkyLanes.Length(0):0} / {SkyLanes.Length(1):0} m");
             foreach (var (x, z) in new[] { (5f, 50f), (40f, 40f), (-20f, 10f) }) log.AppendLine($"clamp ({x}, {z}) -> {Clamp(new Vector3(x, 0, z))}");
+            log.AppendLine($"land: our core {SkyLanes.Height(0, Lane.CoreZ):0.00} m, lane mid {SkyLanes.Height(0, 0):0.00}, jungle mid {SkyLanes.Height(SkyLanes.Jungle.x, SkyLanes.Jungle.y):0.00} · hero stands at y {hero.Pos.y:0.00} (ground {River.Ground(hero.Pos.x, hero.Pos.z):0.00})");
+            {   // the spawn pools: where we start, the pool heals, an enemy hero put in our pool is pushed out
+                var ours = SkyLanes.Fountain(0); log.AppendLine($"pool: hero starts {Flat(hero.Pos - ours).magnitude:0.0} m from our pool centre");
+                hero.hp = hero.max * .5f; float was = hero.hp; yield return new WaitForSecondsRealtime(1); log.AppendLine($"pool: heal in 1 s {(hero.hp - was) / hero.max * 100:0}% of max");
+                var foe = foes.FirstOrDefault(f => f && f.alive && f.team == 1 && f.d.kind == "champ"); if (foe) { foe.transform.position = ours; yield return null; yield return null; log.AppendLine($"pool: enemy hero put in our pool ends {Flat(foe.Pos - ours).magnitude:0.0} m from centre (pool radius {SkyLanes.FountainR})"); }
+                ZoomBy(-.4f); ui.Pan = ours + new Vector3(0, 0, 1); yield return new WaitForSecondsRealtime(1.5f); Snap("pool_ours"); yield return new WaitForSecondsRealtime(.2f); ui.Pan = SkyLanes.Fountain(1) + new Vector3(0, 0, 1);   // the view centres about a metre short of what it follows yield return new WaitForSecondsRealtime(1.2f); Snap("pool_theirs"); ui.Pan = null; ZoomBy(.4f); hero.max = hero.hp = 999999;
+            }
             ZoomBy(1.2f);
             foreach (var (n, at) in new[] { ("view_ourbase", new Vector3(0, 0, 38)), ("view_jungle", new Vector3(17, 0, 2)), ("view_curve", new Vector3(32, 0, 8)), ("view_theirbase", new Vector3(0, 0, -36)) })
             { ui.Pan = at; yield return new WaitForSecondsRealtime(1.2f); Snap(n); yield return new WaitForSecondsRealtime(.2f); }
             ui.Pan = null; ZoomBy(-1.2f);
-            int shot = 0; float worstFrame = 0, ms = 0; int frames = 0;
+            {   // diving a tower alone: the hero stands under the enemy's outer straight-lane tower with no soldiers about; shots grow heavier
+                MoveTo(new Vector3(0, 0, -Lane.TowerZ[0] + 4)); hero.max = hero.hp = 999999; float was = hero.hp; var hits = new List<float>(); float last = hero.hp;
+                for (float t = 0; t < 4; t += Time.unscaledDeltaTime) { if (hero.hp < last - 1) hits.Add(last - hero.hp); last = hero.hp; hero.inv = 0; yield return null; }
+                Snap("dive"); log.AppendLine($"alone under a tower 4 s: took {was - hero.hp:0} in {hits.Count} hits ({string.Join(", ", hits.Select(h => h.ToString("0")))}) · plain tower shot {Lane.Tower.dmg}");
+                MoveTo(new Vector3(0, 0, Lane.SpawnZ)); hero.max = hero.hp = 999999;
+            }
+            var towerAt = foes.Where(f => f && f.d.kind == "tower").ToDictionary(f => f, f => f.Pos);   // towers must end where they began
+            int shot = 0; float worstFrame = 0, ms = 0, snapAt = -1, closeAt = -1; int frames = 0;
             for (float t = 0; t < 75; t += Time.unscaledDeltaTime)
             {
                 hero.hp = hero.max; ms += Time.unscaledDeltaTime * 1000; frames++; worstFrame = Mathf.Max(worstFrame, Time.unscaledDeltaTime * 1000);
+                if (snapAt > 0 && t >= snapAt) { snapAt = -1; Snap($"match_{shot}"); if (shot == 1) { ZoomBy(-.5f); closeAt = t + .9f; } }
+                if (closeAt > 0 && t >= closeAt) { closeAt = -1; Snap("soldiers_close"); ZoomBy(.5f); }
                 if (t > 15 * (shot + 1))
                 {
                     var live = foes.Where(f => f && f.alive && !f.spawning).ToList(); var off = live.Count(f => f.d.kind != "tower" && !SkyLanes.Inside(new Vector2(f.Pos.x, f.Pos.z), .3f));
                     var front0 = live.Where(f => f.team == 0 && f.d.kind == "minion").Select(f => f.Pos.z).DefaultIfEmpty(99).Min(); var front1 = live.Where(f => f.team == 1 && f.d.kind == "minion").Select(f => f.Pos.z).DefaultIfEmpty(-99).Max();
                     log.AppendLine($"t {t:0}s: soldiers {live.Count(f => f.team == 0 && f.d.kind == "melee" && f.d.id == "minion")} v {live.Count(f => f.team == 1 && f.d.id == "minion")} · heroes {live.Count(f => f.team == 0 && f.d.kind == "champ")} v {live.Count(f => f.team == 1 && f.d.kind == "champ")} · towers {TowersLeft(0)} v {TowersLeft(1)} · off the ground {off} · wave {wave}");
                     var lead = live.Where(f => f.team == 0 && f.d.id == "minion").OrderBy(f => f.Pos.z).FirstOrDefault(); if (lead) ui.Pan = lead.Pos;
-                    shot++; Snap($"match_{shot}");
+                    shot++; snapAt = t + .9f;   // the camera eases over first
                 }
                 yield return null;
             }
-            ui.Pan = null; log.AppendLine($"frames: avg {ms / Mathf.Max(1, frames):0.0} ms, worst {worstFrame:0} ms");
+            ui.Pan = null; hitchLog = false; log.AppendLine($"frames: avg {ms / Mathf.Max(1, frames):0.0} ms, worst {worstFrame:0} ms");
+            {   // towers in order: the enemy's inner tower and core shrug off hits until the ones before them fall
+                Foe T(int tier, int ln = 0) => foes.FirstOrDefault(f => f && f.alive && f.team == 1 && f.towerTier == tier && (tier == 2 || f.laneIdx == ln));
+                float Hit(Foe f) { if (!f) return -1; float was = f.hp; f.Damage(500, f.Pos + Vector3.forward * 3, new Hit { melee = true }); return was - f.hp; }
+                log.AppendLine($"order: inner while outer stands takes {Hit(T(1)):0}, core takes {Hit(T(2)):0}");
+                var outer = T(0); if (outer) outer.Damage(1e9f, outer.Pos); yield return null; log.AppendLine($"order: outer down, inner now takes {Hit(T(1)):0}, core still takes {Hit(T(2)):0}");
+                var inner = T(1); if (inner) inner.Damage(1e9f, inner.Pos); yield return null; log.AppendLine($"order: lane cleared, core now takes {Hit(T(2)):0}");
+            }
+            log.AppendLine($"towers moved: furthest {towerAt.Where(kv => kv.Key && kv.Key.alive).Select(kv => Flat(kv.Key.Pos - kv.Value).magnitude).DefaultIfEmpty(0).Max():0.00} m");
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "skylanes.txt"), log.ToString()); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
         }
         System.Collections.IEnumerator GateWalk(string dir)
@@ -1199,9 +1223,10 @@ namespace NovaBlade
         {
             LobbyNight.Set(false); city = false; wilds = false; house = false; sky = false; if (cityRoot) cityRoot.gameObject.SetActive(false); foreach (var t in autumnTrees) if (t) t.SetActive(true); autumnTrees.Clear();
             for (int k = 0; k < stageRoots.Length; k++) if (stageRoots[k]) stageRoots[k].gameObject.SetActive(k == i);
-            River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river"; River.Valley = stageRoots[i] && stageRoots[i].name == "Stage_valley"; River.Wilds = stageRoots[i] && stageRoots[i].name == "Stage_wilds";
+            River.Active = stageRoots[i] && stageRoots[i].name == "Stage_river"; River.Valley = stageRoots[i] && stageRoots[i].name == "Stage_valley"; River.Wilds = stageRoots[i] && stageRoots[i].name == "Stage_wilds"; River.Sky = stageRoots[i] && stageRoots[i].name == "Stage_skylanes";
             var look = stageRoots[i] ? stageRoots[i].GetComponent<StageLook>() : null; stageLook = look;
             if (look) look.Apply();
+            StageRender.For(stageRoots[i] ? stageRoots[i].name : null);   // a stage's own AO and shadow reach, put back for the others
             Obstacles.Use(stageRoots[i]);
         }
 
@@ -1467,6 +1492,7 @@ namespace NovaBlade
             // hit stop: a few frames of near-freeze on heavy hits (animators and particles slow down too)
             if (hitStop > 0) hitStop -= dt;
             Time.timeScale = hitStop > 0 ? .06f : 1;
+            if (skyPetals && lane && Lane.Lanes == 2 && hero) skyPetals.position = hero.Pos + new Vector3(0, 6, -7);
             if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city && !wilds && !house && !sky) UpdWaves(dt); UpdDrops(dt); }
             for (int i = foes.Count - 1; i >= 0; i--) if (!foes[i]) foes.RemoveAt(i);
         }
@@ -1505,9 +1531,10 @@ namespace NovaBlade
                 // camera height: high (top-down), mid, or low (three-quarter: the top of the screen shows the skyline)
                 int style = lane ? 0 : ViewStyle == 3 ? 3 : stageLook && stageLook.lowCam ? 2 : ViewStyle;
                 var off = style == 3 ? new Vector3(0, 2.6f, 5.6f) : style == 2 ? new Vector3(0, 4.1f, 9.6f) : style == 1 ? new Vector3(0, 6.2f, 8.8f) : new Vector3(0, 8.6f, 7.4f);
+                if (lane && Lane.Lanes == 2) { off = SkyCam; far /= 1.35f; }   // Sky Lanes: a MOBA view, steep (about 58 degrees) and further out, so lanes, jungle and the fight around read at once
                 var focus = ui.Pan ?? hero.Pos; var want = focus + off * far;
                 camPos = Vector3.Lerp(camPos, want, 1 - Mathf.Exp(-dt * (hero.dead ? 2.2f : 6)));
-                camLook = new Vector3(camPos.x, (wilds ? camPos.y - off.y * far : 0) + (hero.dead ? .5f : lane ? 1.6f : style == 3 ? 1.5f : style == 2 ? 1.3f : style == 1 ? 1.1f : .9f), camPos.z - off.z * far - (style == 3 ? 1.6f : 0));   // on the zone's hills the view climbs with the hero
+                camLook = new Vector3(camPos.x, (wilds || River.Sky ? camPos.y - off.y * far : 0) + (hero.dead ? .5f : lane ? 1.6f : style == 3 ? 1.5f : style == 2 ? 1.3f : style == 1 ? 1.1f : .9f), camPos.z - off.z * far - (style == 3 ? 1.6f : 0));   // on the zone's hills the view climbs with the hero
             }
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, soul && mode != Mode.Lobby ? 55 : 40, 1 - Mathf.Exp(-dt * 6));
             shake = Mathf.Max(0, shake - dt);
@@ -1524,8 +1551,14 @@ namespace NovaBlade
         public ITarget PickTarget(Foe f)
         {
             if (!lane) return hero && !hero.dead ? hero : null;
+            if (f.d.kind == "champ") return f.ChampTarget();
             float aggro = f.d.kind == "tower" ? f.d.range : 10; ITarget best = null; float bd = aggro;
-            foreach (var o in Opponents(f.team)) { float d = Flat(o.Pos - f.Pos).magnitude - o.Rad; if (d < bd) { bd = d; best = o; } }
+            if (f.d.kind == "tower")
+            {   // a tower shoots the soldiers in its range first, and a hero only when no soldier is there to take the shots
+                foreach (var o in Opponents(f.team)) { if (o is not Foe m || m.d.id != "minion") continue; float d = Flat(o.Pos - f.Pos).magnitude - o.Rad; if (d < bd) { bd = d; best = o; } }
+                if (best != null) return best;
+            }
+            foreach (var o in Opponents(f.team)) { if (o is Foe sf && sf.Shielded) continue; float d = Flat(o.Pos - f.Pos).magnitude - o.Rad; if (d < bd) { bd = d; best = o; } }   // a shielded tower is not worth a swing
             return best;
         }
         public void HitTeamArea(int team, Vector3 c, float r, float dmg)
@@ -1575,8 +1608,8 @@ namespace NovaBlade
             for (int t = 0; t < 2; t++)
             {
                 float side = Lane.Side(t);
-                for (int l = 0; l < lanes; l++) foreach (var z in Lane.TowerZ) { var u = SpawnUnit(Lane.Tower, new Vector3(Lane.LaneX(lanes == 3 ? l : 1), 0, side * z), t); if (u) u.laneIdx = l; }
-                SpawnUnit(Lane.Core, new Vector3(0, 0, side * Lane.CoreZ), t);
+                for (int l = 0; l < lanes; l++) foreach (var z in Lane.TowerZ) { var u = SpawnUnit(Lane.Tower, new Vector3(Lane.LaneX(lanes == 3 ? l : 1), 0, side * z), t); if (u) { u.laneIdx = l; u.towerTier = z == Lane.TowerZ[0] ? 0 : 1; } }
+                SpawnUnit(Lane.Core, new Vector3(0, 0, side * Lane.CoreZ), t).towerTier = 2;
             }
             // AI heroes: in three lanes our two helpers take the side lanes (the player usually goes middle), the enemy has one per lane
             int[] ourLanes = lanes == 3 ? new[] { 0, 2 } : new[] { 1, 1 }, theirLanes = lanes == 3 ? new[] { 0, 1, 2 } : new[] { 1, 1, 1 };
@@ -1589,6 +1622,8 @@ namespace NovaBlade
         }
         // Sky Lanes, always 3 against 3: towers along both lanes, the player and one helper start on the straight lane, the other helper takes the curve; the enemy mirrors it
         public static readonly int[] SkyLaneOf = { 0, 1 };   // our two helpers; the enemy's three: 0, 1, 0
+        Transform skyPetals;   // sakura petals over Sky Lanes, kept round the hero
+        static readonly Vector3 SkyCam = new(0, 13.5f, 8.4f);
         void StartSkyLanes()
         {
             const int size = 3; ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = 2; Lane.Lanes = 2;
@@ -1597,25 +1632,27 @@ namespace NovaBlade
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             for (int t = 0; t < 2; t++)
             {
-                for (int l = 0; l < 2; l++) for (int k = 0; k < 2; k++) { var u = SpawnUnit(Lane.Tower, SkyLanes.Tower(t, l, k), t); if (u) u.laneIdx = l; }
-                SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t);
+                for (int l = 0; l < 2; l++) for (int k = 0; k < 2; k++) { var u = SpawnUnit(Lane.Tower, SkyLanes.Tower(t, l, k), t); if (u) { u.laneIdx = l; u.towerTier = k; } }
+                SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t).towerTier = 2;
             }
             var others = Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();
-            for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), new Vector3(i == 0 ? -2.5f : 3, 0, Lane.SpawnZ), 0); if (u) u.laneIdx = SkyLaneOf[i]; }
+            for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), Lane.SpawnOf(0) + new Vector3(i == 0 ? -1.5f : 1.5f, 0, 0), 0); if (u) u.laneIdx = SkyLaneOf[i]; }
             var foesH = Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
-            for (int i = 0; i < size; i++) { var u = SpawnUnit(Lane.Champ(foesH[i % foesH.Count]), new Vector3((i - 1) * 2.5f, 0, -Lane.SpawnZ), 1); if (u) u.laneIdx = i == 1 ? 1 : 0; }
-            camPos = new Vector3(0, 9, Lane.CoreZ + 10);
+            for (int i = 0; i < size; i++) { var u = SpawnUnit(Lane.Champ(foesH[i % foesH.Count]), Lane.SpawnOf(1) + new Vector3((i - 1) * 1.6f, 0, 0), 1); if (u) u.laneIdx = i == 1 ? 1 : 0; }
+            camPos = Lane.SpawnOf(0) + new Vector3(0, 13, 8);
+            var stageRoot = Stage("Stage_skylanes"); if (stageRoot && !skyPetals) skyPetals = LobbyNight.PetalsAt(stageRoot);
             ui.ShowHud(); ui.Banner(Loc.S("สนามรบลอยฟ้า · 3 ต่อ 3", "Sky Lanes · 3 vs 3"), Loc.S("เลนตรงกับเลนโค้งรอบป่า ทำลายป้อมแล้วทุบคริสตัลหลักของศัตรู", "A straight lane and a curved one round the jungle: break the towers, then the enemy Core Crystal"));
         }
         void UpdLane(float dt)
         {
+            Fountains(dt);
             if (Lane.Lanes == 2)
             {   // a wave of three soldiers down each lane, from each base
                 minionT -= dt; if (minionT > 0) return; minionT = 28; wave++;
                 for (int t = 0; t < 2; t++) for (int l = 0; l < 2; l++) { var s0 = SkyLanes.LaneStart(t, l); for (int i = 0; i < 3; i++) { var u = SpawnUnit(Lane.Minion, s0 + new Vector3((i - 1) * 1.6f, 0, 0), t); if (u) u.laneIdx = l; } }
                 return;
             }
-            minionT -= dt; if (minionT > 0) return; minionT = Lane.Lanes == 3 ? 30 : 24; wave++;
+            minionT -= dt; if (minionT > 0) return; minionT = Lane.Lanes == 3 ? 30 : 24; wave++;   // (fountains run above for every lane map)
             for (int t = 0; t < 2; t++)
                 for (int l = 0; l < Lane.Lanes; l++)
                     for (int i = 0; i < 3; i++)
@@ -1624,13 +1661,19 @@ namespace NovaBlade
                         var u = SpawnUnit(Lane.Minion, new Vector3(x + (i - 1) * 1.6f, 0, Lane.Side(t) * (Lane.CoreZ - 3)), t); if (u) u.laneIdx = li;
                     }
         }
+        // each side's core heals its own heroes standing near it (the player too): a reason to go home, and where a hurt AI hero runs to
+        void Fountains(float dt)
+        {
+            if (hero && !hero.dead && hero.hp < hero.max && Flat(hero.Pos - Lane.HealAt(0)).magnitude < Lane.HealR) hero.Heal(hero.max * Lane.HealRate * dt, true);
+            foreach (var f in foes) if (f && f.alive && f.d.kind == "champ" && f.hp < f.maxHp && Flat(f.Pos - Lane.HealAt(f.team)).magnitude < Lane.HealR) f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * Lane.HealRate * dt);
+        }
         public int TowersLeft(int team) => foes.Count(f => f && f.alive && f.team == team && f.d.kind == "tower");
         public void OnFoeDown(Foe f)
         {
             if (!lane || mode != Mode.Game) return;
             if (f.d.id == "core") { ui.Banner(f.team == 1 ? Loc.S("ชัยชนะ!", "Victory!") : Loc.S("พ่ายแพ้", "Defeat"), f.team == 1 ? Loc.S("คริสตัลฝ่ายศัตรูถูกทำลาย", "The enemy crystal was destroyed") : Loc.S("คริสตัลของเราถูกทำลาย", "Our crystal was destroyed")); StartCoroutine(After(2.2f, () => Finish(f.team == 1))); }
             else if (f.d.id == "tower") ui.Banner(f.team == 1 ? Loc.S("ทำลายป้อมศัตรู!", "Enemy tower destroyed!") : Loc.S("ป้อมของเราถูกทำลาย", "Our tower was destroyed"), "");
-            else if (f.d.kind == "champ") { var def = f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(10, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, new Vector3(Random.Range(-2f, 2f), 0, Lane.Side(team) * (Lane.SpawnZ)), team); if (u) u.laneIdx = li; } })); }
+            else if (f.d.kind == "champ") { var def = f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(10, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, Lane.SpawnOf(team) + new Vector3(Random.Range(-1.5f, 1.5f), 0, 0), team); if (u) u.laneIdx = li; } })); }
         }
         System.Collections.IEnumerator After(float s, System.Action a) { yield return new WaitForSeconds(s); a(); }
     }
