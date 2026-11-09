@@ -55,7 +55,12 @@ namespace NovaBlade
             Apply();
         }
         public void Set(Color t, Color g) { tint = t; glow = g; Apply(); }
-        public void Spirit(Color c, Color lift) { spirit = c; spiritLift = lift; Apply(); }   // the zone's monsters at night
+        public void Spirit(Color c, Color lift)
+        {   // the zone's monsters at night; materials without emission switched on would ignore the glow (the near-black cultist stayed black)
+            spirit = c; spiritLift = lift;
+            if (c.maxColorComponent > 0) foreach (var r in rends) if (r && r is not ParticleSystemRenderer) foreach (var m in r.sharedMaterials) if (m && m.HasProperty(UrpEmis) && !m.IsKeywordEnabled("_EMISSION")) m.EnableKeyword("_EMISSION");
+            Apply();
+        }
         public void Flash(float v) { if (Mathf.Approximately(v, flash)) return; flash = v; Apply(); }
         void Apply()
         {
@@ -66,7 +71,7 @@ namespace NovaBlade
                 if (!baseCols.TryGetValue(r, out var cols)) continue;
                 for (int i = 0; i < cols.Length; i++)
                 {
-                    var c = cols[i] * tint * spiritLift; c.a = cols[i].a;
+                    var c = cols[i] * tint * spiritLift + spirit * .25f; c.a = cols[i].a;   // + a little of the spirit colour: a near-black model still shows
                     r.GetPropertyBlock(mpb, i); mpb.SetColor(BaseColor, c); mpb.SetColor(Emissive, e); mpb.SetColor(UrpBase, c); mpb.SetColor(UrpEmis, e); r.SetPropertyBlock(mpb, i);
                 }
             }

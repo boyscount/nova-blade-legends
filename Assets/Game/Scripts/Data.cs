@@ -14,14 +14,14 @@ namespace NovaBlade
     public class WingDef { public string id, name, desc; public Color glow; public int gems; }
     public class PetDef { public string id, name, desc, kind; public Color color; public float cd, dmg, h, steal; public bool fly, gold; }
     public class SkillDef { public string id, n; public float cd; public Color c; public string icon; }
-    public class FoeDef { public string id, model, name, kind; public float hp, spd, dmg, range, scale, rad; public int gold; public bool fly, shoot; }   // shoot: an AI hero that fights from range
+    public class FoeDef { public FoeDef Copy() => (FoeDef)MemberwiseClone(); public string id, model, name, kind; public float hp, spd, dmg, range, scale, rad; public int gold; public bool fly, shoot; }   // shoot: an AI hero that fights from range
     public class BossDef { public string model, name, summon; public float scale, hp; public Color tint, glow, rage, color; public bool fly; public float dmg, spd, poise; public int summonN = 3; public string[] near, far; public float hits, takes; }   // hits/takes > 0: a fair duel (Main.DuelSync); dmg/spd/poise 0 = the usual; near/far: the duel moves picked close up / at range (null = the stage boss set)
     public class ThemeDef { public string id, name, desc; public (string foe, int n)[][] waves; public BossDef boss; }
 
     public static class Data
     {
         // per-class movement and attack clips (AnimatorOverrideController in Resources/Anim/<set>); null = the shared Great Sword set
-        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" or "lyra" => "mage", "elf" or "hood" or "harpy" or "rowan" => "bow", "ninja" => "ninja", "monk" or "tenzin" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
+        public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" or "lyra" or "flamepriest" => "mage", "elf" or "hood" or "harpy" or "rowan" => "bow", "ninja" => "ninja", "monk" or "tenzin" or "tiger" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
         static Color C(int hex) => new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f);
         static Color G(int hex, float k) => C(hex) * k;
 
@@ -63,6 +63,15 @@ namespace NovaBlade
             new HeroDef { id = "tenzin", name = Loc.S("เทนซิน", "Tenzin"), title = Loc.S("พระนักสู้แขนเหล็ก", "Iron-Armed Monk"), desc = Loc.S("สายหมัด บู๊มือเปล่า ทุบพื้น ปั่นตัวเป็นพายุหมัด", "Fighter: bare-handed brawling, ground slams and fist storms"), cls = "monk", hp = 1250, spd = 4.13f, atk = 1.1f, rig = true, blade = false,
                 skills = new[] { "slam", "whirl", "cry" }, stats = new[] { 0.85f, 0.8f, 0.7f, 0.5f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("จีวรแดง", "Crimson Robe"), C(0xffb0a0), G(0xff4a2a, .22f)), (Loc.S("ภูเขาหิมะ", "Snow Peak"), C(0xe0f0ff), G(0x8ad8ff, .22f)), (Loc.S("มังกรทอง", "Golden Dragon"), C(0xffe2a2), G(0xffb52e, .22f)) } },
+            new HeroDef { id = "knight", name = Loc.S("การ์แลนด์", "Garland"), title = Loc.S("อัศวินโซ่เหล็ก", "Iron Chain Knight"), desc = Loc.S("สายนักรบ เกราะหนัก เหวี่ยงโซ่ตรึง ดึงศัตรูเข้าหา แล้วฟาดค้อน", "Warrior: heavy armour, a chain that holds and drags foes in, then the hammer"), cls = "warrior", hp = 1400, spd = 3.75f, atk = 1.1f, rig = true,
+                skills = new[] { "whirl", "slam", "cry" }, stats = new[] { 1f, 0.75f, 0.45f, 0.55f },
+                skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("เหล็กกล้า", "Steel"), C(0xdfe6f0), G(0x8aa0c0, .2f)), (Loc.S("ทองคำ", "Gilded"), C(0xffe2a2), G(0xffb52e, .22f)), (Loc.S("เลือดศึก", "War Blood"), C(0xffb4a4), G(0xff3a1a, .22f)) } },
+            new HeroDef { id = "flamepriest", female = true, name = Loc.S("เซราฟินา", "Seraphina"), title = Loc.S("นักบวชเพลิงศักดิ์สิทธิ์", "Priestess of the Sacred Flame"), desc = Loc.S("สายนักบวช เปลวไฟชำระศัตรู ม่านไฟปกป้องทีม และตราไฟตรึงศัตรู", "Cleric: purging flame, a fire veil for the team and a branding seal"), cls = "cleric", hp = 1050, spd = 3.9f, atk = 1.0f, rig = true, ranged = true, blade = false,
+                skills = new[] { "heal", "shield", "cry" }, stats = new[] { 0.7f, 0.65f, 0.6f, 0.85f },
+                skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("เถ้าถ่าน", "Ember"), C(0xffc8a0), G(0xff6a1a, .25f)), (Loc.S("เพลิงฟ้า", "Blue Flame"), C(0xc8dcff), G(0x3a8aff, .22f)) } },
+            new HeroDef { id = "tiger", name = Loc.S("ไท่หู่", "Taihu"), title = Loc.S("นักมวยวิชาเสือ", "Tiger-Style Brawler"), desc = Loc.S("สายหมัด กระโจนเข้าหา ตะปบด้วยกรงเล็บ และคำรามให้ศัตรูช้าลง", "Fighter: pounces in, rakes with claws and roars foes slow"), cls = "monk", hp = 1250, spd = 4.2f, atk = 1.12f, rig = true, blade = false,
+                skills = new[] { "slam", "whirl", "cry" }, stats = new[] { 0.85f, 0.85f, 0.75f, 0.45f },
+                skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("เสือขาว", "White Tiger"), C(0xf0f0ff), G(0x9ab8ff, .2f)), (Loc.S("เสือดำ", "Black Tiger"), C(0x9d97c4), G(0x5a4dff, .22f)), (Loc.S("เสือทอง", "Golden Tiger"), C(0xffe2a2), G(0xffb52e, .22f)) } },
             new HeroDef { id = "mage", name = Loc.S("อัลดริค", "Aldric"), title = Loc.S("จอมเวทผ้าคลุมคราม", "Azure-Cloak Archmage"), desc = Loc.S("สายเวท ยิงลำแสงเวท ปล่อยลูกไฟไล่ล่า และกางบาเรีย", "Mage: arcane beams, homing fireballs and a barrier"), cls = "mage", hp = 850, spd = 3.9f, atk = 1.15f, rig = true, ranged = true, blade = false,
                 skills = new[] { "laser", "missile", "shield" }, stats = new[] { 0.45f, 0.95f, 0.6f, 0.95f },
                 skins = new[] { (Loc.S("ดั้งเดิม", "Original"), Color.white, Color.black), (Loc.S("น้ำแข็ง", "Frost"), C(0xd0f0ff), G(0x5fd8ff, .22f)), (Loc.S("อัคคี", "Inferno"), C(0xffc0a0), G(0xff5a1a, .22f)), (Loc.S("มรกต", "Emerald"), C(0xc0ffd8), G(0x3aff8a, .22f)) } },
@@ -234,7 +243,12 @@ namespace NovaBlade
             },
         };
         public static (string n, Color c) SkillLook(string hero, string skill)
-        { if (HeroSkills.TryGetValue(hero + ":" + skill, out var v)) return v; var d = Skill(skill); return (d.n, d.c); }
+        {
+            if (HeroSkills.TryGetValue(hero + ":" + skill, out var v)) return v;
+            if (SkillMate(hero) is string m && HeroSkills.TryGetValue(m + ":" + skill, out var mv)) return mv;   // new heroes share a classmate's campaign skill names
+            var d = Skill(skill); return (d.n, d.c);
+        }
+        public static string SkillMate(string hero) => hero switch { "knight" => "spartan", "flamepriest" => "sunpriest", "tiger" => "monk", _ => null };
         // basic-attack button icon by class
         public static string AttackIcon(HeroDef h) => h.cls switch { "archer" => "bow", "mage" => "magic", "cleric" => "holy", "monk" => "fist", _ => "sword" };
 

@@ -13,7 +13,7 @@ namespace NovaBlade
     {
         public string n; public KShape shape; public float range, size, cd, dmg, hits = 1, dur, delay, stun, slow, knock, pullIn;
         public float shieldSelf, shieldAll, heal, atkBuff, buffT, invuln, invis, dot, dotT, cut, cutT, mark, tether, counter, trap, back;
-        public bool allies; public string anim = "atk2";
+        public float drag; public bool allies; public string anim = "atk2";
     }
     public class Kit { public string pid, pn, pd; public KSkill[] s; }
 
@@ -66,7 +66,7 @@ namespace NovaBlade
                 With(K(Loc.S("คลื่นยักษ์", "Tidal Wave"), KShape.Cone, 7, 70, 7, 2.3f, "cast1"), k => k.knock = 3),
                 With(K(Loc.S("คุกฟองน้ำ", "Bubble Prison"), KShape.Point, 9, 1.8f, 10, 1.3f, "cast2"), k => k.stun = 1.2f),
                 With(K(Loc.S("หอกน้ำแข็ง", "Ice Shards"), KShape.Self, 0, 3.2f, 13, 1.0f, "cast"), k => { k.hits = 4; k.dur = 6; }) } },
-            ["sunpriest"] = new Kit { pid = "aura", pn = Loc.S("พรแห่งแสง", "Blessing"), pd = Loc.S("เพื่อนในรัศมี 6 ม. ฟื้นเลือด 1% ต่อวินาที", "Allies within 6 m heal 1% a second"), s = new[] {
+            ["sunpriest"] = new Kit { pid = "aura", pn = Loc.S("พรแห่งแสง", "Blessing"), pd = Loc.S("ตัวเองและเพื่อนในรัศมี 6 ม. ฟื้นเลือด 0.6% ต่อวินาที", "She and allies within 6 m heal 0.6% a second"), s = new[] {
                 With(K(Loc.S("แสงเยียวยา", "Healing Light"), KShape.Self, 0, 6, 12, 0, "cast"), k => { k.heal = .18f; k.allies = true; }),
                 With(K(Loc.S("สถานศักดิ์สิทธิ์", "Sanctuary"), KShape.Point, 8, 4, 16, 0, "cast2"), k => { k.dot = 1.5f; k.dotT = 5; k.cut = .2f; k.cutT = 5; }),
                 With(K(Loc.S("พิพากษา", "Holy Smite"), KShape.Point, 9, 1.5f, 9, 2.2f, "cast1"), k => { k.stun = .6f; k.delay = .3f; }) } },
@@ -82,6 +82,18 @@ namespace NovaBlade
                 With(K(Loc.S("เตะเสย", "Rising Kick"), KShape.Line, 4, 1.4f, 8, 2.0f, "atk2"), k => k.stun = .7f),
                 With(K(Loc.S("ท่าสวนกลับ", "Counter Stance"), KShape.Self, 0, 3, 10, 2.6f, "guard"), k => { k.counter = 1; k.stun = .6f; }),
                 With(K(Loc.S("กายเหล็ก", "Iron Body"), KShape.Self, 0, 3, 14, 0, "guard"), k => { k.cut = .3f; k.cutT = 3; }) } },
+            ["knight"] = new Kit { pid = "chains", pn = Loc.S("โซ่ตรวน", "Shackles"), pd = Loc.S("ตีศัตรูที่ถูกตรึงหรือมึน +25%", "+25% on held or stunned foes"), s = new[] {
+                With(K(Loc.S("เหวี่ยงโซ่", "Chain Lash"), KShape.Line, 7, 1.2f, 8, 1.5f, "atk0"), k => k.stun = .5f),
+                K(Loc.S("ฟาดค้อน", "Hammer Blow"), KShape.Cone, 3.5f, 90, 8, 2.6f, "atk2"),
+                With(K(Loc.S("กระชากเข้าหา", "Drag Down"), KShape.Line, 8, 1.4f, 14, 1.2f, "atk1"), k => { k.stun = 1; k.drag = 1; }) } },
+            ["flamepriest"] = new Kit { pid = "burn", pn = Loc.S("ไฟชำระ", "Purging Fire"), pd = Loc.S("ตีปกติเผาเป้า 0.2P ใน 2 วินาที", "Basic hits burn for 0.2P over 2 s"), s = new[] {
+                K(Loc.S("เปลวศักดิ์สิทธิ์", "Sacred Flame"), KShape.Line, 9, 1.2f, 8, 2.0f, "cast1"),
+                With(K(Loc.S("ม่านไฟ", "Fire Veil"), KShape.Self, 0, 5, 12, 0, "cast"), k => { k.shieldSelf = .15f; k.shieldAll = .15f; k.allies = true; }),
+                With(K(Loc.S("ตราไฟ", "Flame Brand"), KShape.Point, 8, 2.5f, 14, 1.2f, "cast2"), k => { k.stun = .8f; k.delay = .5f; }) } },
+            ["tiger"] = new Kit { pid = "tigerfour", pn = Loc.S("สัญชาตญาณเสือ", "Tiger Instinct"), pd = Loc.S("ทุกการตีครั้งที่ 4 แรงขึ้น 50%", "Every fourth hit +50%"), s = new[] {
+                K(Loc.S("กระโจนเสือ", "Tiger Pounce"), KShape.Leap, 6, 1.8f, 6, 1.9f, "leap"),
+                K(Loc.S("กรงเล็บ", "Rending Claws"), KShape.Cone, 3, 90, 9, 2.6f, "atk1"),
+                With(K(Loc.S("คำรามเสือ", "Tiger Roar"), KShape.Self, 0, 4, 12, 1.4f, "cast"), k => { k.slow = 2; k.atkBuff = .3f; k.buffT = 4; }) } },
         };
         static KSkill With(KSkill k, System.Action<KSkill> f) { f(k); return k; }
         public static Kit For(string heroId) => heroId != null && all.TryGetValue(heroId, out var k) ? k : null;
@@ -108,6 +120,7 @@ namespace NovaBlade
             if (s.slow > 0) p.Add(Loc.S($"ทำให้ช้า {s.slow:0.#} วิ", $"slow {s.slow:0.#}s"));
             if (s.knock > 0) p.Add(Loc.S("ผลักกระเด็น", "knockback"));
             if (s.pullIn > 0) p.Add(Loc.S("ดึงศัตรูเข้าหา", "pulls enemies in"));
+            if (s.drag > 0) p.Add(Loc.S("กระชากศัตรูตัวแรกมาหน้าตัว", "drags the first foe to you"));
             if (s.heal > 0) p.Add(Loc.S($"ฮีล {s.heal * 100:0}%{(s.allies ? " ทั้งทีม" : "")}", $"heal {s.heal * 100:0}%{(s.allies ? " to the team" : "")}"));
             if (s.shieldSelf > 0) p.Add(Loc.S($"โล่ตัวเอง {s.shieldSelf * 100:0}%", $"shield {s.shieldSelf * 100:0}%"));
             if (s.shieldAll > 0) p.Add(Loc.S($"โล่เพื่อน {s.shieldAll * 100:0}%", $"ally shield {s.shieldAll * 100:0}%"));
@@ -140,6 +153,9 @@ namespace NovaBlade
             ["lyra"] = new[] { ("mx_shield", 1.1f, new Color(.7f, .8f, 1)), ("mx_holy_hit", 1.5f, new Color(.75f, .8f, 1)), ("mx_healing", 1.4f, new Color(.6f, .75f, 1)) },
             ["monk"] = new[] { ("mx_charge", 1.1f, new Color(1, .75f, .3f)), ("sx_multi", 1.1f, new Color(1, .8f, .4f)), ("explosion", .7f, new Color(1, .6f, .25f)) },
             ["tenzin"] = new[] { ("hit_yellow", 1.4f, new Color(1, .85f, .4f)), ("mx_shield_gold", 1.2f, new Color(1, .8f, .3f)), ("mx_buff", 1.3f, new Color(1, .75f, .25f)) },
+            ["knight"] = new[] { ("sx_mesh", 1.3f, new Color(.8f, .85f, .95f)), ("ground_hit", 1.2f, new Color(1, .8f, .4f)), ("electric", 1.1f, new Color(.7f, .8f, 1)) },
+            ["flamepriest"] = new[] { ("trail_fire", 1.1f, new Color(1, .55f, .2f)), ("mx_shield_gold", 1.4f, new Color(1, .6f, .25f)), ("explosion", .8f, new Color(1, .45f, .15f)) },
+            ["tiger"] = new[] { ("ground_hit", 1.2f, new Color(1, .6f, .2f)), ("sx_multi", 1.2f, new Color(1, .65f, .25f)), ("mx_buff", 1.3f, new Color(1, .55f, .15f)) },
         };
         // the skill's look at the moment it lands: where depends on its shape (from = the caster, at = the aim or the target, n = the facing)
         public static void Show(string heroId, int i, KSkill s, Vector3 from, Vector3 at, Vector3 n)
@@ -162,7 +178,7 @@ namespace NovaBlade
             ["ninja"] = new[] { "petal", "iaido", null }, ["hood"] = new[] { null, "iaido", null }, ["harpy"] = new[] { "feather", "dive", "gale" },
             ["elf"] = new[] { "feather", null, "gale" }, ["rowan"] = new[] { null, "feather", "dive" }, ["mage"] = new[] { "laser", "missile", "shield" },
             ["darkmage"] = new[] { "missile", null, "laser" }, ["sorceress"] = new[] { "laser", "shield", null }, ["sunpriest"] = new[] { "heal", "shield", null },
-            ["lyra"] = new[] { null, null, (string)null }, ["monk"] = new[] { "slam", "whirl", "cry" }, ["tenzin"] = new[] { null, null, (string)null },
+            ["lyra"] = new[] { null, null, (string)null }, ["monk"] = new[] { "slam", "whirl", "cry" }, ["tenzin"] = new[] { null, null, (string)null }, ["knight"] = new[] { null, null, (string)null }, ["flamepriest"] = new[] { null, null, (string)null }, ["tiger"] = new[] { null, null, (string)null },
         };
         public static string IconOf(string heroId, int i) => icons.TryGetValue(heroId, out var a) && a[i] != null ? $"skill_{heroId}_{a[i]}" : $"kit_{heroId}_{i}";
         public static Color SideCol(int team) => team == 0 ? new Color(.35f, .8f, 1f) : new Color(1, .4f, .3f);
@@ -292,7 +308,7 @@ namespace NovaBlade
                 case KShape.Line:
                     {
                         var end = Pos + n * s.range; Fx.Beam(Pos + Vector3.up * 1.1f, end + Vector3.up * 1.1f, col, .25f, s.size * .35f);
-                        foreach (var o in G.Opponents(0).ToList()) { if (InLine(o.Pos, Pos, n, s.range, s.size / 2 + o.Rad)) Strike(o, s, P * s.dmg, col, n); }
+                        foreach (var o in G.Opponents(0).ToList()) { if (!InLine(o.Pos, Pos, n, s.range, s.size / 2 + o.Rad)) continue; Strike(o, s, P * s.dmg, col, n); if (s.drag > 0 && o is Foe df && df.alive && df.d.kind != "tower") { df.transform.position = G.Clamp(Pos + n * 1.4f); break; } }   // a drag pulls the first one hit to the hero
                     }
                     break;
                 case KShape.Cone:
@@ -439,8 +455,8 @@ namespace NovaBlade
             if (aimI >= 0 && (dead || state == St.Dead)) { aimI = -1; aim?.Hide(); }
             if (kit.pid == "aura")
             {   // the priestess's blessing: allies near her (and she) heal a little all the time
-                if (!dead) Heal(max * .01f * dt, true);
-                foreach (var f in Allies(Pos, 6)) f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * .01f * dt);
+                if (!dead) Heal(max * .006f * dt, true);
+                foreach (var f in Allies(Pos, 6)) f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * .006f * dt);
             }
             if (shieldHp > 0 && Time.time > shieldEnd) shieldHp = 0;
             stunT = Mathf.Max(0, stunT - dt); slowT = Mathf.Max(0, slowT - dt);
@@ -457,6 +473,8 @@ namespace NovaBlade
                 case "shadow": if (Time.time - lastFight > 4) { k *= 1.5f; Fx.Burst(f.Pos + Vector3.up, 14, new Color(.6f, .4f, 1), 4); } break;
                 case "hunt": if (f.hp < f.maxHp * .35f) k *= 1.3f; break;
                 case "ranger": if (f.slow > 0 || f.stag > .2f) k *= 1.2f; break;
+                case "chains": if (f.stag > .2f || f.slow > 0) k *= 1.25f; break;
+                case "tigerfour": if (!o.skill && ++shots % 4 == 0) { k *= 1.5f; Fx.Burst(f.Pos + Vector3.up, 14, new Color(1, .6f, .2f), 4); } break;
                 case "third": if (!o.skill && ++shots % 3 == 0) { k *= 1.6f; o.slow = Mathf.Max(o.slow, 1); } break;
             }
             if (!o.skill && boostShots > 0) { boostShots--; k *= kit.pid == "third" ? 2 : 1.4f; }
@@ -472,6 +490,7 @@ namespace NovaBlade
             {
                 case "rage": if (!o.skill && hp < max * .5f) Heal(dmg * .08f, true); break;
                 case "drain": if (o.skill) Heal(dmg * .15f, true); break;
+                case "burn": if (!o.skill && f.alive) StartCoroutine(Dot(f, AtkPow * .2f, 2, new Color(1, .5f, .15f))); break;
                 case "stack": if (o.skill && hero) stacks = Mathf.Min(3, stacks + 1); break;
                 case "qi": if (!o.skill && hero) for (int i = 0; i < 3; i++) cds[i] = Mathf.Max(0, cds[i] - .4f); break;
                 case "petal":

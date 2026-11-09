@@ -25,13 +25,13 @@ namespace NovaBlade
             }
         }
         float AiP => d.dmg / G.AiLv.dmg * AiPScale * G.AiLv.skill * (Time.time < aiAtkEnd ? 1 + aiAtkK : 1);   // skills scale with the difficulty's skill power (not twice with its basic damage)
-        public float AiDamageTaken(float dmg) => aiCut > 0 && Time.time < aiCutEnd ? dmg * (1 - aiCut) : dmg;
+
         static bool Support(KSkill s) => s.dmg <= 0 && s.dot <= 0 && s.stun <= 0 && s.trap <= 0 && s.shape != KShape.Dash;
 
         // called each frame while chasing; true when a skill was started
         bool KitAi(float dt, ITarget t, float dd)
         {
-            for (int i = 0; i < 3; i++) aiCd[i] -= dt;
+            for (int i = 0; i < 3; i++) aiCd[i] -= dt; AiAura(dt);
             if (Time.time < aiNext || kitBusy > 0) return false;
             int near = G.Opponents(team).Count(o => Main.Flat(o.Pos - Pos).magnitude < 7);
             for (int i = 0; i < 3; i++)
@@ -102,7 +102,7 @@ namespace NovaBlade
                     break;
                 case KShape.Line:
                     Fx.Beam(Pos + Vector3.up * 1.1f, Pos + n * s.range + Vector3.up * 1.1f, col, .25f, s.size * .35f);
-                    foreach (var o in G.Opponents(team).ToList()) if (InLine(o.Pos, Pos, n, s.range, s.size / 2 + o.Rad)) AiStrike(o, s, P * s.dmg, Pos);
+                    foreach (var o in G.Opponents(team).ToList()) { if (!InLine(o.Pos, Pos, n, s.range, s.size / 2 + o.Rad)) continue; AiStrike(o, s, P * s.dmg, Pos); if (s.drag > 0) { if (o is Hero dh) dh.transform.position = G.Clamp(Pos + n * 1.4f); else if (o is Foe df && df.d.kind != "tower") df.transform.position = G.Clamp(Pos + n * 1.4f); break; } }
                     break;
                 case KShape.Cone:
                     {
@@ -153,8 +153,48 @@ namespace NovaBlade
             if (late && alive) Kits.Show(hid, si, s, Pos, at, n);
         }
         // the assassins' passive on AI heroes too: +30% on a target under 35% health
-        public float AiHunt(ITarget o) => (G.lane && IsAssassin && (o is Foe f && f.hp < f.maxHp * .35f || o is Hero h && h.hp < h.max * .35f) ? 1.3f : 1)
-            * (G.lane && d.model == "hero_warrior" && hp < maxHp * .5f ? 1.25f : 1);   // Valka's blood rage on AI heroes too
+        // AI heroes' passives (as the player's, HeroKit.KitOut/KitIn), on basic hits and skills: the damage multiplier for a hit on o
+        int aiShots, aiStacks; float aiLastFight = -99, aiFocusReady;
+        public float AiHunt(ITarget o, bool skill = false)
+        {
+            if (!G.lane || AiKit == null) return 1;
+            float k = 1; bool hero = o is Hero || o is Foe fc && fc.d.kind == "champ";
+            bool low = o is Foe f && f.hp < f.maxHp * .35f || o is Hero h && h.hp < h.max * .35f;
+            switch (aiKit.pid)
+            {
+                case "hunt": if (low) k *= 1.3f; break;
+                case "petal": if (low) k *= 1.3f; if (!skill && hero && ++aiShots % 3 == 0) { k *= 1.6f; Fx.Burst(o.Pos + Vector3.up, 16, new Color(1, .55f, .8f), 4); } break;   // the third hit on a hero bursts its petals
+                case "shadow": if (low) k *= 1.3f; if (Time.time - aiLastFight > 4) k *= 1.5f; break;
+                case "rage": if (hp < maxHp * .5f) k *= 1.25f; break;
+                case "third": if (!skill && ++aiShots % 3 == 0) { k *= 1.6f; if (o is Hero h3) h3.Afflict(0, 1); else if (o is Foe f3) f3.slow = Mathf.Max(f3.slow, 1); } break;
+                case "ranger": if (o is Foe fr && (fr.slow > 0 || fr.stag > .2f) || o is Hero hr && (hr.slowT > 0 || hr.stunT > 0)) k *= 1.2f; break;
+                case "stack": if (skill) { k *= 1 + .15f * aiStacks; aiStacks = hero ? Mathf.Min(3, aiStacks + 1) : 0; } break;
+                case "qi": if (!skill && hero) for (int i = 0; i < 3; i++) aiCd[i] -= .4f; break;
+                case "chains": if (o is Foe fc2 && (fc2.stag > .2f || fc2.slow > 0) || o is Hero hc2 && (hc2.stunT > 0 || hc2.slowT > 0)) k *= 1.25f; break;
+                case "tigerfour": if (!skill && ++aiShots % 4 == 0) k *= 1.5f; break;
+                case "burn": if (!skill) k *= 1.1f; break;   // the burn, as a little more on the hit
+            }
+            aiLastFight = Time.time; return k;
+        }
+        // damage coming in to an AI hero: its own cuts and shields (iron body, sanctuary), the spartan's front, the monk's focus block
+        public float AiDamageTaken(float dmg, Vector3 from)
+        {
+            if (aiCut > 0 && Time.time < aiCutEnd) dmg *= 1 - aiCut;
+            if (!G.lane || AiKit == null) return dmg;
+            aiLastFight = Time.time;
+            if (aiKit.pid == "front" && Vector3.Angle(Main.Dir(face), Main.Flat(from - Pos)) < 60) dmg *= .8f;
+            if (aiKit.pid == "focus" && Time.time >= aiFocusReady) { aiFocusReady = Time.time + 8; G.Number(Pos + Vector3.up * (h + .5f), Loc.S("กันได้", "Blocked"), ""); return 0; }
+            return dmg;
+        }
+        // a teammate hero (or the player on its side) within 4 m of this one's target: someone up front to hold the enemy
+        bool FrontlineNear() { if (tgt == null) return false; var tp = tgt.Pos; foreach (var f in G.foes) if (f && f != this && f.alive && f.team == team && f.d.kind == "champ" && Main.Flat(f.Pos - tp).magnitude < 4) return true; return team == 0 && G.hero && !G.hero.dead && Main.Flat(G.hero.Pos - tp).magnitude < 4; }
+        public float AiSpeedK => G.lane && AiKit != null && aiKit.pid == "wind" ? 1.1f : 1;
+        void AiAura(float dt)
+        {   // the priestess's blessing: she and her teammates near her heal 1% a second
+            if (aiKit.pid != "aura") return;
+            foreach (var f in G.foes) if (f && f.alive && f.team == team && f.d.kind == "champ" && Main.Flat(f.Pos - Pos).magnitude < 6) f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * .006f * dt);
+            if (team == 0 && G.hero && !G.hero.dead && Main.Flat(G.hero.Pos - Pos).magnitude < 6) G.hero.Heal(G.hero.max * .006f * dt, true);
+        }
         bool IsAssassin => d.model is "hero_samurai" or "hero_ninja" or "hero_hood";
         bool MateHurt(float r) => G.foes.Any(f => f && f != this && f.alive && f.team == team && f.d.kind == "champ" && f.hp < f.maxHp * .6f && Main.Flat(f.Pos - Pos).magnitude < r) || team == 0 && G.hero && !G.hero.dead && G.hero.hp < G.hero.max * .6f && Main.Flat(G.hero.Pos - Pos).magnitude < r;
         System.Collections.Generic.List<ITarget> Opp(Vector3 c, float r) => G.Opponents(team).Where(o => Main.Flat(o.Pos - c).magnitude - o.Rad <= r).ToList();
@@ -163,7 +203,7 @@ namespace NovaBlade
         void AiStrike(ITarget o, KSkill s, float dmg, Vector3 from, bool cc = true)
         {
             if (o == null || o.Down) return;
-            dmg *= AiHunt(o);
+            dmg *= AiHunt(o, true);
             if (o is Hero h) { if (dmg > 0) h.Take(dmg, from); if (cc) h.Afflict(s.stun, s.slow + (aiKit.pid == "tide" ? 1.2f : 0)); return; }
             if (o is not Foe f) { o.Take(dmg, from); return; }
             bool tower = f.d.kind == "tower";

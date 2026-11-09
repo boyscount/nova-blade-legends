@@ -1611,8 +1611,9 @@ namespace NovaBlade
             battleOv.style.display = DisplayStyle.Flex;
         }
         // lane battles (1v1 .. 3v3): a MOBA score bar in place of the stage plate, and a kill call under it
-        VisualElement plateBox, score, killBox; Label scoreBlue, scoreRed, scoreTime, scoreSub, killA, killB; float killT;
+        VisualElement plateBox, score, killBox, board; Label scoreBlue, scoreRed, scoreTime, scoreSub, killA, killB, respawnL; float killT; bool boardOn; string boardKey;
         const float KillShow = 3f;
+        public void ShowBoard(bool on) => boardOn = on;   // tests
         public void KillCall(string head, string line, Color headCol) { killA.text = head; killB.text = line; killB.style.color = headCol; killT = KillShow; killBox.style.display = DisplayStyle.Flex; }
         void BuildScore(VisualElement mid)
         {
@@ -1641,15 +1642,40 @@ namespace NovaBlade
             scoreTime = L("00:00", 26, new Color(.96f, .9f, .74f), true); scoreTime.style.width = 110; scoreTime.style.unityTextAlign = TextAnchor.MiddleCenter;
             row.Add(scoreBlue); row.Add(scoreTime); row.Add(scoreRed);
             scoreSub = L("", 18, Muted); scoreSub.style.unityTextAlign = TextAnchor.MiddleCenter; score.Add(scoreSub);
+            score.pickingMode = PickingMode.Position; score.RegisterCallback<PointerDownEvent>(e => boardOn = !boardOn);   // tap the score bar: the scoreboard (phones; Tab held on a PC)
+            board = Box(new Color(.03f, .04f, .07f, .88f), 14); Border(board, new Color(.85f, .66f, .32f, .8f), 2); Pad(board, 12); board.style.marginTop = 8; board.style.minWidth = 520; board.style.flexDirection = FlexDirection.Row; board.style.display = DisplayStyle.None; mid.Add(board);
+            respawnL = L("", 44, new Color(1, .85f, .6f), true); respawnL.style.position = Position.Absolute; respawnL.style.top = Length.Percent(38); respawnL.style.left = 0; respawnL.style.right = 0; respawnL.style.unityTextAlign = TextAnchor.MiddleCenter;
+            respawnL.style.unityTextOutlineWidth = .25f; respawnL.style.unityTextOutlineColor = new Color(0, 0, 0, .9f); respawnL.pickingMode = PickingMode.Ignore; respawnL.style.display = DisplayStyle.None; hud.Add(respawnL);
             killBox = Box(); killBox.style.alignItems = Align.Center; killBox.style.marginTop = 10; killBox.style.display = DisplayStyle.None; mid.Add(killBox);
             killA = L("", 46, new Color(1, .86f, .5f), true); killB = L("", 26, Ink, true); killA.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .12f, 0, .95f) };
             foreach (var l in new[] { killA, killB }) { l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.unityTextOutlineWidth = .25f; l.style.unityTextOutlineColor = new Color(0, 0, 0, .85f); killBox.Add(l); }
+        }
+        void FillBoard()
+        {   // two columns, our side (blue) and theirs (red): hero, K / D / A; the player's row in gold
+            board.Clear();
+            for (int t = 0; t < 2; t++)
+            {
+                var col = Box(); col.style.flexGrow = 1; col.style.marginLeft = t == 1 ? 18 : 0; board.Add(col);
+                var head = L(t == 0 ? Loc.S("ฝ่ายเรา", "Our side") : Loc.S("ฝ่ายศัตรู", "Enemy"), 20, t == 0 ? new Color(.45f, .78f, 1) : new Color(1, .45f, .42f), true); col.Add(head);
+                var hr = Box(); hr.style.flexDirection = FlexDirection.Row; col.Add(hr); var hn = L(Loc.S("ฮีโร่", "Hero"), 15, Muted); hn.style.flexGrow = 1; hr.Add(hn); hr.Add(L("K / D / A", 15, Muted));
+                foreach (var s in G.stats.Where(x => x.team == t).OrderByDescending(x => x.k).ThenBy(x => x.d))
+                {
+                    var r = Box(); r.style.flexDirection = FlexDirection.Row; r.style.marginTop = 4; col.Add(r);
+                    var n = L(s.name + (s.me ? Loc.S(" (คุณ)", " (you)") : ""), 19, s.me ? Gold : Ink, s.me); n.style.flexGrow = 1; r.Add(n);
+                    r.Add(L($"{s.k} / {s.d} / {s.a}", 19, s.me ? Gold : Ink, true));
+                }
+            }
         }
         void UpdScore(float dt)
         {
             bool on = G.lane && G.mode == Main.Mode.Game; plateBox.style.display = on ? DisplayStyle.None : DisplayStyle.Flex; score.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             banner.style.top = Length.Percent(on ? 30 : 17);   // lane battles: the big banner sits below the score bar and the kill call
-            if (!on) { killBox.style.display = DisplayStyle.None; killT = 0; return; }
+            if (!on) { killBox.style.display = DisplayStyle.None; killT = 0; board.style.display = DisplayStyle.None; respawnL.style.display = DisplayStyle.None; return; }
+            bool show = boardOn || UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.tabKey.isPressed;
+            board.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (show) { var key = string.Join("|", G.stats.Select(s => $"{s.name}{s.team}{s.k}{s.d}{s.a}")); if (key != boardKey) { boardKey = key; FillBoard(); } }
+            float left = G.respawnAt - Time.time; bool dead = G.hero && G.hero.dead && left > 0;
+            respawnL.style.display = dead ? DisplayStyle.Flex : DisplayStyle.None; if (dead) respawnL.text = Loc.S($"เกิดใหม่ใน {Mathf.CeilToInt(left)}", $"Respawn in {Mathf.CeilToInt(left)}");
             scoreBlue.text = G.teamKills[0].ToString(); scoreRed.text = G.teamKills[1].ToString(); int t = Mathf.FloorToInt(G.time); scoreTime.text = $"{t / 60:00}:{t % 60:00}";
             scoreSub.text = Loc.En ? $"K/D/A {G.myK}/{G.myD}/{G.myA}  ·  Towers {G.TowersLeft(0)} : {G.TowersLeft(1)}" : $"ฆ่า/ตาย/ช่วย {G.myK}/{G.myD}/{G.myA}  ·  ป้อม {G.TowersLeft(0)} : {G.TowersLeft(1)}";
             if (killT > 0) { killT -= dt; float k = 1 - killT / KillShow; killBox.style.opacity = k < .08f ? k / .08f : k > .8f ? (1 - k) / .2f : 1; killBox.style.scale = new Scale(Vector3.one * (k < .08f ? 1.3f - k / .08f * .3f : 1)); if (killT <= 0) killBox.style.display = DisplayStyle.None; }

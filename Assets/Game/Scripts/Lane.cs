@@ -30,7 +30,7 @@ namespace NovaBlade
         public static readonly FoeDef Tower = new() { id = "tower", model = "@tower", name = Loc.S("ป้อม", "Tower"), hp = 3200, spd = 0, dmg = 90, range = 8.5f, kind = "tower", scale = 1, rad = 1.7f, gold = 60 };
         public static readonly FoeDef Core = new() { id = "core", model = "@core", name = Loc.S("คริสตัลหลัก", "Core Crystal"), hp = 6000, spd = 0, dmg = 130, range = 8, kind = "tower", scale = 1, rad = 2.4f, gold = 0 };
         public static readonly FoeDef Minion = new() { id = "minion", model = "rig_minion", name = Loc.S("ทหาร", "Soldier"), hp = 380, spd = 3.0f, dmg = 32, range = 1.4f, kind = "melee", scale = .7f, rad = .33f, gold = 5 };   // 70% of a hero: soldiers read as small at a glance
-        public static FoeDef Champ(HeroDef h) => new() { id = "champ", model = "hero_" + h.id, name = h.name, hp = h.hp * 1.1f, spd = h.spd * .85f, dmg = (h.ranged ? 50 : 62) * h.atk * (h.cls == "assassin" ? 1.2f : 1),   // assassins: the least health of the melee heroes, the hardest hits
+        public static FoeDef Champ(HeroDef h) => new() { id = "champ", model = "hero_" + h.id, name = h.name, hp = h.hp * 1.1f, spd = h.spd * .85f, dmg = (h.ranged ? 50 : 62) * h.atk * (h.cls == "assassin" ? 1.27f : 1),   // assassins: the least health of the melee heroes, the hardest hits
                  range = h.ranged ? 6.5f : 2.2f, kind = "champ", scale = 1, rad = .5f, gold = 40, shoot = h.ranged };
         public static Vector3 CoreOf(int team) => new(0, 0, Side(team) * CoreZ);
         public const float FountainR = 9, FountainHeal = .08f;   // standing near your own core heals 8% of health a second

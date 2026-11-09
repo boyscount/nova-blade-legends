@@ -1662,6 +1662,21 @@ public static class NovaBuild
         foreach (var (b, col) in new[] { (home, new Color(.55f, .8f, 1f)), (foe, new Color(1, .45f, .2f)) }) { var lt = PointLight(b + Vector3.up * 6 + new Vector3(0, 0, b.z > 0 ? 4 : -4), col, 7, 20); lt.name = "BaseLight"; }
 
         // ---- jungle: trees round the edge, flowers, mushrooms and grass tufts inside, a glowing cave, the middle kept open for camps ----
+        {   // big-leaved plants along the outer edge of the lane shoulders and round the bases (the owner's road picture): outside the walkable ground,
+            // so nothing is blocked; Poly Haven models already in the project (pachira, banana, fern, shrubs)
+            var leafy = Group("LeafyEdge"); string[] big = { N("pachira_aquatica_01"), N("banana_tree_01"), N("banana_tree_02") }, low = { N("fern_02"), N("shrub_02"), N("shrub_03"), N("shrub_04") };
+            void Plant(Vector2 q) { if (SkyLanes.Inside(q, .6f) || SkyLanes.OnGate(q, 1.5f)) return; var at = new Vector3(q.x, 0, q.y); bool tall = rnd.Next(4) == 0; Fit(Load(tall ? big[rnd.Next(big.Length)] : low[rnd.Next(low.Length)]), at, R(0, 360), tall ? R(1.6f, 2.4f) : R(.8f, 1.3f), leafy); }
+            for (int l = 0; l < SkyLanes.Paths.Length; l++)
+            {
+                float len = SkyLanes.Length(l);
+                for (float s2 = 3; s2 < len - 3; s2 += R(3.2f, 5))
+                {
+                    if (SkyLanes.OnBridge(l, s2)) continue; var a2 = SkyLanes.PointAt(l, s2); var dn = (SkyLanes.PointAt(l, s2 + .5f) - SkyLanes.PointAt(l, s2 - .5f)).normalized; var side = new Vector2(-dn.y, dn.x);
+                    Plant(a2 + side * (SkyLanes.LaneHalf + R(1.2f, 1.9f)) * (rnd.Next(2) == 0 ? 1 : -1));
+                }
+            }
+            foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) for (int i = 0; i < 18; i++) { float an = i / 18f * Mathf.PI * 2 + R(-.1f, .1f); Plant(b + new Vector2(Mathf.Cos(an), Mathf.Sin(an)) * (SkyLanes.BaseR + R(1.4f, 2.4f))); }
+        }
         var jungle = Group("JungleDecor"); var violet = GlowMat("SkyCrystalViolet", new Color(.75f, .35f, 1f));
         var pines = new[] { PT + "Trees/PT_Pine_Tree_03_green.prefab", PT + "Trees/PT_Pine_Tree_03_green_cut.prefab" };
         bool OnLane(Vector2 q, float pad) { for (int l = 0; l < SkyLanes.Paths.Length; l++) { float dd = SkyLanes.Nearest(l, q, out _, out float s); if (dd < SkyLanes.HalfAt(l, s) + pad) return true; } return false; }

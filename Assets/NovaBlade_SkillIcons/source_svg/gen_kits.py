@@ -96,6 +96,27 @@ KITS = [
     ('kit_tenzin_0', k_tenzin_0, '#ffb13d', '#7a3a10'), ('kit_tenzin_1', k_tenzin_1, '#ff7043', '#ffe0c0'), ('kit_tenzin_2', k_tenzin_2, '#4fdcc0', '#e0fff8'),
 ]
 
+def hammer(x, y, a=0, s=1):
+    return T(x, y, a, s, '<rect class="m" x="-6" y="-20" width="12" height="96" rx="4"/><rect class="m" x="-40" y="-56" width="80" height="40" rx="8"/><path class="dl" d="M-30,-46 L30,-46" style="stroke-width:4;opacity:.5"/>')
+def flame(x, y, s=1, cls='m'):
+    return T(x, y, 0, s, f'<path class="{cls}" d="M0,-70 C24,-40 40,-20 34,10 C30,40 12,56 0,56 C-12,56 -30,40 -34,10 C-38,-14 -18,-24 -10,-44 C-6,-28 2,-22 6,-30 C10,-42 4,-56 0,-70 Z"/>')
+def claws(x, y, s=1):
+    return T(x, y, 0, s, ''.join(f'<path class="m" d="M{-46+i*30},-60 C{-30+i*30},-20 {-30+i*30},20 {-50+i*30},64 C{-40+i*30},20 {-40+i*30},-20 {-56+i*30},-56 Z"/>' for i in range(4)))
+def k_knight_0(): return chain(40, 200, 200, 70, 8) + '<circle class="m" cx="206" cy="64" r="16"/>'
+def k_knight_1(): return hammer(128, 140, -30, 1.15) + burst(150, 90, 70, 92, 7, 6, -150)
+def k_knight_2(): return chain(196, 196, 70, 90, 7) + figure(64, 120, 0, .8) + speed_lines([(150, 70, 200, 60), (150, 100, 206, 100)], 6)
+def k_flamepriest_0(): return speed_lines([(40, 200, 90, 160), (60, 220, 110, 180)], 6) + flame(150, 120, 1.05)
+def k_flamepriest_1(): return round_shield(128, 140, 0, .8) + flame(86, 70, .45) + flame(172, 70, .45) + flame(128, 52, .5)
+def k_flamepriest_2(): return arc(128, 150, 70, 0, 359, 'sl', 8) + burst(128, 150, 74, 92, 10, 6) + flame(128, 118, .8)
+def k_tiger_0(): return speed_lines([(30, 210, 80, 170), (60, 226, 104, 190)], 7) + claws(150, 112, .9)
+def k_tiger_1(): return claws(128, 128, 1.2)
+def k_tiger_2(): return roaring_face(128, 124, 1.0) + burst(128, 124, 96, 114, 12, 6)
+KITS += [
+    ('kit_knight_0', k_knight_0, '#9aa8c0', '#20242c'), ('kit_knight_1', k_knight_1, '#ffc65a', '#5a3a10'), ('kit_knight_2', k_knight_2, '#7a8cff', '#ffffff'),
+    ('kit_flamepriest_0', k_flamepriest_0, '#ff7a2a', '#fff0c0'), ('kit_flamepriest_1', k_flamepriest_1, '#ffb43d', '#fff6d0'), ('kit_flamepriest_2', k_flamepriest_2, '#ff4d3d', '#ffe0a0'),
+    ('kit_tiger_0', k_tiger_0, '#ff9a2a', '#3a1a08'), ('kit_tiger_1', k_tiger_1, '#ff6a2a', '#fff0d0'), ('kit_tiger_2', k_tiger_2, '#ffb13d', '#7a3a10'),
+]
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     for name, fn, p, s in KITS:

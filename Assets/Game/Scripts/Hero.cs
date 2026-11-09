@@ -315,7 +315,7 @@ namespace NovaBlade
         {
             dead = true; state = St.Dead; inAtk = false; if (skillCo != null) StopCoroutine(skillCo); skillCo = null;
             Play("death", .1f, 1.1f, 1.4f); Fx.Dust(Pos, .9f, 12);
-            if (G.lane) { G.HeroKilled(Pos, 0, def.name, true); Invoke(nameof(Respawn), 6f); } else Invoke(nameof(Lose), 2.6f);
+            if (G.lane) { G.HeroKilled(Pos, 0, def.name, true); G.respawnAt = Time.time + 6; Invoke(nameof(Respawn), 6f); } else Invoke(nameof(Lose), 2.6f);
         }
         void Lose() { if (G.mode != Main.Mode.Game) return; if (G.wilds || G.house || G.sky) G.FallInZone(); else G.Finish(false); }
         // lane mode: back at our base after a short wait

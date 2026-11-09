@@ -8,6 +8,8 @@ namespace NovaBlade
     public static class Obstacles
     {
         static readonly Dictionary<Transform, List<Vector3>> cache = new();   // x, z, radius
+        static readonly Dictionary<Vector3, string> names = new();   // tests: which scenery a circle came from
+        public static string NameOf(Vector3 o) => names.TryGetValue(o, out var n) ? n : "?";
         public static List<Vector3> Current = new();
         static readonly string[] Solid = { "rock", "boulder", "menhir", "stone", "tree", "pine", "trunk", "stump", "house", "preset_", "tavern", "church",
             "tower", "windmill", "stable", "blacksmith", "wall", "well", "fence", "gate", "pillar", "column", "crate", "barrel", "lantern", "lamp", "pole", "planter", "dais", "logs", "statue", "chest" };
@@ -26,8 +28,12 @@ namespace NovaBlade
         }
         static List<Vector3> Build(Transform stage)
         {
-            var list = new List<Vector3>();
-            foreach (Transform t in stage)
+            var list = new List<Vector3>(); sky = stage.name == "Stage_skylanes"; Add(stage, list, 0); return list;
+        }
+        static bool sky;
+        static void Add(Transform parent, List<Vector3> list, int depth)
+        {
+            foreach (Transform t in parent)
             {
                 string n = t.name.ToLowerInvariant(); bool solid = false, trunk = false;
                 foreach (var k in Solid) if (n.Contains(k)) { solid = true; break; }
@@ -39,9 +45,9 @@ namespace NovaBlade
                 if (b.size.y < .45f) continue;   // flat things (rugs, low stones, floor tiles) stay walkable
                 float rad = trunk ? Mathf.Clamp(Mathf.Min(b.extents.x, b.extents.z) * .18f, .35f, 1.2f) : Mathf.Min(b.extents.x, b.extents.z) * .85f;
                 if (rad < .2f) continue;
-                list.Add(new Vector3(b.center.x, b.center.z, Mathf.Min(rad, 9)));
+                if (sky && rad > 9) continue;   // Sky Lanes: a circle this big is a whole group of scenery (or an island's underside), not one solid thing: it pushed everyone out of the jungle
+                var c = new Vector3(b.center.x, b.center.z, Mathf.Min(rad, 9)); list.Add(c); names[c] = t.name;
             }
-            return list;
         }
         // push a point out of every obstacle circle (unit radius 'pad')
         public static Vector3 Push(Vector3 p, float pad = .45f)
