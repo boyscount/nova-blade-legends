@@ -527,15 +527,16 @@ namespace NovaBlade
             {   // the hero's own kit in the lane battles (1v1, 3v3, Sky Lanes): passive and Q W E, from the kit's numbers
                 var mb = Box(new Color(.2f, .45f, .8f, .12f), 10); Border(mb, new Color(.45f, .75f, 1, .35f), 1.5f); Pad(mb, 12); mb.style.marginTop = 12; kb.Add(mb);
                 mb.Add(L(Loc.S("สกิลในแผนที่เลน (MOBA)", "Lane battle skills (MOBA)"), 21 * big, new Color(.6f, .85f, 1), true));
-                void Row(string key, string name, string text)
+                void Row(string key, string name, string text, string icon = null)
                 {
                     var r = Box(); r.style.flexDirection = FlexDirection.Row; r.style.marginTop = 6; mb.Add(r);
+                    if (icon != null && Icon(icon) is Texture2D it) { var ib = Box(); ib.style.width = ib.style.height = 40 * big; ib.style.flexShrink = 0; ib.style.marginRight = 8; ib.style.backgroundImage = new StyleBackground(it); r.Add(ib); }
                     var k = L(key, 18 * big, Gold, true); k.style.width = 76 * big; k.style.flexShrink = 0; r.Add(k);
                     var c2 = Box(); c2.style.flexGrow = 1; c2.style.flexShrink = 1; r.Add(c2);
                     c2.Add(L(name, 19 * big, Ink, true)); var t = L(text, 16 * big, Muted); t.style.whiteSpace = WhiteSpace.Normal; c2.Add(t);
                 }
                 Row(Loc.S("ติดตัว", "Passive"), kit.pn, kit.pd);
-                for (int i = 0; i < 3; i++) Row(G.ui.WebPc ? "QWE"[i].ToString() : "UIO"[i].ToString(), kit.s[i].n, Kits.Describe(kit.s[i]));
+                for (int i = 0; i < 3; i++) Row(G.ui.WebPc ? "QWE"[i].ToString() : "UIO"[i].ToString(), kit.s[i].n, Kits.Describe(kit.s[i]), Kits.IconOf(h.id, i));
             }
             {   // the panel grew taller than small screens: everything inside scrolls, the panel keeps to the screen
                 var kids = skillBox.Children().ToList(); var sv = new ScrollView(ScrollViewMode.Vertical); sv.style.flexShrink = 1; sv.horizontalScrollerVisibility = ScrollerVisibility.Hidden; sv.touchScrollBehavior = ScrollView.TouchScrollBehavior.Elastic;
@@ -1545,7 +1546,8 @@ namespace NovaBlade
             lobby.style.display = DisplayStyle.None; hud.style.display = DisplayStyle.Flex; resultOv.style.display = pauseOv.style.display = DisplayStyle.None; bossW.style.display = DisplayStyle.None;
             var h = G.hero.def; hudName.text = h.name; petN.text = G.pet.def.name;
             porImg.style.backgroundImage = new StyleBackground(Studio.Hero(h.id)); petImg.style.backgroundImage = new StyleBackground(Studio.Pet(G.pet.def.id));
-            for (int i = 0; i < 3; i++) { var d = Data.SkillLook(h.id, h.skills[i]); var info = (SkBtn)sk[i + 1].userData; info.id = h.skills[i]; info.c = d.c; sk[i + 1].Q<Label>("lb").text = d.n; SetIcon(i + 1, $"skill_{h.id}_{h.skills[i]}"); }
+            var kit = G.lane ? Kits.For(h.id) : null;   // lane battles: the hero's MOBA kit, its own names and pictures
+            for (int i = 0; i < 3; i++) { var d = Data.SkillLook(h.id, h.skills[i]); var info = (SkBtn)sk[i + 1].userData; info.id = h.skills[i]; info.c = d.c; sk[i + 1].Q<Label>("lb").text = kit != null ? kit.s[i].n : d.n; SetIcon(i + 1, kit != null ? Kits.IconOf(h.id, i) : $"skill_{h.id}_{h.skills[i]}"); }
             SetIcon(0, G.soul ? "btn_souls_light" : "btn_attack_" + Data.AttackIcon(h)); SetIcon(4, "btn_dodge");
             if (G.soul)
             {

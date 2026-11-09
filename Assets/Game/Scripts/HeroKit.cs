@@ -121,6 +121,50 @@ namespace NovaBlade
             if (s.tether > 0) p.Add(Loc.S($"โยงสาย {s.tether:0} วิ", $"tether {s.tether:0}s"));
             return string.Join(" · ", p) + Loc.S($" · คูลดาวน์ {s.cd:0} วิ", $" · CD {s.cd:0}s");
         }
+        // each skill's own look, by hero and slot: a prefab effect (Fx.Spawn id), its size, and a burst of particles in a colour of its own
+        // (alpha 0 = none). Placed by shape (Kits.Show): on the caster, where it lands, along the line, at the end of a dash, on the target.
+        static readonly Dictionary<string, (string fx, float s, Color burst)[]> looks = new()
+        {
+            ["warrior"] = new[] { ("aoe_orange", 1.5f, new Color(1, .5f, .2f)), ("ground_hit", 1.4f, new Color(1, .7f, .35f)), ("mx_buff", 1.3f, new Color(1, .25f, .2f)) },
+            ["spartan"] = new[] { ("hit_yellow", 1.3f, new Color(1, .85f, .4f)), ("sx_mesh", 1.4f, new Color(1, .9f, .6f)), ("mx_shield_gold", 1.4f, new Color(1, .8f, .3f)) },
+            ["samurai"] = new[] { ("sx_shiny", 1.4f, new Color(1, .55f, .8f)), ("sx_double", 1.3f, new Color(1, .6f, .85f)), ("sx_multi", 1.4f, new Color(1, .5f, .8f)) },
+            ["ninja"] = new[] { ("sx_shiny", .8f, new Color(.7f, .6f, 1)), ("poof", 1.2f, new Color(.5f, .35f, .9f)), ("poof", 1.8f, new Color(.55f, .45f, .75f)) },
+            ["hood"] = new[] { ("sx_basic", 1.1f, new Color(.8f, .2f, .3f)), ("aoe_green", 1.1f, new Color(.4f, 1, .3f)), ("mx_charge", 1.2f, new Color(1, .2f, .2f)) },
+            ["harpy"] = new[] { ("wind", 1, new Color(.85f, .95f, 1)), ("ground_hit", 1.1f, new Color(.6f, .85f, 1)), ("wind", 1.4f, new Color(.6f, .9f, 1)) },
+            ["elf"] = new[] { ("mx_spark_y", 1.2f, new Color(.6f, 1, .5f)), ("sx_mesh", 1.3f, new Color(.7f, 1, .55f)), ("wind", 1, new Color(.5f, 1, .4f)) },
+            ["rowan"] = new[] { ("mx_magic_circle", .6f, new Color(.9f, .7f, .3f)), ("mx_spark_w", 1, new Color(.9f, .8f, .6f)), ("mx_charge", .9f, new Color(1, .6f, .2f)) },
+            ["mage"] = new[] { ("electric", 1.2f, new Color(.5f, .8f, 1)), ("mx_meteors", 1.1f, new Color(1, .5f, .2f)), ("mx_snow", 1, new Color(.7f, .9f, 1)) },
+            ["darkmage"] = new[] { ("souls", .9f, new Color(.6f, .3f, 1)), ("souls", 1.3f, new Color(.45f, .2f, .8f)), ("vx_void", 1, new Color(.7f, .3f, 1)) },
+            ["sorceress"] = new[] { ("aoe_blue", 1.4f, new Color(.3f, .7f, 1)), ("mx_shield", .9f, new Color(.4f, .8f, 1)), ("trail_ice", 1.1f, new Color(.6f, .9f, 1)) },
+            ["sunpriest"] = new[] { ("mx_heal_circle", 1.6f, new Color(1, .9f, .5f)), ("mx_magic_circle", 1.3f, new Color(1, .85f, .4f)), ("mx_holy_hit", 1.4f, new Color(1, .95f, .6f)) },
+            ["lyra"] = new[] { ("mx_shield", 1.1f, new Color(.7f, .8f, 1)), ("mx_holy_hit", 1.5f, new Color(.75f, .8f, 1)), ("mx_healing", 1.4f, new Color(.6f, .75f, 1)) },
+            ["monk"] = new[] { ("mx_charge", 1.1f, new Color(1, .75f, .3f)), ("sx_multi", 1.1f, new Color(1, .8f, .4f)), ("explosion", .7f, new Color(1, .6f, .25f)) },
+            ["tenzin"] = new[] { ("hit_yellow", 1.4f, new Color(1, .85f, .4f)), ("mx_shield_gold", 1.2f, new Color(1, .8f, .3f)), ("mx_buff", 1.3f, new Color(1, .75f, .25f)) },
+        };
+        // the skill's look at the moment it lands: where depends on its shape (from = the caster, at = the aim or the target, n = the facing)
+        public static void Show(string heroId, int i, KSkill s, Vector3 from, Vector3 at, Vector3 n)
+        {
+            if (heroId == null || !looks.TryGetValue(heroId, out var l) || i < 0 || i >= l.Length) return;
+            var (fx, sc, c) = l[i]; float yaw = Mathf.Atan2(n.x, n.z) * Mathf.Rad2Deg; var rot = Quaternion.Euler(0, yaw, 0);
+            Vector3 p = s.shape switch { KShape.Self => from, KShape.Line => from + n * Mathf.Min(s.range * .45f, 5), KShape.Cone => from + n * Mathf.Min(s.range * .4f, 3), KShape.Dash => from, _ => at };
+            float size = sc * (s.shape is KShape.Point or KShape.Self or KShape.Leap ? Mathf.Max(.8f, s.size / 3) : 1);
+            Fx.Spawn(fx, p + Vector3.up * (s.shape is KShape.Line or KShape.Cone or KShape.Target or KShape.Blink ? 1 : .1f), size, 2.5f, rot);
+            if (c.a > 0)
+            {
+                if (s.shape == KShape.Line) for (float d = 1; d < s.range; d += 2) Fx.Burst(from + n * d + Vector3.up, 4, c, 3, .4f, .5f);
+                else Fx.Burst(p + Vector3.up * .8f, s.shape == KShape.Self ? 30 : 18, c, s.shape == KShape.Self ? 6 : 4, .6f, .4f);
+            }
+        }
+        // the button picture of each kit skill: the hero's old skill icon where it shows the same thing, else a new one (kit_<hero>_<slot>.png, gen_kits.py)
+        static readonly Dictionary<string, string[]> icons = new()
+        {
+            ["warrior"] = new[] { "whirl", "slam", "cry" }, ["spartan"] = new[] { null, null, (string)null }, ["samurai"] = new[] { "iaido", "petal", "dance" },
+            ["ninja"] = new[] { "petal", "iaido", null }, ["hood"] = new[] { null, "iaido", null }, ["harpy"] = new[] { "feather", "dive", "gale" },
+            ["elf"] = new[] { "feather", null, "gale" }, ["rowan"] = new[] { null, "feather", "dive" }, ["mage"] = new[] { "laser", "missile", "shield" },
+            ["darkmage"] = new[] { "missile", null, "laser" }, ["sorceress"] = new[] { "laser", "shield", null }, ["sunpriest"] = new[] { "heal", "shield", null },
+            ["lyra"] = new[] { null, null, (string)null }, ["monk"] = new[] { "slam", "whirl", "cry" }, ["tenzin"] = new[] { null, null, (string)null },
+        };
+        public static string IconOf(string heroId, int i) => icons.TryGetValue(heroId, out var a) && a[i] != null ? $"skill_{heroId}_{a[i]}" : $"kit_{heroId}_{i}";
         public static Color SideCol(int team) => team == 0 ? new Color(.35f, .8f, 1f) : new Color(1, .4f, .3f);
     }
 
@@ -217,6 +261,7 @@ namespace NovaBlade
             if (s.invis > 0) invisEnd = Time.time + s.invis;
             if (s.counter > 0) { counterEnd = Time.time + s.counter; counterSkill = s; counterP = P; Fx.Ring(Pos, 1.6f, col, .9f, .25f); yield return new WaitForSeconds(s.counter); state = St.Idle; skillCo = null; yield break; }
             if (s.delay > 0 && s.shape != KShape.Point) yield return new WaitForSeconds(s.delay);
+            bool late = s.shape is KShape.Point or KShape.Leap or KShape.Dash; if (!late) Kits.Show(def.id, i, s, Pos, at, n);   // the skill's own look (where it lands: after)
             switch (s.shape)
             {
                 case KShape.Self:
@@ -314,6 +359,7 @@ namespace NovaBlade
                     }
                     break;
             }
+            if (late) Kits.Show(def.id, i, s, Pos, at, n);
             yield return new WaitForSeconds(.15f);
             state = St.Idle; skillCo = null;
         }

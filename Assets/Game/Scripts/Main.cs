@@ -895,6 +895,7 @@ namespace NovaBlade
                     if (i == 0 || hd.id is "warrior" or "elf" or "mage") { Snap($"{hd.id}_aim{i}"); hero.KitTestAim(i, at); yield return null; }   // the picture is taken at the end of the frame: keep the aim up until then
                     log.AppendLine($"{hd.id} aim{i} {s.shape}: {hero.AimDebug}");
                     float before = dummy.hp; float hpBefore = hero.hp; hero.KitTestCast(i, at);
+                    { float w0 = s.shape is KShape.Point or KShape.Leap or KShape.Dash ? s.delay + (s.shape == KShape.Leap ? .5f : s.shape == KShape.Dash ? .35f : .05f) + .25f : .3f; yield return new WaitForSecondsRealtime(w0); Snap($"{hd.id}_cast{i}"); }   // the skill's own effect
                     float maxStag = 0, maxSlow = 0;
                     for (float w = 0; w < Mathf.Max(1.6f, s.dur + s.delay + s.tether + s.dotT + .8f); w += Time.unscaledDeltaTime) { maxStag = Mathf.Max(maxStag, dummy.stag); maxSlow = Mathf.Max(maxSlow, dummy.slow); yield return null; }
                     if (s.trap > 0) { dummy.transform.position = at; yield return new WaitForSecondsRealtime(.6f); }

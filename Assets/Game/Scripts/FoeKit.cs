@@ -67,7 +67,8 @@ namespace NovaBlade
             if (anim) { var c = Catalog.I.Clip(animSet, "atk2"); anim.SetFloat("Speed", 1.3f); anim.CrossFadeInFixedTime("atk2", .06f, 0, Mathf.Max(0, c.hit - wind)); animState = null; }
             yield return new WaitForSeconds(wind + (s.shape == KShape.Point ? s.delay : 0));
             if (!alive) yield break;
-            float P = AiP; var col = Kits.SideCol(team);
+            float P = AiP; var col = Kits.SideCol(team); string hid = d.model.Substring(5); int si = System.Array.IndexOf(aiKit.s, s);
+            bool late = s.shape is KShape.Point or KShape.Leap or KShape.Dash; if (!late) Kits.Show(hid, si, s, Pos, t != null ? t.Pos : at, n);
             switch (s.shape)
             {
                 case KShape.Self:
@@ -149,6 +150,7 @@ namespace NovaBlade
                     AiSupport(s, col);
                     break;
             }
+            if (late && alive) Kits.Show(hid, si, s, Pos, at, n);
         }
         // the assassins' passive on AI heroes too: +30% on a target under 35% health
         public float AiHunt(ITarget o) => (G.lane && IsAssassin && (o is Foe f && f.hp < f.maxHp * .35f || o is Hero h && h.hp < h.max * .35f) ? 1.3f : 1)
