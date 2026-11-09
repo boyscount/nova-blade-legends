@@ -13,6 +13,16 @@ namespace NovaBlade
         // AI difficulty: health and basic damage of AI heroes, their skill power and cooldowns, the pause between skills, and (hard) ganging up on the weakest
         public static readonly (float hp, float dmg, float skill, float cd, float gap, bool focus)[] AiLevels = { (.8f, .75f, .75f, 1.45f, 2.2f, false), (1, 1, 1, 1, 1, false), (1.15f, 1.15f, 1.15f, .85f, .7f, true) };
         public (float hp, float dmg, float skill, float cd, float gap, bool focus) AiLv => duelOnly ? AiLevels[1] : AiLevels[Mathf.Clamp(save.aiLevel, 0, 2)];
+        // the teams for the next lane battle, rolled for the VS screen (two helpers and the enemy side); used once by StartLane / StartSkyLanes
+        public List<HeroDef> nextAllies, nextEnemies;
+        public void RollTeams(int size)
+        {
+            var pool = Data.Heroes.Where(h => h.rig && Kits.For(h.id) != null).OrderBy(_ => Random.value).ToList();
+            nextAllies = pool.Where(h => h.id != hero.def.id).Take(size - 1).ToList();
+            nextEnemies = pool.Where(h => h.id != hero.def.id && !nextAllies.Contains(h)).Take(size).ToList();
+        }
+        List<HeroDef> TakeAllies() { var a = nextAllies; nextAllies = null; return a; }
+        List<HeroDef> TakeEnemies() { var e = nextEnemies; nextEnemies = null; return e; }
         public void StartBattle() { switch (save.laneMode) { case 0: StartLane(1, 1); break; case 1: StartLane(3, 1); break; case 2: StartLane(3, 3); break; default: if (Stage("Stage_skylanes")) StartLane(3, 2); else StartLane(3, 3); break; } } public float TestSpeed = 1;   // tests: AI heroes only fight each other (no retreat, no lane push, the player left out)
         public static readonly bool NoKitAi = System.Environment.GetCommandLineArgs().Contains("-nokitai");   // tests: AI heroes back on the old shared skill
         public enum Mode { Load, Lobby, Game, Result }
@@ -154,7 +164,7 @@ namespace NovaBlade
             public List<string> questKeys = new(), questClaimed = new(); public List<int> questVals = new();   // quest counters by kind, and rewards already taken
             public string shield = "";                             // shield on the left arm ("" = none; warriors and clerics)
             public string wings = ""; public bool petWings = true;
-            public int laneMode = 3, aiLevel = 1;   // battle settings (lobby): 0 1v1, 1 one lane 3v3, 2 three lanes 3v3, 3 Sky Lanes 3v3 · AI 0 easy, 1 normal, 2 hard
+            public int laneMode = 3, aiLevel = 1, rankPts = 0;   // rankPts: lane battle rank (Ui.Ranks): a win +25 (+10 hard, -10 easy), a loss -15   // battle settings (lobby): 0 1v1, 1 one lane 3v3, 2 three lanes 3v3, 3 Sky Lanes 3v3 · AI 0 easy, 1 normal, 2 hard
             // the bag: gear pieces (one entry each), potions and crafting shards as stacks, worn gear in its four slots
             public List<string> bag = new(); public int potions = 3, bagCap = 40; public List<int> mats = new() { 0, 0, 0, 0, 0 };
             public string helm = "", armor = "", boots = "", acc = "";
@@ -232,6 +242,9 @@ namespace NovaBlade
             int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
             int bst = System.Array.IndexOf(args, "-battlesettings"); if (bst >= 0 && bst + 1 < args.Length) StartCoroutine(BattleSettingsTest(args[bst + 1]));
             int tbl = System.Array.IndexOf(args, "-teambalance"); if (tbl >= 0 && tbl + 1 < args.Length) StartCoroutine(TeamBalance(args[tbl + 1], tbl + 2 < args.Length && int.TryParse(args[tbl + 2], out int tf) ? tf : 120));
+            int sct = System.Array.IndexOf(args, "-scrolltest"); if (sct >= 0 && sct + 1 < args.Length) StartCoroutine(ScrollTest(args[sct + 1]));
+            int pst = System.Array.IndexOf(args, "-posesheet"); if (pst >= 0 && pst + 1 < args.Length) { Studio.PoseSheet(args[pst + 1]); Application.Quit(); }
+            int mpt = System.Array.IndexOf(args, "-matchprep"); if (mpt >= 0 && mpt + 1 < args.Length) StartCoroutine(MatchPrepTest(args[mpt + 1], mpt + 2 < args.Length && !args[mpt + 2].StartsWith("-") ? args[mpt + 2] : "pc"));
             int dbl = System.Array.IndexOf(args, "-duelbalance"); if (dbl >= 0 && dbl + 1 < args.Length) StartCoroutine(DuelBalance(args[dbl + 1], dbl + 2 < args.Length && int.TryParse(args[dbl + 2], out int dr) ? dr : 2, dbl + 3 < args.Length && int.TryParse(args[dbl + 3], out int dm) ? dm : 0));
             int klb = System.Array.IndexOf(args, "-kitlobby"); if (klb >= 0 && klb + 1 < args.Length) StartCoroutine(KitLobby(args[klb + 1]));
             int akt = System.Array.IndexOf(args, "-aikittest"); if (akt >= 0 && akt + 1 < args.Length) StartCoroutine(AiKitTest(args[akt + 1]));
@@ -712,6 +725,7 @@ namespace NovaBlade
             log.AppendLine($"orbs: gold {gold0} -> {gold}, mp 10 -> {hero.mp:0}, cooldown 20 -> {hero.cds[0]:0.0}, fury left {hero.orbAtkT:0.0}, atk {atk0:0} -> {hero.AtkPow:0}");
             // the pause bag: new gear first, worn straight from a fight at the same share of health, nothing moves while it is open
             hero.hp = hero.max * .5f; save.acc = ""; save.boots = ""; hero.RefreshGear(); log.AppendLine($"run loot: {string.Join(",", runLoot)}");
+            if (System.Environment.GetCommandLineArgs().Contains("-bigloot")) for (int k = 0; k < 4; k++) { DropLoot(hero.Pos + new Vector3(2.5f, 0, k), true, 10); yield return new WaitForSecondsRealtime(4); }   // a big haul, for the wrapping grid
             ui.OpenFieldBag(); yield return new WaitForSecondsRealtime(.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "field_new.png")); yield return new WaitForSecondsRealtime(.4f);
             log.AppendLine($"opened: paused {paused} timeScale {Time.timeScale}");
             float max0 = hero.max, hp0f = hero.hp; string atkLine = ui.FieldWearFirst(); log.AppendLine($"wore {atkLine}: max {max0:0} -> {hero.max:0}, hp {hp0f:0} -> {hero.hp:0}, run loot left {runLoot.Count}");
@@ -1027,6 +1041,35 @@ namespace NovaBlade
             foreach (var h in ids.OrderByDescending(h => wins[h.id] / Mathf.Max(1, games[h.id]))) log.AppendLine($"{h.id,-10} {h.cls,-9} win {wins[h.id] / Mathf.Max(1, games[h.id]) * 100:0}%  ({wins[h.id]:0.#}/{games[h.id]})");
             log.AppendLine("by class:"); foreach (var g in ids.GroupBy(h => h.cls)) log.AppendLine($"  {g.Key,-9} {g.Sum(h => wins[h.id]) / Mathf.Max(1, g.Sum(h => games[h.id])) * 100:0}%");
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "teambalance.txt"), log.ToString()); Application.Quit();
+        }
+        // Test mode (-scrolltest <dir>): screens with long lists, to see the themed scroll bars
+        System.Collections.IEnumerator ScrollTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            ui.ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            ui.ShowHeroPick(); yield return new WaitForSecondsRealtime(1); Snap("scroll_pick");
+            ui.ShowLobby(); ui.SetTab("hero"); yield return new WaitForSecondsRealtime(1); Snap("scroll_cards");
+            ui.ShowQuests(true); yield return new WaitForSecondsRealtime(1); Snap("scroll_quests"); ui.ShowQuests(false);
+            ui.ShowBag(true); yield return new WaitForSecondsRealtime(1); Snap("scroll_bag");
+            yield return new WaitForSecondsRealtime(.5f); Application.Quit();
+        }
+        // Test mode (-matchprep <dir> [tag]): the hero pick screen, a class tab, the VS screen, and that the match starts with the VS teams
+        System.Collections.IEnumerator MatchPrepTest(string dir, string tag)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); var log = new System.Text.StringBuilder(); int keepM = save.laneMode;
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{tag}_{n}.png"));
+            save.laneMode = 3; ui.ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            ui.ShowHeroPick(); yield return new WaitForSecondsRealtime(.8f); Snap("pick");
+            ui.TestPick("knight", "warrior"); yield return new WaitForSecondsRealtime(.8f); Snap("pick_warrior");
+            ui.TestConfirm(); yield return new WaitForSecondsRealtime(.3f); Snap("vs_start"); yield return new WaitForSecondsRealtime(4.3f); Snap("vs_full");   // the bar is full at 4.4 s
+            var allies = nextAllies?.Select(h => h.id).ToList() ?? new List<string>(); var enemies = nextEnemies?.Select(h => h.id).ToList() ?? new List<string>();
+            yield return new WaitForSecondsRealtime(2.2f);   // the match starts at 5.5 s
+            var champs = foes.Where(f => f && f.d.kind == "champ").ToList();
+            log.AppendLine($"hero {save.hero} · VS ours [{string.Join(",", allies)}] theirs [{string.Join(",", enemies)}] · in match ours [{string.Join(",", champs.Where(f => f.team == 0).Select(f => f.d.model))}] theirs [{string.Join(",", champs.Where(f => f.team == 1).Select(f => f.d.model))}] · mode {mode} lane {lane}");
+            Snap("match");
+            save.laneMode = keepM; Persist();
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, $"matchprep_{tag}.txt"), log.ToString()); Application.Quit();
         }
         System.Collections.IEnumerator SkyTimes(string dir)
         {
@@ -1564,6 +1607,7 @@ namespace NovaBlade
             if (mode != Mode.Game) return;
             mode = Mode.Result; save.gold += gold - banked; banked = gold; if (hero.soul) hero.soul.End();
             if (win) { save.best = Mathf.Max(save.best, stage); QuestBump("clear"); }
+            if (lane) { int was = save.rankPts; save.rankPts = Mathf.Max(0, save.rankPts + (win ? 25 + (save.aiLevel - 1) * 10 : -15)); var (rn, _, _) = Ui.RankOf(save.rankPts); ui.Banner(win ? Loc.S("ชนะ!", "Victory!") : Loc.S("แพ้", "Defeat"), Loc.S($"แต้มอันดับ {save.rankPts - was:+0;-0} · {rn}", $"Rank points {save.rankPts - was:+0;-0} · {rn}")); }
             Persist();
             ui.ShowResult(win);
         }
@@ -1884,9 +1928,9 @@ namespace NovaBlade
             }
             // AI heroes: in three lanes our two helpers take the side lanes (the player usually goes middle), the enemy has one per lane
             int[] ourLanes = lanes == 3 ? new[] { 0, 2 } : new[] { 1, 1 }, theirLanes = lanes == 3 ? new[] { 0, 1, 2 } : new[] { 1, 1, 1 };
-            var others = Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();
+            var others = TakeAllies() is { Count: > 0 } pa ? pa : Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();   // the VS screen's team when there was one
             for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), new Vector3(lanes == 3 ? Lane.LaneX(ourLanes[i]) * .4f : (i == 0 ? -3 : 3), 0, Lane.SpawnZ), 0); if (u) u.laneIdx = ourLanes[i % 2]; }
-            var foesH = Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
+            var foesH = TakeEnemies() is { Count: > 0 } pe ? pe : Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
             for (int i = 0; i < size; i++) { var u = SpawnUnit(Lane.Champ(foesH[i % foesH.Count]), new Vector3(lanes == 3 ? Lane.LaneX(theirLanes[i % 3]) * .4f : (i - 1) * 3, 0, -(Lane.SpawnZ)), 1); if (u) u.laneIdx = theirLanes[i % 3]; }
             camPos = new Vector3(0, 9, Lane.CoreZ + 10);
             ui.ShowHud(); ui.Banner(lanes == 3 ? Loc.S($"สนามรบ 3 เลน · {size} ต่อ {size}", $"3-Lane Battle · {size} vs {size}") : Loc.S($"สนามรบ {size} ต่อ {size}", $"Lane Battle · {size} vs {size}"), lanes == 3 ? Loc.S("ทำลายป้อมในแต่ละเลน แล้วทุบคริสตัลหลักของศัตรู", "Destroy the towers in each lane, then smash the enemy Core Crystal") : Loc.S("ทำลายคริสตัลหลักของฝ่ายตรงข้าม", "Destroy the enemy Core Crystal"));
@@ -1906,9 +1950,9 @@ namespace NovaBlade
                 for (int l = 0; l < 2; l++) for (int k = 0; k < 2; k++) { var u = SpawnUnit(Lane.Tower, SkyLanes.Tower(t, l, k), t); if (u) { u.laneIdx = l; u.towerTier = k; } }
                 SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t).towerTier = 2;
             }
-            var others = Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();
+            var others = TakeAllies() is { Count: > 0 } pa ? pa : Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();   // the VS screen's team when there was one
             for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), Lane.SpawnOf(0) + new Vector3(i == 0 ? -1.5f : 1.5f, 0, 0), 0); if (u) u.laneIdx = SkyLaneOf[i]; }
-            var foesH = Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
+            var foesH = TakeEnemies() is { Count: > 0 } pe ? pe : Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
             for (int i = 0; i < size; i++) { var u = SpawnUnit(Lane.Champ(foesH[i % foesH.Count]), Lane.SpawnOf(1) + new Vector3((i - 1) * 1.6f, 0, 0), 1); if (u) u.laneIdx = i == 1 ? 1 : 0; }
             camPos = Lane.SpawnOf(0) + new Vector3(0, 13, 8);
             var stageRoot = Stage("Stage_skylanes"); if (stageRoot && !skyPetals) skyPetals = LobbyNight.PetalsAt(stageRoot);

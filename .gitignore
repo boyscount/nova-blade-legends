@@ -12,3 +12,6 @@ obj/
 # raw source downloads (models are prepared into Assets by the Blender scripts in home-redar/nova-blade)
 /heroes/
 /rare-premium/
+
+# owner art sources (big originals, generated 3D) - kept out of git
+art_in/

@@ -8,7 +8,7 @@ namespace NovaBlade
 {
     // All screens in UI Toolkit (Thai text through the Advanced Text Generator): lobby with hero/skin/weapon/pet/stage tabs,
     // in-game HUD (HP, wave, boss bar, minimap, joystick, skill buttons), damage numbers, pause and result.
-    public class Ui : MonoBehaviour
+    public partial class Ui : MonoBehaviour
     {
         // input read by Hero
         public Vector2 Joy; public bool atkP, atkHold, dodgeP, swapP, potP; bool pickOff; VisualElement swapBtn; Button viewBtn;
@@ -93,6 +93,7 @@ namespace NovaBlade
             fontBold = FontDefinition.FromFont(Resources.Load<Font>("Fonts/Mali-Bold"));
             doc = gameObject.AddComponent<UIDocument>(); doc.panelSettings = Resources.Load<PanelSettings>("UI/Panel");
             root = doc.rootVisualElement; root.pickingMode = PickingMode.Ignore; Abs(root, 0, 0, 0, 0);
+            if (Resources.Load<StyleSheet>("UI/Theme") is StyleSheet theme) root.styleSheets.Add(theme);   // scroll bars in the game's gold theme
             var args = System.Environment.GetCommandLineArgs();
             WebPc = (Application.platform == RuntimePlatform.WebGLPlayer && !Main.IsPhone) || args.Contains("-webctl");
             touchUi = !WebPc && (Main.IsPhone || Touchscreen.current != null || args.Contains("-touchui"));
@@ -276,7 +277,7 @@ namespace NovaBlade
             var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
             laneRow.Add(Pill(touchUi ? Loc.S("สนามรบ", "Battle") : Loc.S("สนามรบเลนเดียว", "Lane Battle")));
             {   // one button starts the battle chosen in the settings (mode and AI difficulty, shown on it); the gear opens the settings
-                battleBtn = Sec("", () => G.StartBattle()); battleBtn.style.flexGrow = 1; battleBtn.style.marginLeft = 6; laneRow.Add(battleBtn);
+                battleBtn = Sec("", () => ShowHeroPick());   // pick a hero, then the VS screen, then the battle battleBtn.style.flexGrow = 1; battleBtn.style.marginLeft = 6; laneRow.Add(battleBtn);
                 var gear = Sec(Loc.S("ตั้งค่า", "Settings"), () => ShowBattleSettings()); gear.style.marginLeft = 6; laneRow.Add(gear);
                 BattleLabel();
             }
@@ -843,8 +844,8 @@ namespace NovaBlade
             if (FrameArt("icon_bag") is Texture2D bagIcon) { var bi = Box(); bi.style.width = bi.style.height = 56 * big; bi.style.marginRight = 12; bi.style.backgroundImage = new StyleBackground(bagIcon); bi.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); top.Add(bi); }
             fbMode = Btn("", () => { fbAll = !fbAll; fbSel = null; RenderFieldBag(); }, false); fbMode.style.fontSize = 18 * big; fbMode.style.paddingTop = fbMode.style.paddingBottom = 8; fbMode.style.paddingLeft = fbMode.style.paddingRight = 16; top.Add(fbMode);
             var x = new Button(CloseFieldBag) { text = "" }; DrawX(x); x.style.width = x.style.height = 56 * big; x.style.marginLeft = 12; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 28 * big); top.Add(x);
-            var strip = new ScrollView(ScrollViewMode.Horizontal); strip.style.flexShrink = 0; strip.style.height = 136 * big; strip.style.marginTop = 12; pn.Add(strip);
-            fbGrid = strip.contentContainer; fbGrid.style.flexDirection = FlexDirection.Row; fbGrid.style.paddingTop = 8;
+            var strip = new ScrollView(ScrollViewMode.Vertical); strip.style.flexShrink = 0; strip.style.maxHeight = 250 * big; strip.style.marginTop = 12; strip.horizontalScrollerVisibility = ScrollerVisibility.Hidden; pn.Add(strip);
+            fbGrid = strip.contentContainer; fbGrid.style.flexDirection = FlexDirection.Row; fbGrid.style.flexWrap = Wrap.Wrap; fbGrid.style.paddingTop = 8;   // rows that wrap and scroll down: a big haul shows two rows at a time instead of one long line
             var dsv = new ScrollView(ScrollViewMode.Vertical); dsv.style.flexGrow = 1; dsv.style.flexShrink = 1; dsv.style.marginTop = 8; dsv.style.borderTopWidth = 1; dsv.style.borderTopColor = new Color(1, 1, 1, .15f); dsv.style.paddingTop = 8; pn.Add(dsv); fbDetail = dsv.contentContainer;
             fbMsg = L("", 19 * big, Gold); fbMsg.style.whiteSpace = WhiteSpace.Normal; fbMsg.style.marginTop = 6; pn.Add(fbMsg);
             fbActions = Box(); fbActions.style.flexDirection = FlexDirection.Row; fbActions.style.marginTop = 8; fbActions.style.flexShrink = 0; pn.Add(fbActions);
@@ -1606,7 +1607,7 @@ namespace NovaBlade
                 Loc.S("AI ถึกและแรงขึ้น ใช้สกิลถี่ รุมตัวที่เลือดน้อย", "Tougher, harder-hitting AI, skills more often, ganging up on the weakest"),
             }, Mathf.Clamp(G.save.aiLevel, 0, 2), i => G.save.aiLevel = i);
             var row2 = Box(); row2.style.flexDirection = FlexDirection.Row; row2.style.justifyContent = Justify.Center; row2.style.marginTop = 18; pb.Add(row2);
-            var go = Btn(Loc.S("เริ่มสนามรบ ▶", "Start Battle ▶"), () => { battleOv.style.display = DisplayStyle.None; G.StartBattle(); }); StyleGold(go, true); row2.Add(go);
+            var go = Btn(Loc.S("เลือกฮีโร่ ▶", "Choose Hero ▶"), () => { battleOv.style.display = DisplayStyle.None; ShowHeroPick(); }); StyleGold(go, true); row2.Add(go);
             var cl = Btn(Loc.S("ปิด", "Close"), () => battleOv.style.display = DisplayStyle.None, false); StyleGold(cl, false); cl.style.marginLeft = 14; row2.Add(cl);
             battleOv.style.display = DisplayStyle.Flex;
         }
@@ -1781,7 +1782,7 @@ namespace NovaBlade
         float dragX; bool dragging;
         void Update()
         {
-            if (fpsT >= 0) CountFps();
+            if (fpsT >= 0) CountFps(); UpdVs(Time.unscaledDeltaTime);
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
             if (bagOv != null && G && G.mode != Main.Mode.Lobby && !G.city && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
             if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }

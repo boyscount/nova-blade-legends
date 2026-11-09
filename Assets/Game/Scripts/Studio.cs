@@ -115,6 +115,117 @@ namespace NovaBlade
             var pa = RenderTexture.active; RenderTexture.active = big; var t2 = new Texture2D(W, H, TextureFormat.RGBA32, true); t2.ReadPixels(new Rect(0, 0, W, H), 0, 0); t2.Apply(true);
             RenderTexture.active = pa; cam.targetTexture = prev; big.Release(); Object.DestroyImmediate(inst); return t2;
         }
+        // the VS screen: a hero in a fighting stance (a wind-up from its own class moves), turned toward the other side by 'yaw' degrees
+        // the weapon a hero shows on the VS screen: the player's own blade when it suits, else one of its class's
+        static string VsWeapon(HeroDef h)
+        {
+            var mine = Main.G && Main.G.hero && Main.G.hero.def == h ? Main.G.hero.ModelId : null;
+            if (mine != null && Data.Swords.FirstOrDefault(w => w.id == mine) is SwordDef md && System.Array.IndexOf(Data.Affinity(h.cls), md.type) >= 0) return mine;
+            return h.id switch
+            {
+                "samurai" => "w_katana", "ninja" => "w_kunai", "hood" => "w_daggers", "knight" => "w_greataxe", "tiger" => "w_claws", "darkmage" => "w_orb",
+                _ => h.cls switch { "warrior" => "w_lava", "assassin" => "w_katana", "archer" => "w_longbow", "mage" => "w_arcanestaff", "cleric" => "w_holystaff", "monk" => "w_gauntlet", _ => null },
+            };
+        }
+        static Quaternion Basis(Vector3 x, Vector3 y) { x.Normalize(); y = (y - x * Vector3.Dot(x, y)).normalized; return Quaternion.LookRotation(Vector3.Cross(x, y), y); }
+        static void WeaponFor(GameObject inst, Animator an, HeroDef h)
+        {
+            string id = VsWeapon(h); if (id == null || h.ownWeapon) return; var md = Data.Swords.FirstOrDefault(w => w.id == id); var pf = Catalog.I.Model(id); if (md == null || !pf) return;
+            Transform rh = an ? an.GetBoneTransform(HumanBodyBones.RightHand) : null, lh = an ? an.GetBoneTransform(HumanBodyBones.LeftHand) : null, rf = an ? an.GetBoneTransform(HumanBodyBones.RightLowerArm) : null, lf = an ? an.GetBoneTransform(HumanBodyBones.LeftLowerArm) : null;
+            GameObject Put(Transform parent, Vector3 p, Quaternion r)
+            {
+                var g = Object.Instantiate(pf, parent, false); g.transform.SetPositionAndRotation(p, r);
+                foreach (var t in g.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer; return g;
+            }
+            if (md.type is "bow" or "crossbow" or "fist" or "claw")
+            {
+                if (!rh || !lh || !rf || !lf) return;
+                Vector3 right = (rh.position - lh.position).normalized, F = Vector3.Cross(right, Vector3.up).normalized, aR = (rh.position - rf.position).normalized, aL = (lh.position - lf.position).normalized;
+                if (md.type == "bow") { if (!h.ownBow) Put(lh, lh.position + aL * .07f, Basis(F * .5f + aL * .87f, -aL)); }
+                else if (md.type == "crossbow") Put(rh, rh.position + aR * .07f, Basis(aR, F));
+                else { var g = Put(rh, rh.position + aR * .03f, Basis(aR, F)); var g2 = Put(lh, lh.position + aL * .03f, Basis(aL, F)); g2.transform.localScale = new Vector3(1, 1, -1); }
+                return;
+            }
+            var socket = inst.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket"); if (!socket) return;
+            var sw = Object.Instantiate(pf, socket, false); sw.transform.localPosition = Vector3.zero; sw.transform.localRotation = Quaternion.identity; sw.transform.localScale = Vector3.one * (id == "w_daggers" ? 1.15f : VsWeaponScale);   // a touch smaller so staffs and blades don't jut out of the picture
+            foreach (var t in sw.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
+        }
+        public static List<Texture2D> VsPoses(List<(HeroDef h, float yaw)> who)
+        {   // its own little studio (the start-up one is gone by now): a cool key, a hot fire light from below and behind, a red rim
+            var go = new GameObject("VsCam"); var c = go.AddComponent<Camera>(); c.enabled = false; c.clearFlags = CameraClearFlags.SolidColor; c.backgroundColor = new Color(0, 0, 0, 0);
+            c.cullingMask = 1 << Layer; c.fieldOfView = 30; c.nearClipPlane = .05f; c.farClipPlane = 50;
+            Light Lt(Color col, float i, Vector3 e) { var l = new GameObject("VsLight").AddComponent<Light>(); l.transform.SetParent(go.transform); l.type = LightType.Directional; l.color = col; l.intensity = i; l.cullingMask = 1 << Layer; l.transform.rotation = Quaternion.Euler(e); return l; }
+            Lt(new Color(.95f, .93f, .9f), .95f, new Vector3(30, 200, 0)); var under = Lt(new Color(1f, .45f, .15f), .7f, new Vector3(-25, 160, 0)); var rimL = Lt(new Color(1f, .3f, .2f), 2.2f, new Vector3(15, 20, 0));
+            var amb = (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe);
+            var sh = new UnityEngine.Rendering.SphericalHarmonicsL2(); sh.AddAmbientLight(new Color(.1f, .1f, .13f)); RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(.11f, .11f, .14f);   // low ambient: the pale, washed-out look came from too much fill RenderSettings.ambientProbe = sh;
+            var outl = new List<Texture2D>(); foreach (var (h, yaw) in who)
+            {   // each side in its own colour: ours edged in icy blue, theirs in fire and violet
+                bool ours = yaw < 0; rimL.color = ours ? new Color(.45f, .75f, 1f) : new Color(1f, .4f, .2f); rimL.intensity = ours ? 1.5f : 1.1f;
+                under.color = ours ? new Color(.5f, .7f, 1f) : new Color(1f, .45f, .15f); outl.Add(Pose(c, h, yaw));
+            }
+            (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe) = amb; Object.Destroy(go); return outl;
+        }
+        // test (-posesheet <dir>): every candidate stance for one hero of each class, to pick the VS poses by eye
+        public static void PoseSheet(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            var go = new GameObject("VsCam"); var c = go.AddComponent<Camera>(); c.enabled = false; c.clearFlags = CameraClearFlags.SolidColor; c.backgroundColor = new Color(.15f, .15f, .2f, 1);
+            c.cullingMask = 1 << Layer; c.fieldOfView = 30; c.nearClipPlane = .05f; c.farClipPlane = 50;
+            var l = new GameObject("VsLight").AddComponent<Light>(); l.transform.SetParent(go.transform); l.type = LightType.Directional; l.intensity = 1.4f; l.cullingMask = 1 << Layer; l.transform.rotation = Quaternion.Euler(30, 200, 0);
+            var states = new (string, float)[] { ("idle", .2f), ("guard", .3f), ("blockidle", .3f), ("heavy", .25f), ("heavy", .45f), ("atk0", .3f), ("atk1", .3f), ("counter", .3f), ("spin", .2f), ("show", .5f), ("cast", .3f), ("cast2", .35f), ("bowdraw", .6f), ("jumpatk", .3f), ("kick", .3f) };
+            foreach (var id in new[] { "knight", "warrior", "ninja", "hood", "lyra", "elf", "mage", "darkmage", "sunpriest", "flamepriest", "tiger", "spartan", "samurai", "monk" })
+            {
+                var h = Data.Heroes.FirstOrDefault(x => x.id == id); if (h == null) continue;
+                foreach (var (st, at) in states) { var t = Pose(c, h, -30, st, at); if (!t) continue; System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, $"{id}_{st}_{at * 100:0}.png"), t.EncodeToPNG()); Object.Destroy(t); }
+            }
+            Object.Destroy(go);
+        }
+        // a hero in a fighting stance (the heavy swing's wind-up, or a guard / a cast), turned toward the other side by 'yaw' degrees
+        static Texture2D Pose(Camera c, HeroDef h, float yaw, string forceSt = null, float forceAt = 0)
+        {
+            if (h == null || !h.rig) return null; var pf = Resources.Load<GameObject>("Heroes/Hero_" + h.id); if (!pf) return null;
+            int W = Main.IsPhone ? 288 : 432, H = Main.IsPhone ? 384 : 576;
+            var inst = Object.Instantiate(pf, Spot, Quaternion.identity); FootWeights.Mend(inst);
+            foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
+            var an = inst.GetComponentInChildren<Animator>(); var hang = SleeveHang.Attach(inst);
+            string set = Data.AnimSet(h.id); if (set != null) set += h.female ? "_f" : "_m";
+            if (an && set != null && Resources.Load<RuntimeAnimatorController>("Anim/" + set) is RuntimeAnimatorController oc) an.runtimeAnimatorController = oc;
+            WeaponFor(inst, an, h);   // the class's weapon in hand (attached in the rest pose, like Hero.EquipSword)
+            if (an)
+            {   // every hero stands with their weapon
+                an.enabled = true; an.Rebind();
+                var (st, at) = set == null ? ("idle", .2f) : ("show", .5f);   // heroes on the base clips (Garland) reach a hand out in "show": they stand at ease instead
+                  // standing tall with the class weapon in hand (picked from -posesheet; the owner wanted a calm stand, not a swing)
+                if (forceSt != null) (st, at) = (forceSt, forceAt);
+                if (!an.HasState(0, Animator.StringToHash(st))) (st, at) = ("idle", 0f);
+                an.Play(st, 0, at); an.Update(0); an.enabled = false; if (hang) hang.Apply();
+            }
+            if (an && an.isHuman && an.GetBoneTransform(HumanBodyBones.LeftUpperArm) is Transform la && an.GetBoneTransform(HumanBodyBones.RightUpperArm) is Transform ra)
+            {   // face the camera first (going by the shoulders), then turn toward the other side
+                var fwd = Vector3.Cross(ra.position - la.position, Vector3.up); if (fwd.sqrMagnitude > .001f) inst.transform.Rotate(0, -Vector3.SignedAngle(Vector3.forward, fwd, Vector3.up), 0, Space.World);
+            }
+            inst.transform.Rotate(0, yaw, 0, Space.World);
+            var rs = inst.GetComponentsInChildren<Renderer>(); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            float hgt = Mathf.Max(b.size.y, b.size.x * H / W * .8f); float dist = hgt * 1.08f * .5f / Mathf.Tan(c.fieldOfView * .5f * Mathf.Deg2Rad);
+            var look = new Vector3(b.center.x, b.min.y + b.size.y * .5f, b.center.z);
+            c.transform.position = look + new Vector3(0, -b.size.y * .1f, dist); c.transform.LookAt(look);
+            var big = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 }; c.targetTexture = big; c.Render();
+            var pa = RenderTexture.active; RenderTexture.active = big; var t2 = new Texture2D(W, H, TextureFormat.RGBA32, false); t2.ReadPixels(new Rect(0, 0, W, H), 0, 0); Grade(t2); t2.Apply();
+            RenderTexture.active = pa; c.targetTexture = null; big.Release(); Object.DestroyImmediate(inst); return t2;
+        }
+        public static float VsWeaponScale = .82f;
+        static void Grade(Texture2D t)
+        {   // a little more saturation and contrast, so the heroes don't come out pale against the night
+            var px = t.GetPixels32();
+            for (int i = 0; i < px.Length; i++)
+            {
+                var p = px[i]; if (p.a == 0) continue; float a = p.a / 255f, r = p.r / 255f / a, g = p.g / 255f / a, b = p.b / 255f / a;
+                float l = r * .3f + g * .59f + b * .11f; r = l + (r - l) * 1.3f; g = l + (g - l) * 1.3f; b = l + (b - l) * 1.3f;
+                r = (r - .42f) * 1.15f + .4f; g = (g - .42f) * 1.15f + .4f; b = (b - .42f) * 1.15f + .4f;
+                px[i] = new Color32((byte)(Mathf.Clamp01(r) * a * 255), (byte)(Mathf.Clamp01(g) * a * 255), (byte)(Mathf.Clamp01(b) * a * 255), p.a);
+            }
+            t.SetPixels32(px);
+        }
         static Texture2D StageShot(int i)
         {
             var G = Main.G; G.SetTheme(i);
