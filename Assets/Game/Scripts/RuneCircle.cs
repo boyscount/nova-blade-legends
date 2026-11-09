@@ -18,6 +18,12 @@ namespace NovaBlade
             rc.outer = rc.Band("Outer", outerR - 1, outerR, out rc.mo); rc.inner = rc.Band("Inner", innerR - .8f, innerR, out rc.mi);
             return rc;
         }
+        // the same rings anywhere (Sky Lanes: round each spawn pool), the inner band in a colour of its own
+        public static RuneCircle MakeAt(Transform parent, Vector3 at, float outerR, float innerR, Color outerCol, Color innerCol)
+        {
+            var rc = Make(parent, outerR, innerR); rc.transform.position = at + Vector3.up * .03f; rc.col = rc.target = outerCol; rc.innerTint = new Color(innerCol.r / Mathf.Max(.01f, outerCol.r), innerCol.g / Mathf.Max(.01f, outerCol.g), innerCol.b / Mathf.Max(.01f, outerCol.b), 1); return rc;
+        }
+        Color innerTint = Color.white;
         public void Set(Color c) { target = c; }
         public void Flare() { flare = 1; }
         // a flat ring on the ground; the letter strip repeats round it with letters about as wide as the band
@@ -73,7 +79,7 @@ namespace NovaBlade
             t += Time.deltaTime; flare = Mathf.Max(0, flare - Time.deltaTime / FlareFade); col = Color.Lerp(col, target, 1 - Mathf.Exp(-Time.deltaTime * 3));
             if (outer) outer.localRotation = Quaternion.Euler(0, t * OuterSpin, 0); if (inner) inner.localRotation = Quaternion.Euler(0, t * InnerSpin, 0);
             float k = Bright * (.75f + .25f * Mathf.Sin(t * Breath)) * (1 + flare * 1.5f);
-            if (mo) mo.SetColor("_Color", col * k); if (mi) mi.SetColor("_Color", col * k * (.85f + .15f * Mathf.Sin(t * Breath + 1.6f)));
+            if (mo) mo.SetColor("_Color", col * k); if (mi) mi.SetColor("_Color", col * innerTint * k * (.85f + .15f * Mathf.Sin(t * Breath + 1.6f)));
         }
     }
 }

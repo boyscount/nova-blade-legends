@@ -109,7 +109,8 @@ public static class NovaBuild
     {
         if (!BuildPipeline.isBuildingPlayer || !phoneScene) return;
         var main = Object.FindAnyObjectByType<Main>(); if (!main) return;
-        foreach (var r in main.stageRoots.Where(r => r && r.name is "Stage_wilds" or "Stage_house" or "Stage_skylanes").ToArray()) Object.DestroyImmediate(r.gameObject);   // the Sky Court stays: phones reach its duels from the city gate
+        foreach (var r in main.stageRoots.Where(r => r && r.name is "Stage_wilds" or "Stage_house").ToArray())   // Sky Lanes is in the phone build too (lighter there: SkyLanesPhone)
+            Object.DestroyImmediate(r.gameObject);   // the Sky Court stays: phones reach its duels from the city gate
         main.stageRoots = main.stageRoots.Where(r => r).ToArray();
         Debug.Log("[NovaBuild] phone scene: zone and house left out");
     }
@@ -1309,33 +1310,63 @@ public static class NovaBuild
         }
         float Fbm(float x, float y, float p) { float v = 0, a = .5f, f = 1; for (int o = 0; o < 4; o++) { v += a * TileNoise(x * f, y * f, p * f); a *= .5f; f *= 2; } return v; }
         // flagstones: cells round jittered points (wrapping, so the picture tiles), each a warm grey of its own, dark joints, a lighter worn middle
-        var stoneTex = Paint("SkyStoneMoss2", 512, 512, (u, v) =>
+        // old flagstones (the owner's road picture): grey-blue slabs set apart, brown earth and moss in the wide joints, now and then a slab
+        // missing (earth and grass), and a few slabs carved with a rune that glows (emission). One cell layout feeds colour, glow and the normal map.
+        const int SlabG = 3;   // three slabs per 3.5 m: big enough to read from the battle camera
+        float SS(float e0, float e1, float x) => Mathf.SmoothStep(0, 1, Mathf.InverseLerp(e0, e1, x));   // GLSL smoothstep (Mathf.SmoothStep blends between its first two numbers)
+        float SlabCell(float u, float v, out float edge, out int cell, out Vector2 local)
         {
-            const int G = 5; float best = 9, second = 9; int cell = 0;
-            for (int gy = -1; gy <= G; gy++) for (int gx = -1; gx <= G; gx++)
+            float best = 9, second = 9; cell = 0; var bc = Vector2.zero;
+            for (int gy = -1; gy <= SlabG; gy++) for (int gx = -1; gx <= SlabG; gx++)
             {
-                int wx = (gx % G + G) % G, wy = (gy % G + G) % G; float j = TileNoise(wx * 7.3f, wy * 3.1f, 64), k = TileNoise(wx * 2.9f + 5, wy * 6.7f + 3, 64);
-                var c = new Vector2((gx + .2f + .6f * j) / G, (gy + .2f + .6f * k) / G); float d = Vector2.Distance(new Vector2(u, v), c);
-                if (d < best) { second = best; best = d; cell = wx * 31 + wy * 17; } else if (d < second) second = d;
+                int wx = (gx % SlabG + SlabG) % SlabG, wy = (gy % SlabG + SlabG) % SlabG; float j = TileNoise(wx * 7.3f, wy * 3.1f, 64), k = TileNoise(wx * 2.9f + 5, wy * 6.7f + 3, 64);
+                var c = new Vector2((gx + .25f + .5f * j) / SlabG, (gy + .25f + .5f * k) / SlabG); var q = new Vector2(u, v) - c; q.x *= 1.25f;   // a little wider than tall: slabs, not tiles
+                float d = q.magnitude;
+                if (d < best) { second = best; best = d; cell = wx * 31 + wy * 17; bc = c; } else if (d < second) second = d;
             }
-            float edge = (second - best) * G, tone = .66f + .14f * TileNoise(cell * .37f, cell * .11f, 64), grain = .9f + .2f * Fbm(u * 16, v * 16, 16);
-            float joint = Mathf.SmoothStep(.03f, .11f, edge), worn = 1 + .07f * Mathf.SmoothStep(.15f, .5f, edge);
-            float l = tone * grain * worn * Mathf.Lerp(.42f, 1, joint); var stone = new Color(l * .98f, l * .98f, l * .92f, 1);
-            float moss = Mathf.Max(Mathf.SmoothStep(.64f, .8f, Fbm(u * 5 + 3, v * 5 + 9, 5)) * .35f, (1 - joint) * .3f);   // a little moss in the joints and here and there: the road must read as stone
-            var mossCol = new Color(.3f, .42f, .18f) * (.75f + .5f * grain); mossCol.a = 1; return Color.Lerp(stone, mossCol, moss);
-        });
+            edge = (second - best) * SlabG; local = (new Vector2(u, v) - bc) * SlabG; return best;
+        }
+        float Hash(int c, float salt) => Mathf.Repeat(Mathf.Sin(c * 12.9898f + salt * 78.233f) * 43758.5453f, 1);
+        bool Missing(int cell) => Hash(cell, 1) < .12f;
+        float Rune(int cell, Vector2 local)
+        {   // a carved glyph: three or four straight strokes between points of a 3 x 3 grid, on about one slab in eight
+            if (Hash(cell, 2) > .22f || Missing(cell)) return 0;
+            Vector2 P(int i) => new Vector2((i % 3 - 1) * .17f, (i / 3 - 1) * .2f); float best = 9;
+            for (int sIdx = 0; sIdx < 4; sIdx++)
+            {
+                int i0 = (int)(Hash(cell, 3 + sIdx) * 9), i1 = (int)(Hash(cell, 9 + sIdx) * 9); if (i0 == i1) continue;
+                Vector2 a = P(i0), b = P(i1), d = b - a; float t = Mathf.Clamp01(Vector2.Dot(local - a, d) / d.sqrMagnitude); best = Mathf.Min(best, Vector2.Distance(local, a + d * t));
+            }
+            return Mathf.Clamp01(1 - Mathf.InverseLerp(.012f, .03f, best));
+        }
+        // centre of the road: slabs laid close and whole; the road's edges (a band of its own, alpha-cut over the grass) break up into
+        // loose slabs, brown earth and the grass beneath (the owner's road picture)
+        Color Flag(float u, float v, bool rough)
+        {
+            SlabCell(u, v, out float edge, out int cell, out var local);
+            bool gone = rough ? Hash(cell, 1) < .5f : false;
+            float grain = .78f + .44f * Fbm(u * 14, v * 14, 14), tone = .46f + .16f * Hash(cell, 4), blue = .02f + .05f * Hash(cell, 5);
+            float slab = (rough ? SS(.12f, .22f, edge) : SS(.05f, .1f, edge)) * (gone ? 0 : 1);   // tight joints in the middle, wide and broken at the edges
+            float rim = 1 - .18f * (1 - SS(.1f, .22f, edge));
+            float crack = Hash(cell, 7) < .35f ? (1 - SS(0, .012f, Mathf.Abs(Fbm(u * 6 + cell, v * 6, 6) - .5f))) * .18f : 0;
+            float l = tone * grain * rim * (1 - crack); var stone = new Color(l * (.95f - blue), l * .97f, l * (.95f + blue), 1);
+            stone = Color.Lerp(stone, new Color(.3f, .38f, .2f), Mathf.Max(SS(.6f, .76f, Fbm(u * 6 + 3, v * 6 + 9, 6)) * (rough ? .55f : .3f), (1 - SS(.1f, .22f, edge)) * .25f));   // moss creeping over some slabs
+            float earthOrMoss = Fbm(u * 7 + 11, v * 7 + 4, 7); var dirt = Color.Lerp(new Color(.36f, .25f, .15f), new Color(.46f, .34f, .2f), Fbm(u * 30, v * 30, 30));
+            var moss = new Color(.26f, .34f, .15f) * (.8f + .4f * grain); moss.a = 1; var gap = rough ? dirt : Color.Lerp(dirt, moss, SS(.45f, .65f, earthOrMoss));
+            var c = Color.Lerp(gap, stone, slab); c = Color.Lerp(c, new Color(.55f, .78f, 1f), Rune(cell, local) * slab * .8f);
+            c.a = rough ? Mathf.Max(slab, SS(.5f, .56f, Fbm(u * 5 + 20, v * 5 + 7, 5))) : 1;   // the rough band: slabs and patches of earth kept, the rest cut away to the grass below
+            return c;
+        }
+        var stoneTex = Paint("SkyStoneOld4", 512, 512, (u, v) => Flag(u, v, false));
+        var edgeTex = Paint("SkyStoneEdge", 512, 512, (u, v) => Flag(u, v, true));
+        var runeTex = Paint("SkyStoneRunes4", 512, 512, (u, v) => { SlabCell(u, v, out float edge, out int cell, out var local); float r = Rune(cell, local) * SS(.05f, .1f, edge); return new Color(r, r, r, 1); });
         float StoneHeight(float u, float v)
         {
-            const int G = 5; float best = 9, second = 9; int cell = 0;
-            for (int gy = -1; gy <= G; gy++) for (int gx = -1; gx <= G; gx++)
-            {
-                int wx = (gx % G + G) % G, wy = (gy % G + G) % G; float j = TileNoise(wx * 7.3f, wy * 3.1f, 64), k = TileNoise(wx * 2.9f + 5, wy * 6.7f + 3, 64);
-                var c = new Vector2((gx + .2f + .6f * j) / G, (gy + .2f + .6f * k) / G); float d = Vector2.Distance(new Vector2(u, v), c);
-                if (d < best) { second = best; best = d; cell = wx * 31 + wy * 17; } else if (d < second) second = d;
-            }
-            float edge = (second - best) * G; return Mathf.SmoothStep(.02f, .14f, edge) * (.85f + .15f * TileNoise(cell * .37f, cell * .11f, 64)) + .04f * Fbm(u * 24, v * 24, 24);
+            SlabCell(u, v, out float edge, out int cell, out var local);
+            float slab = SS(.03f, .1f, edge) * (.85f + .15f * Hash(cell, 6));
+            return slab - Rune(cell, local) * .12f * slab + .05f * Fbm(u * 24, v * 24, 24);
         }
-        var stoneNrm = Paint("SkyStoneMoss2_N", 512, 512, (u, v) =>
+        var stoneNrm = Paint("SkyStoneOld4_N", 512, 512, (u, v) =>
         {
             const float e = 1f / 512, k = 6; float dx = (StoneHeight(u + e, v) - StoneHeight(u - e, v)) * k, dy = (StoneHeight(u, v + e) - StoneHeight(u, v - e)) * k;
             var n = new Vector3(-dx, -dy, 1).normalized; return new Color(n.x * .5f + .5f, n.y * .5f + .5f, n.z * .5f + .5f, 1);
@@ -1358,7 +1389,7 @@ public static class NovaBuild
             if (!m) { m = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(m, path); }
             m.SetTexture("_BaseMap", tex); m.SetColor("_BaseColor", tint); m.SetFloat("_Smoothness", smooth); m.SetFloat("_Cull", 0); m.enableInstancing = true; EditorUtility.SetDirty(m); return m;
         }
-        var stoneMat = TexMat("SkyLanesStone", stoneTex, new Color(.95f, .95f, .92f), .1f); stoneMat.SetTexture("_BumpMap", stoneNrm); stoneMat.SetFloat("_BumpScale", 1.2f); stoneMat.EnableKeyword("_NORMALMAP"); var grassMat = TexMat("SkyLanesGrassTop", grassTex, new Color(.5f, .62f, .42f), .04f); grassMat.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Game/Textures/PBR/leafy_grass_nor_gl_1k.jpg")); grassMat.EnableKeyword("_NORMALMAP");
+        var stoneMat = TexMat("SkyLanesStone", stoneTex, new Color(.74f, .75f, .74f), .04f); stoneMat.SetTexture("_BumpMap", stoneNrm); stoneMat.SetFloat("_BumpScale", 1.2f); stoneMat.EnableKeyword("_NORMALMAP"); stoneMat.SetTexture("_EmissionMap", runeTex); stoneMat.SetColor("_EmissionColor", new Color(.35f, .75f, 1.6f)); stoneMat.EnableKeyword("_EMISSION"); stoneMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None; var grassMat = TexMat("SkyLanesGrassTop", grassTex, new Color(.5f, .62f, .42f), .04f); grassMat.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Game/Textures/PBR/leafy_grass_nor_gl_1k.jpg")); grassMat.EnableKeyword("_NORMALMAP");
         var rockMat = Lit("SkyLanesCliff", "rock_face_04", 1, .06f, new Color(.56f, .53f, .5f)); rockMat.SetFloat("_Cull", 0);
         // a copy of a model's materials with their colour multiplied, kept in Generated/Tinted (dark castle stone, a brighter altar)
         GameObject Tint(GameObject go, string tag, Color mul)
@@ -1425,7 +1456,13 @@ public static class NovaBuild
             float run = 0; var p = SkyLanes.Paths[lane];
             for (int i = 0; i < p.Length; i++) { if (i > 0) run += Vector2.Distance(p[i - 1], p[i]); if (SkyLanes.OnBridge(lane, run)) continue; Disc(v, t, p[i], half, y, 24); if (rim) Rim(p[i], half, y, 24); }
         }
-        for (int l = 0; l < SkyLanes.Paths.Length; l++) { Strip(gv, gt, l, SkyLanes.LaneHalf + Shoulder, -.14f, true); Strip(rv, rt, l, SkyLanes.LaneHalf - Road, 0, false); }
+        var ev = new List<Vector3>(); var et = new List<int>();   // the rough edge band of the road
+        for (int l = 0; l < SkyLanes.Paths.Length; l++) { Strip(gv, gt, l, SkyLanes.LaneHalf + Shoulder, -.14f, true); Strip(rv, rt, l, SkyLanes.LaneHalf - Road - .9f, .02f, false); Strip(ev, et, l, SkyLanes.LaneHalf + .8f, 0, false); }
+        foreach (var g in SkyLanes.Gates)
+        {   // the stone paths into the jungle, in 0.5 m steps so they follow the slope down
+            var dir = (g.b - g.a).normalized; var n = new Vector2(-dir.y, dir.x) * 2.2f; float len = Vector2.Distance(g.a, g.b) + 2;
+            for (float s = -1; s < len - 1; s += .5f) { var a = g.a + dir * s; var b = g.a + dir * (s + .5f); int k = rv.Count; foreach (var p2 in new[] { a + n, b + n, b - n, a - n }) rv.Add(new Vector3(p2.x, .1f + SkyLanes.Height(p2.x, p2.y), p2.y)); rt.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 }); }
+        }
         foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Disc(gv, gt, b, SkyLanes.BaseR + 3, -.14f); Rim(b, SkyLanes.BaseR + 3, -.14f); Disc(rv, rt, b, SkyLanes.BaseR, 0); }
         Disc(gv, gt, SkyLanes.Jungle, SkyLanes.JungleR + 1, -.04f, 56); Rim(SkyLanes.Jungle, SkyLanes.JungleR + 1, -.04f, 56);
         // the small floating islands round about: grass on a rock, a tree or a ruin on top
@@ -1441,9 +1478,9 @@ public static class NovaBuild
         }
         foreach (var old in new[] { "SkyLanesPaving", "SkyLanesJungleGround", "SkyLanesRim" }) if (File.Exists($"{Gen}/{old}.asset")) AssetDatabase.DeleteAsset($"{Gen}/{old}.asset");
         var kv = new List<Vector3>(); var kt = new List<int>();
-        for (int l = 0; l < SkyLanes.Paths.Length; l++) Strip(kv, kt, l, SkyLanes.LaneHalf - Road + .35f, -.06f, false);
+        // (no curb under the lanes any more: the road's rough edge band shows the grass and earth beneath it)
         foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) Disc(kv, kt, b, SkyLanes.BaseR + .35f, -.06f);
-        MeshGo("SkyLanesGrass", gv, gt, grassMat, true); MeshGo("SkyLanesRoad", rv, rt, stoneMat, true); MeshGo("SkyLanesCurb", kv, kt, TexMat("SkyLanesCurbStone", stoneTex, new Color(.5f, .5f, .47f), .1f), true);
+        MeshGo("SkyLanesGrass", gv, gt, grassMat, true); MeshGo("SkyLanesRoad", rv, rt, stoneMat, true); { var em = TexMat("SkyLanesRoadEdge", edgeTex, new Color(.74f, .75f, .74f), .04f); em.SetTexture("_BumpMap", stoneNrm); em.EnableKeyword("_NORMALMAP"); em.SetFloat("_AlphaClip", 1); em.SetFloat("_Cutoff", .5f); em.EnableKeyword("_ALPHATEST_ON"); em.renderQueue = 2450; MeshGo("SkyLanesRoadEdge", ev, et, em, true); } MeshGo("SkyLanesCurb", kv, kt, TexMat("SkyLanesCurbStone", stoneTex, new Color(.5f, .5f, .47f), .1f), true);
         MeshGo("SkyLanesCliffs", cv, ct, rockMat, false).GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         // ---- rock hanging under everything ----
@@ -1468,6 +1505,17 @@ public static class NovaBuild
             }
             foreach (var (c, r, n) in new[] { (SkyLanes.BaseOf(0), SkyLanes.BaseR + 3, 22), (SkyLanes.BaseOf(1), SkyLanes.BaseR + 3, 22), (SkyLanes.Jungle, SkyLanes.JungleR + 1, 26) })
                 for (int i = 0; i < n; i++) { float a = i / (float)n * Mathf.PI * 2 + R(-.1f, .1f); var o = new Vector2(Mathf.Cos(a), Mathf.Sin(a)); var q = c + o * r; if (SkyLanes.Inside(q, 1)) continue; Edge(q, o); }
+        }
+        {   // braziers round each spawn pool (two beside the water, two out at the base's sides): warm firelight against the cool sky
+            var bz = Group("Braziers"); var pit = Load("Assets/Game/Models/Props/stone_fire_pit/stone_fire_pit_1k.gltf"); 
+            foreach (float side in new[] { 1f, -1f })
+                foreach (var o in new[] { new Vector2(5.4f, -1.4f), new Vector2(-5.4f, -1.4f), new Vector2(8.2f, -7.4f), new Vector2(-8.2f, -7.4f) })
+                {
+                    var q = new Vector2(o.x, (SkyLanes.FountainZ + o.y) * side); var p = new Vector3(q.x, 0, q.y);   // level ground: the lift loop below raises every piece onto the base
+                    var col = Tint(Fit(Load(AR + "Column_broken_small.prefab"), p, R(0, 360), 1.3f, bz), "moss", Pale); float top = col ? Bounds(col).max.y : 0;   // a stone stand, so the fire is seen from the side and not only from above
+                    var g = Place(pit, new Vector3(p.x, top, p.z), R(0, 360), .7f, false, bz); var f = new GameObject("Flame").transform; f.SetParent(bz); f.position = new Vector3(p.x, g ? Bounds(g).max.y - .08f : top + .2f, p.z); f.localScale = Vector3.one * 3.4f; f.gameObject.AddComponent<Flame>();   // our own fire (1 = 40 cm brazier), sized to the 1.4 m pit
+                    var l = PointLight(new Vector3(p.x, top + 1f, p.z), new Color(1, .52f, .2f), 7, 10); l.transform.SetParent(bz, true); l.gameObject.AddComponent<FireFlicker>();
+                }
         }
         // ---- bridges: a stone deck with parapets over each gap of the curved lane ----
         var walls = Group("LaneWalls"); var wallSmall = Load(AR + "Wall_small.prefab"); var fire = Load("Assets/ThirdParty/CartoonFX/CFXR Prefabs/Fire/CFXR Fire.prefab");
@@ -1619,7 +1667,7 @@ public static class NovaBuild
         bool OnLane(Vector2 q, float pad) { for (int l = 0; l < SkyLanes.Paths.Length; l++) { float dd = SkyLanes.Nearest(l, q, out _, out float s); if (dd < SkyLanes.HalfAt(l, s) + pad) return true; } return false; }
         for (int i = 0; i < 30; i++)
         {
-            float a = i / 30f * Mathf.PI * 2 + R(-.08f, .08f), r = R(8, 12.5f); var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, 1.2f)) continue; var at = new Vector3(q.x, 0, q.y);
+            float a = i / 30f * Mathf.PI * 2 + R(-.08f, .08f), r = R(8, 12.5f); var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, 1.2f) || SkyLanes.OnGate(q, 1.2f)) continue; var at = new Vector3(q.x, 0, q.y);   // the ways in stay clear
             int kind = rnd.Next(6);
             if (kind < 2) Fit(Load(pines[rnd.Next(2)]), at, R(0, 360), R(6.5f, 9.5f)); else if (kind < 4) PinkFoliage(Fit(Load(PT + "Trees/PT_Fruit_Tree_01_green.prefab"), at, R(0, 360), R(4.5f, 6.5f)));
             else if (kind < 5) Fit(Load(PT + "Shrubs/PT_Generic_Shrub_01_green.prefab"), at, R(0, 360), R(1.2f, 1.9f), jungle); else Place(Load(N("namaqualand_boulder_03")), at, R(0, 360), R(.35f, .7f));

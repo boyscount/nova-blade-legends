@@ -5,7 +5,7 @@ namespace NovaBlade
 {
     // Enemies and bosses. Static monster models move with code-driven hops/leans; animated Quaternius
     // characters play their own Walk/Attack/Hit/Death clips (glTFast legacy Animation).
-    public class Foe : MonoBehaviour, ITarget
+    public partial class Foe : MonoBehaviour, ITarget
     {
         public FoeDef d; public BossDef bd; public bool isBoss;
         public void Spirit(Color c, Color lift) => look?.Spirit(c, lift);
@@ -110,15 +110,17 @@ namespace NovaBlade
         void AnimLoop(string st) { if (!anim || animState == st) return; animState = st; anim.SetFloat("Speed", 1); anim.CrossFadeInFixedTime(st, .15f); }
 
         // ---------- damage ----------
+        public static System.Action<Foe, float, Vector3, Main.Hit> OnDamage;   // tests: who hits whom
         public void Damage(float dmg, Vector3 from, Main.Hit o = null)
         {
             aggro = true;
-            if (!alive) return; o ??= new Main.Hit(); var hero = G.hero;
+            if (!alive) return; o ??= new Main.Hit(); var hero = G.hero; OnDamage?.Invoke(this, dmg, from, o);
             if (towerTier >= 1 && Shielded)
             {   // no shortcuts: the towers before it must fall first
                 if (Time.time > shieldNoteT) { shieldNoteT = Time.time + .8f; G.Number(Pos + Vector3.up * (h + .6f), towerTier == 2 ? Loc.S("ทำลายป้อมให้หมดหนึ่งเลนก่อน", "Clear a lane's towers first") : Loc.S("ทำลายป้อมด้านหน้าก่อน", "Break the outer tower first"), ""); Fx.Ring(Pos, rad + .8f, Lane.TeamColor(team) * .4f, .5f, .15f); }
                 return;
             } var sw = o.byFoe ? new SwordDef { color = o.col ?? Color.white } : hero.sword;
+            bool kitHit = !o.byFoe && G.lane && hero && hero.KitOn; if (kitHit) dmg *= hero.KitOut(this, o); dmg = AiDamageTaken(dmg);   // the hero's passive
             if (evading && !o.byFoe) { G.Number(Pos + Vector3.up * (y + h), Loc.S("หลบ", "Miss"), ""); return; }
             if (isBoss && !o.byFoe && bossMode == "chase" && stag <= 0 && brokenT <= 0 && bd.near != null && System.Array.IndexOf(bd.near, "sidestep") >= 0 && Random.value < SidestepChance)
             {   // a duellist reads the swing and steps out of it
@@ -130,8 +132,8 @@ namespace NovaBlade
                 if (o.poise >= 25 || o.kb >= 5) { guarding = false; G.Number(Pos + Vector3.up * (y + h + .3f), Loc.S("ทำลายการ์ด!", "Guard broken!"), "crit"); Break(); }
                 else { dmg *= .1f; poiseK = .35f; Fx.Burst(Pos + Vector3.up * 1.3f + Main.Dir(face) * .5f, 12, Color.white, 4); G.Number(Pos + Vector3.up * (y + h), Loc.S("กัน!", "Blocked!"), ""); if (bossMode == "guard") Riposte(); }
             }
-            bool crit = Random.value < (o.byFoe ? .05f : (o.melee && sw.crit > 0 ? sw.crit : .12f) + hero.CritBonus);
-            dmg = Mathf.Round(CombatRules.Current.ModifyDamage(dmg) * (crit ? 1.8f : 1) * (brokenT > 0 ? 1.3f : 1) * Random.Range(.9f, 1.1f)); hp -= dmg; flash = .12f;
+            bool crit = !o.skill && Random.value < (o.byFoe ? .05f : (o.melee && sw.crit > 0 ? sw.crit : .12f) + hero.CritBonus);
+            dmg = Mathf.Round(CombatRules.Current.ModifyDamage(dmg) * (crit ? 1.8f : 1) * (brokenT > 0 ? 1.3f : 1) * Random.Range(.9f, 1.1f)); hp -= dmg; flash = .12f; if (kitHit) hero.KitHit(this, o, dmg);
             if (o.poise > 0 && brokenT <= 0) { poise += CombatRules.Current.ModifyStun(o.poise) * poiseK; if (poise >= poiseMax) Break(); }
             G.Number(Pos + Vector3.up * (y + h), dmg.ToString(), crit ? "crit" : "");
             if (o.melee && sw.slow) slow = 2; if (o.slow > 0) slow = Mathf.Max(slow, o.slow);
@@ -153,7 +155,7 @@ namespace NovaBlade
 
         void Kill()
         {
-            alive = false; s = S.Dead; st = 0; if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
+            alive = false; s = S.Dead; st = 0; if (d.kind == "champ") G.HeroKilled(Pos, team, d.name, false); if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
             Fx.Burst(Pos + Vector3.up * h * .5f, isBoss ? 140 : 26, isBoss ? bd.color : new Color(1, .48f, .29f), isBoss ? 10 : 6);
             Fx.Dust(Pos, isBoss ? 1.8f : .8f, isBoss ? 26 : 10); Fx.Burst(Pos + Vector3.up * h * .45f, isBoss ? 40 : 14, new Color(1, .55f, .25f), isBoss ? 6 : 4, .45f, 1.6f, .08f);
             if (team == 1) G.DropLoot(Pos, isBoss, d.gold);
@@ -199,7 +201,7 @@ namespace NovaBlade
             bool has = tgt != null && !tgt.Down;
             if (leash > 0) { float hd = Main.Flat(hero.Pos - Pos).magnitude; if (hd < AggroRange) aggro = true; else if (hd > LoseRange || Main.Flat(hero.Pos - home).magnitude > leash) aggro = false; if (!aggro) has = false; }
             // no target in lane mode: march toward the other side's base
-            Vector3? plan = G.lane && d.kind == "champ" ? ChampPlan(ref has) : null;
+            Vector3? plan = G.lane && d.kind == "champ" && !G.duelOnly ? ChampPlan(ref has) : null;
             var goal = plan ?? (has ? tgt.Pos : G.lane ? Lane.Goal(Pos, team, laneIdx) : leash > 0 ? home : Pos);
             var to = Main.Flat(goal - Pos); float dd = has ? Mathf.Max(0, to.magnitude - tgt.Rad + .45f) : 99, want = Main.Ang(to);
             if (pull > 0) { pull -= dt; if (dd > 1.3f && d.kind != "tower") transform.position += to.normalized * 9 * dt; }
@@ -207,6 +209,7 @@ namespace NovaBlade
             transform.position += new Vector3(kx, 0, kz) * dt; kx *= Mathf.Exp(-dt * 8); kz *= Mathf.Exp(-dt * 8);
             bool moving = false; float lean = 0, squash = 1;
             if (stag > 0) { stag -= dt; lean = -.25f; }
+            else if (kitBusy > 0) kitBusy -= dt;   // an AI hero mid-skill stands where it is
             else if (isBoss) moving = BossUpdate(dt, to, dd, want, sp);
             else if (s == S.Chase)
             {
@@ -215,9 +218,10 @@ namespace NovaBlade
                 if (d.kind == "tower") mv = 0;
                 else if (!has) mv = G.lane || (leash > 0 && to.magnitude > 1.5f) ? 1 : 0;
                 else if (d.kind == "ranged") { if (dd > 7) mv = 1; else if (dd < 4.5f) mv = -.7f; }
-                else if (d.shoot) { if (dd > d.range * .9f) mv = 1; else if (dd < d.range * .5f) mv = -.8f; }   // an archer or caster AI hero backs off to its range
+                else if (d.shoot) { if (dd > d.range * .9f) mv = 1; else if (dd < d.range * .3f) mv = -.3f; }   // steps back only a little when crowded: backing off at full speed made melee AI heroes all but harmless   // an archer or caster AI hero backs off to its range
                 else if (dd > d.range * .8f) mv = 1;
                 if (mv != 0) { transform.position += Main.Dir(face) * sp * mv * dt; moving = true; }
+                if (d.kind == "champ" && G.lane && !Main.NoKitAi && AiKit != null) { skillCD = 99; if (KitAi(dt, has ? tgt : null, dd)) moving = false; }   // its own kit instead of the shared spin
                 skillWind = d.kind == "champ" && skillCD <= 0 && has && dd < 3.5f;
                 if (has && (skillWind || atkCD <= 0 && dd < d.range + .3f))
                 {
@@ -262,7 +266,7 @@ namespace NovaBlade
                 var from = Pos + Vector3.up * 1.2f + Main.Dir(face) * .5f; var dir = Main.Flat(tgt.Pos - Pos).normalized;
                 Shot.Fire(from, dir * 15, d.dmg, Lane.TeamColor(team) / 2.2f, "orb", d.range / 15 + .3f, enemy: team == 1, trail: true, byFoe: true); return;
             }
-            if (d.kind == "melee" || d.kind == "champ") { if (dd < d.range + .5f && Mathf.Abs(Main.AngDiff(face, want)) < .9f) tgt.Take(d.dmg, Pos); if (d.kind == "champ" || isBoss || d.scale > 1.5f) Fx.SlashFx("sx_basic", Pos + Vector3.up + Main.Dir(face) * d.range * .5f, face, .8f); }
+            if (d.kind == "melee" || d.kind == "champ") { if (dd < d.range + .5f && Mathf.Abs(Main.AngDiff(face, want)) < .9f) tgt.Take(d.dmg * AiHunt(tgt), Pos); if (d.kind == "champ" || isBoss || d.scale > 1.5f) Fx.SlashFx("sx_basic", Pos + Vector3.up + Main.Dir(face) * d.range * .5f, face, .8f); }
             else if (d.kind == "slam") { G.HitTeamArea(team, slamAt, 2.4f, d.dmg); Fx.Ring(slamAt, 2.4f, new Color(.6f, 1, .35f), .4f); Fx.Spawn("ground_hit", slamAt, 1, 2); G.shake = Mathf.Max(G.shake, .12f); }
             else if (d.kind == "ranged" || d.kind == "tower")
             {
@@ -283,7 +287,7 @@ namespace NovaBlade
         // ---------- AI heroes in lane battles ----------
         // Goes home to its fountain when hurt, does not walk under an enemy tower without its own soldiers there, steps back when
         // outnumbered, and picks its target: the weakest hero in reach, a soldier it can finish, else the nearest.
-        const float TowerVsHero = 1.8f, TowerAlone = 2.5f, TowerRamp = .35f, TowerRampMax = 2.2f, RetreatAt = .3f, BackAt = .9f, SeeRange = 10, DiveHp = .25f;
+        const float TowerVsHero = 1.8f, TowerAlone = 2.5f, TowerRamp = .35f, TowerRampMax = 2.2f, RetreatAt = .3f, BackAt = .9f, SeeRange = 12, DiveHp = .25f;
         int streak; ITarget streakOn; bool retreat;
         Foe EnemyTowerOver(Vector3 p, float pad)
         {
@@ -292,14 +296,17 @@ namespace NovaBlade
         }
         int OwnSoldiersNear(Vector3 p, float r) { int n = 0; foreach (var f in G.foes) if (f && f.alive && f.team == team && f.d.id == "minion" && Main.Flat(f.Pos - p).magnitude < r) n++; return n; }
         bool SafeToReach(ITarget t) { var tw = EnemyTowerOver(t.Pos, .5f); return !tw || OwnSoldiersNear(tw.Pos, tw.d.range + 1) >= 2 || (t is Foe ft && ft.hp < ft.maxHp * DiveHp) || (t is Hero th && th.hp < th.max * DiveHp); }
+        bool OpponentFocusing(ITarget target) => G.foes.Any(o => o && o.alive && o.team != team && o.d.kind == "champ" && o.tgt == target);
         public ITarget ChampTarget()
         {
             ITarget best = null; float bs = 1e9f;
             foreach (var o in G.Opponents(team))
             {
-                float dist = Main.Flat(o.Pos - Pos).magnitude - o.Rad; if (dist > SeeRange || !SafeToReach(o) || o is Foe so && so.Shielded) continue;
+                float dist = Main.Flat(o.Pos - Pos).magnitude - o.Rad; if (dist > SeeRange * (G.AiLv.focus ? 1.25f : 1) || !SafeToReach(o) || o is Foe so && so.Shielded) continue;
                 float hpK = o is Foe of ? of.hp / of.maxHp : o is Hero oh ? oh.hp / oh.max : 1; bool isHero = o is Hero || o is Foe oc && oc.d.kind == "champ"; bool tower = o is Foe ot && ot.d.kind == "tower";
-                float score = dist - (isHero ? 2 + (1 - hpK) * 6 : 0) - (!isHero && !tower && hpK < .35f ? 2.5f : 0) + (tower ? 3 : 0);
+                float score = dist - (isHero ? 2 + (1 - hpK) * (G.AiLv.focus ? 11 : 6) : 0)   // hard AI hunts the weakest hero
+                    - (!isHero && !tower && hpK < .35f ? 2.5f : 0) + (tower ? 3 : 0);
+                if (isHero && OpponentFocusing(o)) score -= 3;   // join a teammate's fight instead of spreading damage
                 if (score < bs) { bs = score; best = o; }
             }
             return best;

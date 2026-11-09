@@ -35,7 +35,7 @@ namespace NovaBlade
             if (biting) { if (!target || !target.alive) biting = false; else { tgt = target.Pos; sp = 14; if (Main.Flat(target.Pos - Pos).magnitude < target.rad + .5f) { target.Damage(Power, Pos, new Main.Hit { col = def.color, kb = 1, steal = def.steal }); biting = false; } } }
             var to = Main.Flat(tgt - Pos); float dd = to.magnitude; bool moving = false;
             if (dd > .15f) { float s = Mathf.Min(dd, sp * dt * (dd > 6 ? 2 : 1)); transform.position += to / dd * s; moving = dd > .4f; face += Main.AngDiff(face, Main.Ang(to)) * Mathf.Min(1, dt * 10); }
-            if (G.mode == Main.Mode.Game && cd <= 0 && !hero.dead && !G.sky) Act();   // in a duel the pet only watches
+            if (G.mode == Main.Mode.Game && cd <= 0 && !hero.dead && !G.sky && !(G.lane && Lane.Lanes == 2)) Act();   // Sky Lanes pets are cosmetic companions
             y = def.fly ? 1.25f + Mathf.Sin(t * 4) * .12f : moving ? Mathf.Abs(Mathf.Sin(t * 14)) * .18f : 0;
             transform.position = new Vector3(transform.position.x, y + (def.fly ? 0 : Mathf.Max(River.Ground(transform.position.x, transform.position.z), River.Wet ? River.WaterY - .1f : River.Sky ? -9 : 0)), transform.position.z); transform.rotation = Quaternion.Euler(moving ? 8 : 0, face * Mathf.Rad2Deg, 0);
             float sq = def.fly ? 1 + Mathf.Sin(t * 16) * .05f : 1 + (moving ? Mathf.Sin(t * 28) * .06f : Mathf.Sin(t * 3) * .03f);

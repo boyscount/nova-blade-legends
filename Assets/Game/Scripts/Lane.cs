@@ -30,7 +30,8 @@ namespace NovaBlade
         public static readonly FoeDef Tower = new() { id = "tower", model = "@tower", name = Loc.S("ป้อม", "Tower"), hp = 3200, spd = 0, dmg = 90, range = 8.5f, kind = "tower", scale = 1, rad = 1.7f, gold = 60 };
         public static readonly FoeDef Core = new() { id = "core", model = "@core", name = Loc.S("คริสตัลหลัก", "Core Crystal"), hp = 6000, spd = 0, dmg = 130, range = 8, kind = "tower", scale = 1, rad = 2.4f, gold = 0 };
         public static readonly FoeDef Minion = new() { id = "minion", model = "rig_minion", name = Loc.S("ทหาร", "Soldier"), hp = 380, spd = 3.0f, dmg = 32, range = 1.4f, kind = "melee", scale = .7f, rad = .33f, gold = 5 };   // 70% of a hero: soldiers read as small at a glance
-        public static FoeDef Champ(HeroDef h) => new() { id = "champ", model = "hero_" + h.id, name = h.name, hp = h.hp * 1.1f, spd = h.spd * .85f, dmg = (h.ranged ? 50 : 62) * h.atk, range = h.ranged ? 6.5f : 2.2f, kind = "champ", scale = 1, rad = .5f, gold = 40, shoot = h.ranged };
+        public static FoeDef Champ(HeroDef h) => new() { id = "champ", model = "hero_" + h.id, name = h.name, hp = h.hp * 1.1f, spd = h.spd * .85f, dmg = (h.ranged ? 50 : 62) * h.atk * (h.cls == "assassin" ? 1.2f : 1),   // assassins: the least health of the melee heroes, the hardest hits
+                 range = h.ranged ? 6.5f : 2.2f, kind = "champ", scale = 1, rad = .5f, gold = 40, shoot = h.ranged };
         public static Vector3 CoreOf(int team) => new(0, 0, Side(team) * CoreZ);
         public const float FountainR = 9, FountainHeal = .08f;   // standing near your own core heals 8% of health a second
         // where a side's heroes (re)spawn and heal: Sky Lanes has a spawn pool behind each core, the other maps the ground in front of the base
@@ -128,6 +129,11 @@ namespace NovaBlade
         public const float LaneHalf = 4, JungleR = 12.5f, BaseR = 10.5f, Lookahead = 7, BridgeHalf = 3;   // an 8 m lane (6 m on the bridges), closer to the big lane games
         // stretches of the curved lane that cross open sky on a stone bridge (narrower there); mirror-symmetric along the lane
         public static readonly Vector2[] Bridges = { new(30, 36), new(68, 74) };
+        // ways into the jungle: two from the straight lane and two from the curved one (mirror-symmetric), each a short stone path
+        public const float GateHalf = 3;
+        public static readonly (Vector2 a, Vector2 b)[] Gates = { (new(2.5f, 6), new(8.5f, 6)), (new(2.5f, -6), new(8.5f, -6)), (new(26.5f, 5), new(33, 5)), (new(26.5f, -5), new(33, -5)) };
+        static float SegDist(Vector2 q, Vector2 a, Vector2 b, out Vector2 at) { var d = b - a; float u = Mathf.Clamp01(Vector2.Dot(q - a, d) / d.sqrMagnitude); at = a + d * u; return Vector2.Distance(q, at); }
+        public static bool OnGate(Vector2 q, float pad = 0) { foreach (var g in Gates) if (SegDist(q, g.a, g.b, out _) <= GateHalf + pad) return true; return false; }
         public static bool OnBridge(int lane, float along) { if (lane != 1) return false; foreach (var b in Bridges) if (along >= b.x && along <= b.y) return true; return false; }
         public static float HalfAt(int lane, float along) => OnBridge(lane, along) ? BridgeHalf : LaneHalf;
         public static readonly Vector2 Jungle = new(17, 0), Base = new(0, 42);   // Base: team 0's; team 1's is mirrored to -Z
@@ -190,13 +196,14 @@ namespace NovaBlade
         public static bool Grassy(Vector2 q)
         {
             bool grass = false;   // roads first: they cut through the jungle's and the bases' green
+            foreach (var g in Gates) if (SegDist(q, g.a, g.b, out _) < 2.4f) return false;   // the wider stone paths into the jungle
             for (int l = 0; l < Paths.Length; l++) { float d = Nearest(l, q, out _, out float s); if (OnBridge(l, s) && d < LaneHalf + 2.2f) return false; if (d < LaneHalf - .1f) return false; if (d < LaneHalf + 1.9f) grass = true; }
             foreach (var b in new[] { BaseOf(0), BaseOf(1) }) { float d = Vector2.Distance(q, b); if (d <= BaseR + .5f) return false; if (d <= BaseR + 2.7f) grass = true; }
             return grass || Vector2.Distance(q, Jungle) <= JungleR + .6f;
         }
         public static bool Inside(Vector2 q, float pad = 0)
         {
-            if (Vector2.Distance(q, Jungle) <= JungleR + pad || Vector2.Distance(q, BaseOf(0)) <= BaseR + pad || Vector2.Distance(q, BaseOf(1)) <= BaseR + pad) return true;
+            if (Vector2.Distance(q, Jungle) <= JungleR + pad || Vector2.Distance(q, BaseOf(0)) <= BaseR + pad || Vector2.Distance(q, BaseOf(1)) <= BaseR + pad || OnGate(q, pad)) return true;
             for (int l = 0; l < Paths.Length; l++) { float d = Nearest(l, q, out _, out float s); if (d <= HalfAt(l, s) + pad) return true; }
             return false;
         }
@@ -207,6 +214,7 @@ namespace NovaBlade
             Vector2 best = q; float bd = 1e9f;
             void Try(Vector2 c, float r) { var d = q - c; float m = d.magnitude; var e = m > 1e-4f ? c + d / m * r : c + Vector2.right * r; float dd = Vector2.Distance(q, e); if (dd < bd) { bd = dd; best = e; } }
             Try(Jungle, JungleR + margin); Try(BaseOf(0), BaseR + margin); Try(BaseOf(1), BaseR + margin);
+            foreach (var g in Gates) { SegDist(q, g.a, g.b, out var c); Try(c, GateHalf + margin); }
             for (int l = 0; l < Paths.Length; l++) { Nearest(l, q, out var c, out float s); Try(c, HalfAt(l, s) + margin); }
             p.x = best.x; p.z = best.y; return p;
         }

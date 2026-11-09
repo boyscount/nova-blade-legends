@@ -13,6 +13,8 @@ namespace NovaBlade
         // input read by Hero
         public Vector2 Joy; public bool atkP, atkHold, dodgeP, swapP, potP; bool pickOff; VisualElement swapBtn; Button viewBtn;
         string ViewLabel() => Loc.S("มุม ", "View ") + (G.ViewStyle + 1); public readonly bool[] skP = new bool[3];
+        // MOBA aiming (lane battles): a skill button held down aims, dragging points it, letting go casts
+        public readonly bool[] aimDown = new bool[3], aimUp = new bool[3]; public Vector2 aimDrag; public bool aimCancel; Vector2 aimFrom;
         public bool heavyP, lockP, blockHold;   // Soulslike buttons
         Vector2 lookAcc; public Vector2 TakeLook() { var d = lookAcc; lookAcc = Vector2.zero; return d; }
         VisualElement stamFill, stamBar, poiseFill, reticle, lookZone; Label hint;
@@ -273,9 +275,11 @@ namespace NovaBlade
             soulRow.Add(Pill(Loc.S("โหมด Soulslike", "Soulslike Mode"))); var sb = Sec(Loc.S("ดวลบอส (มุมกล้องบุคคลที่สาม) ▶", "Boss Duel (third-person) ▶"), () => G.StartSoul()); sb.style.flexGrow = 1; soulRow.Add(sb);
             var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
             laneRow.Add(Pill(touchUi ? Loc.S("สนามรบ", "Battle") : Loc.S("สนามรบเลนเดียว", "Lane Battle")));
-            foreach (var (txt, size, lanes) in new[] { (Loc.S("1 เลน 1v1", "1 Lane 1v1"), 1, 1), (Loc.S("1 เลน 3v3", "1 Lane 3v3"), 3, 1), (Loc.S("3 เลน 3v3", "3 Lanes 3v3"), 3, 3) })
-            { var b = Sec(txt, () => G.StartLane(size, lanes)); b.style.flexGrow = 1; b.style.marginLeft = 6; laneRow.Add(b); }
-            if (G.Stage("Stage_skylanes")) { var b = Sec(Loc.S("ลอยฟ้า 3v3", "Sky Lanes 3v3"), () => G.StartLane(3, 2)); b.style.flexGrow = 1; b.style.marginLeft = 6; laneRow.Add(b); }   // the floating 2-lane map (PC only for now)
+            {   // one button starts the battle chosen in the settings (mode and AI difficulty, shown on it); the gear opens the settings
+                battleBtn = Sec("", () => G.StartBattle()); battleBtn.style.flexGrow = 1; battleBtn.style.marginLeft = 6; laneRow.Add(battleBtn);
+                var gear = Sec(Loc.S("ตั้งค่า", "Settings"), () => ShowBattleSettings()); gear.style.marginLeft = 6; laneRow.Add(gear);
+                BattleLabel();
+            }
             var bottom = Box(); bottom.style.flexShrink = 0; bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
             var cur = Box(new Color(0, 0, 0, .5f), 24); Border(cur, new Color(1, .82f, .5f, .5f), 2); cur.style.paddingLeft = cur.style.paddingRight = 16; cur.style.paddingTop = cur.style.paddingBottom = 10; cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center;
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
@@ -435,7 +439,6 @@ namespace NovaBlade
                 Card(s.petWings ? Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: เปิด", "Pet wears wings: ON") : Loc.S("สัตว์เลี้ยงใส่ปีกด้วย: ปิด", "Pet wears wings: OFF"), Studio.Pet(s.pet), null, s.petWings, () => { s.petWings = !s.petWings; Pick(); }, true);
                 var wd = Data.Wing(shown);
                 Offer(ItemKind.Wings, wd?.id, wd?.name, wd == null ? Loc.S("ไม่ใส่ปีก", "No wings") : Loc.S($"{wd.name} · {wd.desc} · เป็นของแต่งอย่างเดียว ไม่เปลี่ยนค่าพลัง", $"{wd.name} · {wd.desc} · Looks only, no stat change"));
-                if (wd != null && G.hero.def.id == "harpy") detail.text += Loc.S("\nแอริสไม่ใส่ปีก ปีกนี้จะใส่ให้สัตว์เลี้ยง", "\nAeris wears no wings: this pair is worn by the pet");
             }
             else if (tab == "pet") { foreach (var p in Data.Pets) Card(p.name, Studio.Pet(p.id), null, s.pet == p.id, () => { s.pet = p.id; Pick(); }); detail.text = $"{G.pet.def.name} · {G.pet.def.desc}"; }
             else
@@ -520,6 +523,25 @@ namespace NovaBlade
             var dsBox = Box(new Color(0, 0, 0, .3f), 10); Pad(dsBox, 12); dsBox.style.marginTop = 14; kb.Add(dsBox);
             dsBox.Add(L(sel.n, 22 * big, Gold, true));
             var ds = L(Data.SkillDesc(h, pickSkill), 20 * big, Ink); ds.style.whiteSpace = WhiteSpace.Normal; ds.style.marginTop = 4; dsBox.Add(ds);
+            if (Kits.For(h.id) is Kit kit)
+            {   // the hero's own kit in the lane battles (1v1, 3v3, Sky Lanes): passive and Q W E, from the kit's numbers
+                var mb = Box(new Color(.2f, .45f, .8f, .12f), 10); Border(mb, new Color(.45f, .75f, 1, .35f), 1.5f); Pad(mb, 12); mb.style.marginTop = 12; kb.Add(mb);
+                mb.Add(L(Loc.S("สกิลในแผนที่เลน (MOBA)", "Lane battle skills (MOBA)"), 21 * big, new Color(.6f, .85f, 1), true));
+                void Row(string key, string name, string text)
+                {
+                    var r = Box(); r.style.flexDirection = FlexDirection.Row; r.style.marginTop = 6; mb.Add(r);
+                    var k = L(key, 18 * big, Gold, true); k.style.width = 76 * big; k.style.flexShrink = 0; r.Add(k);
+                    var c2 = Box(); c2.style.flexGrow = 1; c2.style.flexShrink = 1; r.Add(c2);
+                    c2.Add(L(name, 19 * big, Ink, true)); var t = L(text, 16 * big, Muted); t.style.whiteSpace = WhiteSpace.Normal; c2.Add(t);
+                }
+                Row(Loc.S("ติดตัว", "Passive"), kit.pn, kit.pd);
+                for (int i = 0; i < 3; i++) Row(G.ui.WebPc ? "QWE"[i].ToString() : "UIO"[i].ToString(), kit.s[i].n, Kits.Describe(kit.s[i]));
+            }
+            {   // the panel grew taller than small screens: everything inside scrolls, the panel keeps to the screen
+                var kids = skillBox.Children().ToList(); var sv = new ScrollView(ScrollViewMode.Vertical); sv.style.flexShrink = 1; sv.horizontalScrollerVisibility = ScrollerVisibility.Hidden; sv.touchScrollBehavior = ScrollView.TouchScrollBehavior.Elastic;
+                foreach (var k in kids) if (k.style.position != Position.Absolute) sv.Add(k);
+                skillBox.Insert(0, sv); skillBox.style.maxHeight = Length.Percent(94);
+            }
             skillOv.style.display = DisplayStyle.Flex;
         }
         public void TestSkills() => ShowSkills();
@@ -1192,7 +1214,7 @@ namespace NovaBlade
             var mid = Box(); Abs(mid, 0, 20, 0); mid.style.alignItems = Align.Center; hud.Add(mid);
             // the stage plate: carved stone with a gold edge (painted art if UI/Frames/hud_stage_plate is there, otherwise drawn)
             const float plateW = 620, plateH = 148;
-            var plate = Box(); plate.style.width = plateW; plate.style.height = plateH; plate.style.alignItems = Align.Center; plate.style.justifyContent = Justify.Center; mid.Add(plate);
+            var plate = Box(); plate.style.width = plateW; plate.style.height = plateH; plate.style.alignItems = Align.Center; plate.style.justifyContent = Justify.Center; mid.Add(plate); plateBox = plate;
             var plateArt = Resources.Load<Texture2D>("UI/Frames/hud_stage_plate");
             if (plateArt) Frame(plate, "hud_stage_plate", 110, 8, .75f, "UI/Frames/");
             else plate.generateVisualContent += ctx =>
@@ -1207,6 +1229,7 @@ namespace NovaBlade
             var plateShadow = new TextShadow { offset = new Vector2(0, 2), blurRadius = 3, color = new Color(0, 0, 0, .9f) }; var plateInk = new Color(.96f, .9f, .74f);
             waveT = L("", 33, plateInk, true); waveT2 = L("", 28, plateInk, true); waveT3 = L("", 26, plateInk, true);
             foreach (var l in new[] { waveT, waveT2, waveT3 }) { l.style.textShadow = plateShadow; l.style.unityTextAlign = TextAnchor.MiddleCenter; plate.Add(l); }
+            BuildScore(mid);
             bossW = Box(); bossW.style.width = 700; bossW.style.marginTop = 8; mid.Add(bossW);
             bossN = L("", 22, new Color(.91f, .71f, 1), true); bossN.style.unityTextAlign = TextAnchor.MiddleCenter; bossW.Add(bossN);
             var bb = Box(new Color(0, 0, 0, .6f), 10); bb.style.height = 20; Border(bb, new Color(.9f, .7f, 1, .45f)); bossW.Add(bb); bossFill = Box(new Color(.6f, .2f, 1), 10); bossFill.style.height = Length.Percent(100); bb.Add(bossFill);
@@ -1249,6 +1272,20 @@ namespace NovaBlade
             joyZone = Box(); Abs(joyZone, 0, null, null, 0); joyZone.style.width = Length.Percent(45); joyZone.style.height = Length.Percent(62); joyZone.pickingMode = PickingMode.Position; hud.Add(joyZone);
             joyBase = Box(new Color(1, 1, 1, .08f), 100 * J); joyBase.style.width = joyBase.style.height = 200 * J; Border(joyBase, new Color(1, 1, 1, .25f), 3); joyBase.style.position = Position.Absolute; joyZone.Add(joyBase);
             joyKnob = Box(new Color(.85f, .9f, .92f, .9f), 45 * J); joyKnob.style.width = joyKnob.style.height = 90 * J; Abs(joyKnob, 55 * J, 55 * J); joyBase.Add(joyKnob);
+            joyBase.style.backgroundColor = new Color(.02f, .06f, .12f, .28f); joyBase.style.borderTopWidth = joyBase.style.borderBottomWidth = joyBase.style.borderLeftWidth = joyBase.style.borderRightWidth = 0;
+            joyBase.generateVisualContent += ctx =>
+            {   // a magic circle: two rings, a six-pointed star, ticks round the rim, all in soft cyan
+                var p = ctx.painter2D; var r = ctx.visualElement.contentRect; var c = r.center; float R0 = r.width / 2 - 3; var cy = new Color(.45f, .85f, 1f);
+                p.strokeColor = new Color(cy.r, cy.g, cy.b, .85f); p.lineWidth = 3; p.BeginPath(); p.Arc(c, R0, 0, 360); p.Stroke();
+                p.strokeColor = new Color(cy.r, cy.g, cy.b, .55f); p.lineWidth = 1.6f; p.BeginPath(); p.Arc(c, R0 * .8f, 0, 360); p.Stroke(); p.BeginPath(); p.Arc(c, R0 * .42f, 0, 360); p.Stroke();
+                for (int k = 0; k < 2; k++)
+                {
+                    p.BeginPath(); for (int i = 0; i < 3; i++) { float a = (i / 3f + k / 6f) * Mathf.PI * 2 - Mathf.PI / 2; var q = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R0 * .8f; if (i == 0) p.MoveTo(q); else p.LineTo(q); } p.ClosePath(); p.Stroke();
+                }
+                p.strokeColor = new Color(cy.r, cy.g, cy.b, .7f); p.lineWidth = 2;
+                for (int i = 0; i < 24; i++) { float a = i / 24f * Mathf.PI * 2; var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a)); p.BeginPath(); p.MoveTo(c + d * R0 * (i % 3 == 0 ? .84f : .88f)); p.LineTo(c + d * R0 * .96f); p.Stroke(); }
+            };
+            joyKnob.style.backgroundColor = new Color(.7f, .92f, 1f, .85f); Border(joyKnob, new Color(1, 1, 1, .9f), 3);
             JoyHome(); joyZone.RegisterCallback<GeometryChangedEvent>(_ => JoyHome());
             if (WebPc) joyZone.style.display = DisplayStyle.None;
             int jid = -1; Vector2 c0 = default;
@@ -1277,7 +1314,8 @@ namespace NovaBlade
                 b.Add(Layer(Gloss(true), sz * .06f));
                 var cd = L("", sz * .3f, Color.white, true); Abs(cd, 0, 0, 0, 0); cd.style.unityTextAlign = TextAnchor.MiddleCenter; cd.style.unityTextOutlineWidth = .2f; cd.style.unityTextOutlineColor = new Color(0, 0, 0, .8f); cd.name = "cd"; b.Add(cd);
                 var key = L((WebPc ? new[] { "A", "Q", "W", "E", "R" } : new[] { "J", "U", "I", "O", "SPC" })[k], WebPc ? 19 : 15, WebPc ? Gold : Muted, WebPc); Abs(key, null, -6, -4); key.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; b.Add(key);
-                b.RegisterCallback<PointerDownEvent>(e => { b.CapturePointer(e.pointerId); b.style.scale = new Scale(Vector3.one * .9f); ((SkBtn)b.userData).down = true; b.MarkDirtyRepaint(); Press(k, true); });
+                b.RegisterCallback<PointerDownEvent>(e => { b.CapturePointer(e.pointerId); b.style.scale = new Scale(Vector3.one * .9f); ((SkBtn)b.userData).down = true; b.MarkDirtyRepaint(); Press(k, true); aimFrom = e.position; });
+                b.RegisterCallback<PointerMoveEvent>(e => { if (b.HasPointerCapture(e.pointerId) && k >= 1 && k <= 3) { var d = (Vector2)e.position - aimFrom; aimDrag = new Vector2(d.x, -d.y) / 140f; } });   // drag to aim (screen y grows downward)
                 System.Action<IPointerEvent> release = e => { if (b.HasPointerCapture(e.pointerId)) b.ReleasePointer(e.pointerId); b.style.scale = new Scale(Vector3.one); ((SkBtn)b.userData).down = false; b.MarkDirtyRepaint(); Press(k, false); };
                 b.RegisterCallback<PointerUpEvent>(e => release(e)); b.RegisterCallback<PointerCancelEvent>(e => release(e));
                 btns.Add(b); sk[k] = b;
@@ -1388,7 +1426,7 @@ namespace NovaBlade
                 Texture2D tex = i < 5 ? ((SkBtn)sk[i].userData).tex : G.pet && G.pet.def != null ? Studio.Pet(G.pet.def.id) : null;
                 if (tex != null && pcIcon[i].style.backgroundImage.value.texture != tex) pcIcon[i].style.backgroundImage = new StyleBackground(tex);
                 float cdK = 0, left = 0;
-                if (i >= 1 && i <= 3 && !G.soul && Data.Skill(((SkBtn)sk[i].userData).id) != null) { var info = (SkBtn)sk[i].userData; float cdMax = Data.Skill(info.id).cd; left = Mathf.Max(0, h.cds[i - 1]); cdK = left / cdMax; if (!G.soul && h.mp < Hero.SkillCost(cdMax)) cdK = Mathf.Max(cdK, .001f); }
+                if (i >= 1 && i <= 3 && !G.soul && Data.Skill(((SkBtn)sk[i].userData).id) != null) { var info = (SkBtn)sk[i].userData; float cdMax = h.SkillCdMax(i - 1); left = Mathf.Max(0, h.cds[i - 1]); cdK = left / cdMax; if (!G.soul && h.mp < Hero.SkillCost(cdMax)) cdK = Mathf.Max(cdK, .001f); }
                 else if (i == 4) { left = Mathf.Max(0, h.dodgeCD); cdK = left / 1.1f; }
                 pcShade[i].style.height = Length.Percent(cdK * 100); pcCd[i].text = left > .05f ? Mathf.CeilToInt(left).ToString() : "";
                 pcIcon[i].style.unityBackgroundImageTintColor = cdK > 0 && left <= .05f ? new Color(.55f, .6f, 1) : Color.white;   // not enough power: bluish
@@ -1405,6 +1443,7 @@ namespace NovaBlade
                 return;
             }
             if (k == 0) { if (down) atkP = true; atkHold = down; }
+            else if (k >= 1 && k <= 3 && G.hero && G.hero.KitOn) { if (down) { aimDown[k - 1] = true; aimUp[k - 1] = false; aimDrag = Vector2.zero; } else aimUp[k - 1] = true; }
             else if (down) { if (k == 4) dodgeP = true; else skP[k - 1] = true; }
         }
         void JoyHome() { var w = joyZone.resolvedStyle.width; var h = joyZone.resolvedStyle.height; if (float.IsNaN(w) || w <= 0) return; joyBase.style.left = Mathf.Max(60 + 100 * J, w * .32f) - 100 * J; joyBase.style.top = h - 200 * J - 50; }
@@ -1522,6 +1561,97 @@ namespace NovaBlade
         public void HideBoss() { bossW.style.display = DisplayStyle.None; }
         float bannerT;
         public void Banner(string a, string b = "") { bannerA.text = a; bannerB.text = b; bannerT = 2.4f; }
+        // ---------- battle settings (lobby): which lane battle and how hard the AI heroes are ----------
+        Button battleBtn; VisualElement battleOv;
+        static string ModeName(int m) => m switch { 0 => Loc.S("1 เลน 1v1", "1 Lane 1v1"), 1 => Loc.S("1 เลน 3v3", "1 Lane 3v3"), 2 => Loc.S("3 เลน 3v3", "3 Lanes 3v3"), _ => Loc.S("ลอยฟ้า 3v3", "Sky Lanes 3v3") };
+        static string LevelName(int l) => l switch { 0 => Loc.S("ง่าย", "Easy"), 1 => Loc.S("ปกติ", "Normal"), _ => Loc.S("ยาก", "Hard") };
+        void BattleLabel() { if (battleBtn != null) battleBtn.text = $"▶ {ModeName(G.save.laneMode)} · AI {LevelName(G.save.aiLevel)}"; }
+        public void ShowBattleSettings()
+        {
+            if (battleOv == null)
+            {
+                battleOv = Box(new Color(0, 0, 0, .6f)); Abs(battleOv, 0, 0, 0, 0); battleOv.style.alignItems = Align.Center; battleOv.style.justifyContent = Justify.Center; battleOv.pickingMode = PickingMode.Position; root.Add(battleOv);
+                battleOv.RegisterCallback<PointerDownEvent>(e => { if (e.target == battleOv) battleOv.style.display = DisplayStyle.None; });
+            }
+            battleOv.Clear(); float big = touchUi ? 1.3f : 1;
+            var pb = Box(); GoldPanel(pb); pb.style.width = 820 * big; Pad(pb, 26); pb.pickingMode = PickingMode.Position; battleOv.Add(pb);
+            pb.Add(L(Loc.S("ตั้งค่าสนามรบ", "Battle Settings"), 40 * big, Ink, true));
+            void Group(string title, string[] names, string[] notes, int cur, System.Action<int> pick)
+            {
+                var tl = L(title, 24 * big, Gold, true); tl.style.marginTop = 16; pb.Add(tl);
+                var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.marginTop = 6; pb.Add(row);
+                for (int i = 0; i < names.Length; i++)
+                {
+                    int k = i; bool on = i == cur;
+                    var c = Box(on ? new Color(1, .78f, .35f, .28f) : new Color(1, 1, 1, .05f), 14); Border(c, on ? new Color(1, .85f, .45f) : new Color(1, .84f, .55f, .3f), on ? 3 : 1.5f); Pad(c, 10);
+                    c.style.width = Length.Percent(names.Length > 3 ? 23.5f : 31.5f); c.style.marginRight = 8; c.style.marginBottom = 8; c.pickingMode = PickingMode.Position;
+                    c.RegisterCallback<PointerDownEvent>(e => { pick(k); G.Persist(); BattleLabel(); ShowBattleSettings(); });
+                    var n = L(names[i], 22 * big, on ? Gold : Ink, true); n.pickingMode = PickingMode.Ignore; c.Add(n);
+                    var t = L(notes[i], 16 * big, Muted); t.style.whiteSpace = WhiteSpace.Normal; t.pickingMode = PickingMode.Ignore; c.Add(t); row.Add(c);
+                }
+            }
+            bool sky = G.Stage("Stage_skylanes");
+            var modes = sky ? new[] { 0, 1, 2, 3 } : new[] { 0, 1, 2 };
+            Group(Loc.S("โหมด", "Mode"), modes.Select(ModeName).ToArray(), modes.Select(m => m switch
+            {
+                0 => Loc.S("ตัวต่อตัว เลนเดียว", "One on one, one lane"), 1 => Loc.S("ทีมละ 3 เลนเดียว", "Three a side, one lane"),
+                2 => Loc.S("3 เลน มีป่ากับแม่น้ำ", "Three lanes, jungle and river"), _ => Loc.S("2 เลนรอบป่า บนเกาะลอยฟ้า", "Two lanes round a jungle, on floating islands"),
+            }).ToArray(), System.Array.IndexOf(modes, G.save.laneMode), i => G.save.laneMode = modes[i]);
+            Group(Loc.S("ความเก่งของ AI", "AI Difficulty"), new[] { LevelName(0), LevelName(1), LevelName(2) }, new[]
+            {
+                Loc.S("AI อ่อนลง ใช้สกิลช้า ตีเบา", "Weaker AI, slower skills, lighter hits"),
+                Loc.S("สมดุลตามการทดสอบ", "Balanced, as tested"),
+                Loc.S("AI ถึกและแรงขึ้น ใช้สกิลถี่ รุมตัวที่เลือดน้อย", "Tougher, harder-hitting AI, skills more often, ganging up on the weakest"),
+            }, Mathf.Clamp(G.save.aiLevel, 0, 2), i => G.save.aiLevel = i);
+            var row2 = Box(); row2.style.flexDirection = FlexDirection.Row; row2.style.justifyContent = Justify.Center; row2.style.marginTop = 18; pb.Add(row2);
+            var go = Btn(Loc.S("เริ่มสนามรบ ▶", "Start Battle ▶"), () => { battleOv.style.display = DisplayStyle.None; G.StartBattle(); }); StyleGold(go, true); row2.Add(go);
+            var cl = Btn(Loc.S("ปิด", "Close"), () => battleOv.style.display = DisplayStyle.None, false); StyleGold(cl, false); cl.style.marginLeft = 14; row2.Add(cl);
+            battleOv.style.display = DisplayStyle.Flex;
+        }
+        // lane battles (1v1 .. 3v3): a MOBA score bar in place of the stage plate, and a kill call under it
+        VisualElement plateBox, score, killBox; Label scoreBlue, scoreRed, scoreTime, scoreSub, killA, killB; float killT;
+        const float KillShow = 3f;
+        public void KillCall(string head, string line, Color headCol) { killA.text = head; killB.text = line; killB.style.color = headCol; killT = KillShow; killBox.style.display = DisplayStyle.Flex; }
+        void BuildScore(VisualElement mid)
+        {
+            score = Box(); Pad(score, 8); score.style.paddingLeft = score.style.paddingRight = 44; score.style.minWidth = 330;
+            score.generateVisualContent += ctx =>
+            {   // a dark iron plate with a gold double edge, pointed ends and a gem on each side in the team's colour
+                var p = ctx.painter2D; var r = ctx.visualElement.contentRect; float w = r.width + 88, h = r.height + 16, c = 26;
+                void Plate(float i) { p.BeginPath(); p.MoveTo(new Vector2(i * 1.5f, h / 2)); p.LineTo(new Vector2(c + i, i)); p.LineTo(new Vector2(w - c - i, i)); p.LineTo(new Vector2(w - i * 1.5f, h / 2)); p.LineTo(new Vector2(w - c - i, h - i)); p.LineTo(new Vector2(c + i, h - i)); p.ClosePath(); }
+                p.fillColor = new Color(.06f, .06f, .09f, .9f); Plate(2); p.Fill();
+                p.strokeColor = new Color(.85f, .66f, .32f); p.lineWidth = 3; Plate(2); p.Stroke();
+                p.strokeColor = new Color(.5f, .36f, .16f, .9f); p.lineWidth = 1.5f; Plate(7); p.Stroke();
+                p.BeginPath(); p.MoveTo(new Vector2(w / 2 - 14, 2)); p.LineTo(new Vector2(w / 2, -8)); p.LineTo(new Vector2(w / 2 + 14, 2)); p.ClosePath(); p.fillColor = new Color(.85f, .66f, .32f); p.Fill();   // a crest on top
+                foreach (var (x, col) in new[] { (22f, new Color(.35f, .7f, 1f)), (w - 22, new Color(1, .35f, .3f)) })
+                {
+                    p.fillColor = new Color(col.r, col.g, col.b, .25f); p.BeginPath(); p.Arc(new Vector2(x, h / 2), 13, 0, 360); p.Fill();
+                    p.fillColor = col; p.BeginPath(); p.Arc(new Vector2(x, h / 2), 7.5f, 0, 360); p.Fill();
+                    p.strokeColor = new Color(.85f, .66f, .32f); p.lineWidth = 2; p.BeginPath(); p.Arc(new Vector2(x, h / 2), 9.5f, 0, 360); p.Stroke();
+                    p.fillColor = new Color(1, 1, 1, .8f); p.BeginPath(); p.Arc(new Vector2(x - 2.5f, h / 2 - 2.5f), 2.2f, 0, 360); p.Fill();
+                }
+            };
+            score.style.marginLeft = -44; score.style.marginRight = -44;   // the plate draws 44 px past each side of its content
+            score.style.alignItems = Align.Center; score.style.display = DisplayStyle.None; mid.Add(score);
+            var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.alignItems = Align.Center; score.Add(row);
+            Label Big(Color c) { var l = L("0", 40, c, true); l.style.width = 70; l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.unityTextOutlineWidth = .2f; l.style.unityTextOutlineColor = new Color(0, 0, 0, .8f); return l; }
+            scoreBlue = Big(new Color(.45f, .78f, 1)); scoreRed = Big(new Color(1, .45f, .42f));
+            scoreTime = L("00:00", 26, new Color(.96f, .9f, .74f), true); scoreTime.style.width = 110; scoreTime.style.unityTextAlign = TextAnchor.MiddleCenter;
+            row.Add(scoreBlue); row.Add(scoreTime); row.Add(scoreRed);
+            scoreSub = L("", 18, Muted); scoreSub.style.unityTextAlign = TextAnchor.MiddleCenter; score.Add(scoreSub);
+            killBox = Box(); killBox.style.alignItems = Align.Center; killBox.style.marginTop = 10; killBox.style.display = DisplayStyle.None; mid.Add(killBox);
+            killA = L("", 46, new Color(1, .86f, .5f), true); killB = L("", 26, Ink, true); killA.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .12f, 0, .95f) };
+            foreach (var l in new[] { killA, killB }) { l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.unityTextOutlineWidth = .25f; l.style.unityTextOutlineColor = new Color(0, 0, 0, .85f); killBox.Add(l); }
+        }
+        void UpdScore(float dt)
+        {
+            bool on = G.lane && G.mode == Main.Mode.Game; plateBox.style.display = on ? DisplayStyle.None : DisplayStyle.Flex; score.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            banner.style.top = Length.Percent(on ? 30 : 17);   // lane battles: the big banner sits below the score bar and the kill call
+            if (!on) { killBox.style.display = DisplayStyle.None; killT = 0; return; }
+            scoreBlue.text = G.teamKills[0].ToString(); scoreRed.text = G.teamKills[1].ToString(); int t = Mathf.FloorToInt(G.time); scoreTime.text = $"{t / 60:00}:{t % 60:00}";
+            scoreSub.text = Loc.En ? $"K/D/A {G.myK}/{G.myD}/{G.myA}  ·  Towers {G.TowersLeft(0)} : {G.TowersLeft(1)}" : $"ฆ่า/ตาย/ช่วย {G.myK}/{G.myD}/{G.myA}  ·  ป้อม {G.TowersLeft(0)} : {G.TowersLeft(1)}";
+            if (killT > 0) { killT -= dt; float k = 1 - killT / KillShow; killBox.style.opacity = k < .08f ? k / .08f : k > .8f ? (1 - k) / .2f : 1; killBox.style.scale = new Scale(Vector3.one * (k < .08f ? 1.3f - k / .08f * .3f : 1)); if (killT <= 0) killBox.style.display = DisplayStyle.None; }
+        }
 
         // ---------- numbers & enemy bars ----------
         class Num { public Label l; public Vector3 p; public float t; }
@@ -1645,7 +1775,7 @@ namespace NovaBlade
             if (G.mode != Main.Mode.Game && G.mode != Main.Mode.Result) return;
             var h = G.hero;
             hpFill.style.width = Length.Percent(Mathf.Clamp01(h.hp / h.max) * 100); hpT.text = $"{Mathf.CeilToInt(h.hp)} / {h.max:0}";
-            { int heroXp = G.save.HeroXp(h.def.id); hudName.text = $"Lv.{Data.Level(heroXp)}  {h.def.name}"; xpFill.style.width = Length.Percent(Data.LevelProgress(heroXp) * 100); }
+            { int heroXp = G.SkyMatch ? G.matchXp : G.save.HeroXp(h.def.id); hudName.text = $"Lv.{Data.Level(heroXp)}  {h.def.name}"; xpFill.style.width = Length.Percent(Data.LevelProgress(heroXp) * 100); }
             mpFill.style.width = Length.Percent(Mathf.Clamp01(h.mp / h.mpMax) * 100); mpT.text = $"{Mathf.FloorToInt(h.mp)} / {h.mpMax:0}"; goldH.text = G.gold.ToString();
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;
@@ -1676,12 +1806,12 @@ namespace NovaBlade
             else reticle.style.display = DisplayStyle.None;
             if (!G.soul) for (int i = 0; i < 3; i++)
             {
-                var info = (SkBtn)sk[i + 1].userData; float cdMax = Data.Skill(info.id).cd, v = Mathf.Max(0, h.cds[i]); float n = v / cdMax;
+                var info = (SkBtn)sk[i + 1].userData; float cdMax = h.SkillCdMax(i), v = Mathf.Max(0, h.cds[i]); float n = v / cdMax;
                 if (Mathf.Abs(n - info.cd) > .002f) { info.cd = n; sk[i + 1].MarkDirtyRepaint(); }
                 sk[i + 1].Q<Label>("cd").text = v > 0 ? Mathf.CeilToInt(v).ToString() : "";
             }
             var dinfo = (SkBtn)sk[4].userData; float dn = Mathf.Max(0, h.dodgeCD) / 1.1f; if (Mathf.Abs(dn - dinfo.cd) > .002f) { dinfo.cd = dn; sk[4].MarkDirtyRepaint(); }
-            mini.MarkDirtyRepaint(); UpdPcBar(h);
+            mini.MarkDirtyRepaint(); UpdPcBar(h); UpdScore(dt);
             if (bannerT > 0) { bannerT -= dt; float k = 1 - bannerT / 2.4f; banner.style.opacity = k < .12f ? k / .12f : k > .78f ? (1 - k) / .22f : 1; banner.style.scale = new Scale(Vector3.one * (k < .12f ? 1.25f - k / .12f * .25f : 1)); }
             // damage numbers
             for (int i = numList.Count - 1; i >= 0; i--)

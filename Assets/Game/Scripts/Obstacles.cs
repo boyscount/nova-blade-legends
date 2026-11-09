@@ -48,6 +48,8 @@ namespace NovaBlade
         {
             foreach (var o in Current)
             {
+                // Keep the jungle entrances open even when nearby tree canopies or rocks overlap the path.
+                if (Lane.Lanes == 2 && SkyLanes.OnGate(new Vector2(p.x, p.z), 2.25f)) continue;
                 float dx = p.x - o.x, dz = p.z - o.y, r = o.z + pad, d2 = dx * dx + dz * dz;
                 if (d2 >= r * r) continue; float d = Mathf.Sqrt(d2);
                 if (d < 1e-3f) { dx = 0; dz = 1; d = 1; }

@@ -8,7 +8,7 @@ namespace NovaBlade
 {
     // The player: movement, 3-hit combo, dodge roll, 12 skills, damage. Rigged heroes play Mixamo clips through a
     // Humanoid avatar; the toy robot hovers and swings a floating sword in code.
-    public class Hero : MonoBehaviour, ITarget
+    public partial class Hero : MonoBehaviour, ITarget
     {
         public float Rad => .45f; public bool Down => dead; public int Team => 0;
         public void Take(float dmg, Vector3 from) => Hurt(dmg, from);
@@ -71,7 +71,7 @@ namespace NovaBlade
             if (lobby && G.pvSkin >= 0) skinIdx = Mathf.Clamp(G.pvSkin, 0, def.skins.Length - 1);
             look = new Look(model); var sk = def.skins[skinIdx]; look.Set(sk.tint, sk.glow);
             EquipSword(lobby); EquipShield(lobby);
-            WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, def.id == "harpy" ? null : G.WingsShown, !anim);   // Aeris has wings of her own
+            WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, G.WingsShown, !anim);   // every hero wears the chosen wings, Aeris too (like the other archers)
             state = St.Idle; Play(G.mode == Main.Mode.Lobby ? Show : "idle", .1f);
         }
         // Mounts for the round-2 weapons, made while the model is still in its rest pose (arms out): frames on the bones
@@ -110,7 +110,7 @@ namespace NovaBlade
             if (swordGo) Destroy(swordGo); if (offGo) Destroy(offGo);
             // the weapon's stats stay "sword"; a weapon skin only swaps the model that is shown
             ModelId = lobby && G.pvWeaponSkin != null ? G.pvWeaponSkin : Shop.ModelFor(sword);
-            if (def.id is "elf" or "rowan" && Data.Swords.First(w => w.id == ModelId).type is not ("bow" or "crossbow")) ModelId = "w_longbow";   // the ranger always shows a bow: her model has none of its own
+            if (def.id is "elf" or "rowan" or "harpy" && Data.Swords.First(w => w.id == ModelId).type is not ("bow" or "crossbow")) ModelId = "w_longbow";   // the archers always show a bow: their models hold none of their own
             var mdef = Data.Swords.First(w => w.id == ModelId);
             // sword: weapon models run along the glTF X axis from the grip (mirrored by glTFast); find which way the blade points
             swordGo = Instantiate(Catalog.I.Model(ModelId), socket ? socket : model.transform);
@@ -147,11 +147,13 @@ namespace NovaBlade
 
         public void PlaceLobby() { transform.position = new Vector3(0, def.rig ? 0 : .35f, 0); face = 0; transform.rotation = Quaternion.identity; }
         // gear changed in the pause bag: new max health at the same share of health (so swapping pieces can never heal)
-        public int Level => Data.Level(G.save.HeroXp(def.id));
+        // Every Sky Lanes match starts at level 1 and levels with the XP of that match (G.matchXp); campaign XP is still saved for other modes.
+        public int Level => G.SkyMatch ? Data.Level(G.matchXp) : Data.Level(G.save.HeroXp(def.id));
         float BaseHp => def.hp * (1 + (Level - 1) * Data.LevelHp);
         public void RefreshGear() { float share = max > 0 ? hp / max : 1; max = BaseHp + Items.Bonus(G.save).hp; if (!dead) hp = Mathf.Clamp(max * share, 1, max); }
         public void ResetForGame()
         {
+            KitBegin();
             StopWalk(); mp = mpMax; offActive = false; swapCD = 0; G.runLoot.Clear(); G.runXp = 0;
             transform.position = G.lane ? Lane.SpawnOf(0) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
             buffT = shieldT = dodgeCD = orbAtkT = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
@@ -291,6 +293,7 @@ namespace NovaBlade
             if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
             if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
             float d = CombatRules.Current.ModifyDamage(dmg) * (G.ZoneNight ? OpenWorld.NightFoePower : 1) * (1 + (G.stage - 1) * .15f) * (ShieldOn != null ? 1 - ShieldOn.block : 1) * (1 - Items.Bonus(G.save).def); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
+            if (KitOn) { d = KitIn(d, from); if (d <= 0) return; }
             d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
             look.Flash(.5f); flashT = .12f; G.Number(Pos + Vector3.up * 2.1f, "-" + d, "hurt");
             Fx.Spawn("hit_red", Pos + Vector3.up * 1.1f, .8f, 2); Fx.Puff(Pos + Vector3.up * 1.1f);
@@ -312,7 +315,7 @@ namespace NovaBlade
         {
             dead = true; state = St.Dead; inAtk = false; if (skillCo != null) StopCoroutine(skillCo); skillCo = null;
             Play("death", .1f, 1.1f, 1.4f); Fx.Dust(Pos, .9f, 12);
-            if (G.lane) Invoke(nameof(Respawn), 6f); else Invoke(nameof(Lose), 2.6f);
+            if (G.lane) { G.HeroKilled(Pos, 0, def.name, true); Invoke(nameof(Respawn), 6f); } else Invoke(nameof(Lose), 2.6f);
         }
         void Lose() { if (G.mode != Main.Mode.Game) return; if (G.wilds || G.house || G.sky) G.FallInZone(); else G.Finish(false); }
         // lane mode: back at our base after a short wait
@@ -360,7 +363,8 @@ namespace NovaBlade
             float reach = (1.9f + (i == 2 ? .6f : 0)) * sword.len + (def.rig ? 0 : .3f);
             int n = G.HitArea(Pos + Main.Dir(face) * .2f, reach, AtkPow * new[] { 1f, 1.15f, 1.8f }[i] * (i == 2 && MasteryTier >= 4 ? Data.MasterFinisher : 1), new Main.Hit { face = face, half = i == 2 ? 1.6f : 1.25f, kb = i == 2 ? 5 : 2, melee = true });
             var at = Pos + Vector3.up * 1.05f + Main.Dir(face) * reach * .45f;
-            if (def.blade || def.ownWeapon) Fx.SlashFx(i == 0 ? "sx_basic" : i == 1 ? "sx_double" : "sx_explode", at, face, (i == 2 ? 1.25f : 1) * Mathf.Max(.8f, sword.len), i == 1 ? 180 : 0);
+            if (def.blade || def.ownWeapon) Fx.SlashFx(i == 0 ? "sx_basic" : i == 1 || def.id == "warrior" ? "sx_double" : "sx_explode", at,   // Valka: no fiery burst on the third swing (the owner asked)
+                 face, (i == 2 ? 1.25f : 1) * Mathf.Max(.8f, sword.len), i == 1 ? 180 : 0);
             else Fx.SlashFx("sx_shiny", at, face, i == 2 ? 1.1f : .8f);
             if (n > 0) { G.hitStop = i == 2 ? .08f : .045f; G.shake = Mathf.Max(G.shake, i == 2 ? .2f : .08f); }
         }
@@ -390,11 +394,12 @@ namespace NovaBlade
                 return;
             }
             ReadKeys();
-            var mv = Move();
+            var mv = Move(); if (stunT > 0) { mv = Vector2.zero; ui.atkP = false; }   // held by a stun
             if (kbx != 0 || kbz != 0) { MoveBy(kbx * dt, kbz * dt); kbx *= Mathf.Exp(-dt * 9); kbz *= Mathf.Exp(-dt * 9); if (Mathf.Abs(kbx) < .05f) kbx = kbz = 0; }
             if (ui.dodgeP) { ui.dodgeP = false; if (dodgeCD <= 0 && state != St.Skill) StartDodge(mv); }
             mp = Mathf.Min(mpMax, mp + 7 * Time.deltaTime);
-            for (int i = 0; i < 3; i++) if (ui.skP[i])
+            if (KitOn) { KitInput(); KitTick(Time.deltaTime); }
+            else for (int i = 0; i < 3; i++) if (ui.skP[i])
             {
                 ui.skP[i] = false; if (cds[i] > 0 || state == St.Skill || state == St.Dodge) continue;
                 float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); continue; }
@@ -402,7 +407,7 @@ namespace NovaBlade
             }
             if (G.city) { ui.atkP = ui.dodgeP = false; for (int i = 0; i < ui.skP.Length; i++) ui.skP[i] = false; }   // nobody fights in the city
             if (ui.atkP) { buf = .3f; ui.atkP = false; }
-            if (AtkHeld) buf = Mathf.Max(buf, .12f); buf -= dt;
+            if (AtkHeld) buf = Mathf.Max(buf, .12f); buf -= dt; if (stunT > 0) buf = 0;
 
             if (state == St.Dodge)
             {
@@ -425,7 +430,7 @@ namespace NovaBlade
                 if (buf > 0) StartAtk(chain > 0 ? (lastI + 1) % 3 : 0);
                 else if (mv.magnitude > .08f)
                 {
-                    float sp = (def.spd + Items.Bonus(G.save).spd) * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
+                    float sp = (def.spd + Items.Bonus(G.save).spd) * KitSpeed * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);

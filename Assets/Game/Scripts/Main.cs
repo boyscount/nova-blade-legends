@@ -9,6 +9,12 @@ namespace NovaBlade
     public class Main : MonoBehaviour
     {
         public static Main G;
+        public bool duelOnly;
+        // AI difficulty: health and basic damage of AI heroes, their skill power and cooldowns, the pause between skills, and (hard) ganging up on the weakest
+        public static readonly (float hp, float dmg, float skill, float cd, float gap, bool focus)[] AiLevels = { (.8f, .75f, .75f, 1.45f, 2.2f, false), (1, 1, 1, 1, 1, false), (1.15f, 1.15f, 1.15f, .85f, .7f, true) };
+        public (float hp, float dmg, float skill, float cd, float gap, bool focus) AiLv => duelOnly ? AiLevels[1] : AiLevels[Mathf.Clamp(save.aiLevel, 0, 2)];
+        public void StartBattle() { switch (save.laneMode) { case 0: StartLane(1, 1); break; case 1: StartLane(3, 1); break; case 2: StartLane(3, 3); break; default: if (Stage("Stage_skylanes")) StartLane(3, 2); else StartLane(3, 3); break; } } public float TestSpeed = 1;   // tests: AI heroes only fight each other (no retreat, no lane push, the player left out)
+        public static readonly bool NoKitAi = System.Environment.GetCommandLineArgs().Contains("-nokitai");   // tests: AI heroes back on the old shared skill
         public enum Mode { Load, Lobby, Game, Result }
         public Mode mode = Mode.Load;
         public bool paused;
@@ -148,6 +154,7 @@ namespace NovaBlade
             public List<string> questKeys = new(), questClaimed = new(); public List<int> questVals = new();   // quest counters by kind, and rewards already taken
             public string shield = "";                             // shield on the left arm ("" = none; warriors and clerics)
             public string wings = ""; public bool petWings = true;
+            public int laneMode = 3, aiLevel = 1;   // battle settings (lobby): 0 1v1, 1 one lane 3v3, 2 three lanes 3v3, 3 Sky Lanes 3v3 · AI 0 easy, 1 normal, 2 hard
             // the bag: gear pieces (one entry each), potions and crafting shards as stacks, worn gear in its four slots
             public List<string> bag = new(); public int potions = 3, bagCap = 40; public List<int> mats = new() { 0, 0, 0, 0, 0 };
             public string helm = "", armor = "", boots = "", acc = "";
@@ -189,7 +196,7 @@ namespace NovaBlade
         static readonly System.Type[] keepColliders = { typeof(SphereCollider), typeof(CapsuleCollider), typeof(BoxCollider), typeof(MeshCollider) };
         void Start()
         {
-            gameObject.AddComponent<AutoQuality>();
+            gameObject.AddComponent<AutoQuality>(); gameObject.AddComponent<HeroLight>();
             hero = new GameObject("Hero").AddComponent<Hero>();
             pet = new GameObject("Pet").AddComponent<Pet>();
             ui = gameObject.AddComponent<Ui>();
@@ -223,9 +230,16 @@ namespace NovaBlade
             int cw = System.Array.IndexOf(args, "-crowdtest"); if (cw >= 0 && cw + 1 < args.Length) StartCoroutine(CrowdTest(args[cw + 1]));
             int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
             int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
+            int bst = System.Array.IndexOf(args, "-battlesettings"); if (bst >= 0 && bst + 1 < args.Length) StartCoroutine(BattleSettingsTest(args[bst + 1]));
+            int dbl = System.Array.IndexOf(args, "-duelbalance"); if (dbl >= 0 && dbl + 1 < args.Length) StartCoroutine(DuelBalance(args[dbl + 1], dbl + 2 < args.Length && int.TryParse(args[dbl + 2], out int dr) ? dr : 2, dbl + 3 < args.Length && int.TryParse(args[dbl + 3], out int dm) ? dm : 0));
+            int klb = System.Array.IndexOf(args, "-kitlobby"); if (klb >= 0 && klb + 1 < args.Length) StartCoroutine(KitLobby(args[klb + 1]));
+            int akt = System.Array.IndexOf(args, "-aikittest"); if (akt >= 0 && akt + 1 < args.Length) StartCoroutine(AiKitTest(args[akt + 1]));
+            int ktt = System.Array.IndexOf(args, "-kittest"); if (ktt >= 0 && ktt + 1 < args.Length) StartCoroutine(KitTest(args[ktt + 1]));
+            int stt = System.Array.IndexOf(args, "-skytimes"); if (stt >= 0 && stt + 1 < args.Length) StartCoroutine(SkyTimes(args[stt + 1]));
             int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
             int dlt = System.Array.IndexOf(args, "-duelstest"); if (dlt >= 0 && dlt + 1 < args.Length) StartCoroutine(DuelsTest(args[dlt + 1]));
             int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
+            int al = System.Array.IndexOf(args, "-archerlook"); if (al >= 0 && al + 1 < args.Length) StartCoroutine(ArcherLook(args[al + 1]));
             int cl = System.Array.IndexOf(args, "-classlook"); if (cl >= 0 && cl + 1 < args.Length) StartCoroutine(ClassLook(args[cl + 1]));
             int wc = System.Array.IndexOf(args, "-weaponcards"); if (wc >= 0 && wc + 1 < args.Length) StartCoroutine(WeaponCardsTest(args[wc + 1]));
             int n5 = System.Array.IndexOf(args, "-new5test"); if (n5 >= 0 && n5 + 1 < args.Length) StartCoroutine(New5Test(args[n5 + 1]));
@@ -856,13 +870,168 @@ namespace NovaBlade
         }
         // Test mode (-skylanestest <dir>): the Sky Lanes 3v3 map. Views of each part, then the match runs on its own for a while (the hero
         // cannot fall and stays home): towers, soldiers and heroes per side, how far the waves get, and anything standing off the ground.
+        // Test mode (-skytimes <dir>): Sky Lanes by day, at dusk and by night, the same views each time (play, our base, the jungle, the curve)
+        // Test mode (-kittest <dir>): every hero with a MOBA kit in Sky Lanes: each skill aimed (picture) and cast at a sturdy enemy hero standing still,
+        // damage written down against the kit's numbers (P = attack power)
+        System.Collections.IEnumerator KitTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); var log = new System.Text.StringBuilder();
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            foreach (var hd in Data.Heroes.Where(h => Kits.For(h.id) != null))
+            {
+                save.hero = hd.id; hero.Equip(); StartLane(3, 2); yield return new WaitForSecondsRealtime(1.2f);
+                foreach (var f in foes.ToArray()) if (f && f.d.kind is "champ" or "minion") { f.alive = false; Destroy(f.gameObject); }
+                foes.RemoveAll(f => !f || !f.alive); MoveTo(new Vector3(0, 0, 8)); hero.max = hero.hp = 999999; hero.mp = 999;
+                var dummy = SpawnUnit(Lane.Champ(Data.Heroes.First(h => h.id == "spartan")), new Vector3(0, 0, 4), 1); dummy.maxHp = dummy.hp = 1e6f; dummy.d.dmg = 0; dummy.d.spd = 0; yield return new WaitForSecondsRealtime(1.2f);   // past its spawning
+                var kit = Kits.For(hd.id); var line = new System.Text.StringBuilder($"{hd.id,-10} P {hero.AtkPow:0} passive {kit.pid}:");
+                for (int i = 0; i < 3; i++)
+                {
+                    var s = kit.s[i]; hero.transform.position = new Vector3(0, hero.Pos.y, 8); hero.face = Mathf.PI; dummy.transform.position = new Vector3(0, dummy.Pos.y, 4); dummy.stag = 0; dummy.slow = 0;
+                    var at = s.shape == KShape.Self ? hero.Pos : dummy.Pos;
+                    if (s.shape is KShape.Self or KShape.Ally) { hero.transform.position = new Vector3(0, hero.Pos.y, 4 + Mathf.Min(1.5f, s.size * .5f)); at = hero.Pos; }
+                    if (s.shape is KShape.Target or KShape.Blink && s.range < 4) hero.transform.position = new Vector3(0, hero.Pos.y, 5.5f);
+                    if (s.shape == KShape.Cone && s.range < 5) hero.transform.position = new Vector3(0, hero.Pos.y, 6);
+                    for (int k = 0; k < 20; k++) { hero.KitTestAim(i, at); yield return null; }
+                    if (i == 0 || hd.id is "warrior" or "elf" or "mage") { Snap($"{hd.id}_aim{i}"); hero.KitTestAim(i, at); yield return null; }   // the picture is taken at the end of the frame: keep the aim up until then
+                    log.AppendLine($"{hd.id} aim{i} {s.shape}: {hero.AimDebug}");
+                    float before = dummy.hp; float hpBefore = hero.hp; hero.KitTestCast(i, at);
+                    float maxStag = 0, maxSlow = 0;
+                    for (float w = 0; w < Mathf.Max(1.6f, s.dur + s.delay + s.tether + s.dotT + .8f); w += Time.unscaledDeltaTime) { maxStag = Mathf.Max(maxStag, dummy.stag); maxSlow = Mathf.Max(maxSlow, dummy.slow); yield return null; }
+                    if (s.trap > 0) { dummy.transform.position = at; yield return new WaitForSecondsRealtime(.6f); }
+                    float dealt = before - dummy.hp;
+                    line.Append($" | {"QWE"[i]} {s.shape} {dealt / hero.AtkPow:0.00}P (table {s.dmg * Mathf.Max(1, s.hits) + s.dot:0.00}P) stun {maxStag:0.0} slow {maxSlow:0.0}");
+                    dummy.hp = dummy.maxHp;
+                }
+                log.AppendLine(line.ToString());
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "kittest.txt"), log.ToString()); Application.Quit();
+        }
+        // Test mode (-aikittest <dir>): each AI hero alone against the player in Sky Lanes for 12 s: how many skills it used, the damage it did,
+        // whether it stunned or slowed, with a picture while its warning is on the ground
+        System.Collections.IEnumerator AiKitTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); var log = new System.Text.StringBuilder();
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            save.hero = "spartan"; hero.Equip();
+            foreach (var hd in Data.Heroes.Where(h => Kits.For(h.id) != null))
+            {
+                StartLane(3, 2); yield return new WaitForSecondsRealtime(1);
+                foreach (var f in foes.ToArray()) if (f && f.d.kind is "champ" or "minion") { f.alive = false; Destroy(f.gameObject); }
+                foes.RemoveAll(f => !f || !f.alive); minionT = 999; MoveTo(new Vector3(0, 0, 1)); hero.max = hero.hp = 1e6f;   // mid-map, out of every tower's reach
+                var ai = SpawnUnit(Lane.Champ(hd), new Vector3(0, 0, -4), 1); ai.maxHp = ai.hp = 1e6f;
+                var mate = SpawnUnit(Lane.Champ(Data.Heroes.First(h => h.id == "spartan")), new Vector3(1.5f, 0, -5), 1); mate.d.dmg = 0; mate.d.spd = 0; mate.d.model = "dummy"; mate.maxHp = 10000; mate.hp = 5000;   // a hurt teammate beside it, with no kit of its own
+                yield return new WaitForSecondsRealtime(1);
+                float hpBefore = hero.hp, stunned = 0, slowed = 0; bool shot = false; var hits = new Dictionary<string, float>();
+                Foe.OnDamage = (f, dmg, from, o) => { if (f != mate) return; string k = $"{(o.byFoe ? "foe" : "hero")}{(o.skill ? "-skill" : "")} from {Flat(from - f.Pos).magnitude:0.0}m"; hits[k] = hits.GetValueOrDefault(k) + dmg; };
+                for (float t = 0; t < 12; t += Time.unscaledDeltaTime)
+                {
+                    if (hero.stunT > 0) stunned += Time.unscaledDeltaTime; if (hero.slowT > 0) slowed += Time.unscaledDeltaTime;
+                    hero.transform.position = new Vector3(Mathf.Sin(t * .7f) * 1.5f, hero.Pos.y, 1);   // the hero stands about, the AI comes to it
+                    if (!shot && ai.AiCasts > 0 && t > 2) { shot = true; Snap("ai_" + hd.id); }
+                    yield return null;
+                }
+                log.AppendLine($"{hd.id,-10} kit {Kits.For(hd.id).pid,-7} casts {ai.AiCasts} damage to hero {hpBefore - hero.hp:0} stunned {stunned:0.0}s slowed {slowed:0.0}s · hurt teammate 5000 -> {(mate ? mate.hp : 0):0} · skills {ai.AiLog} · mate hit by {string.Join(", ", hits.Select(kv => $"{kv.Key} {kv.Value:0}"))}"); Foe.OnDamage = null;
+                if (mate) { mate.alive = false; Destroy(mate.gameObject); }
+                if (ai) { ai.alive = false; Destroy(ai.gameObject); }
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "aikittest.txt"), log.ToString()); Application.Quit();
+        }
+        // Test mode (-kitlobby <dir>): the hero details panel with the lane-skill box, for a few heroes
+        System.Collections.IEnumerator KitLobby(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3);
+            foreach (var h in new[] { "warrior", "samurai", "sunpriest", "mage" })
+            { save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); yield return new WaitForSecondsRealtime(1); ui.TestSkills(); yield return new WaitForSecondsRealtime(.6f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"kitlobby_{h}.png")); yield return new WaitForSecondsRealtime(.3f); }
+            Application.Quit();
+        }
+        // Test mode (-duelbalance <dir> [rounds]): every pair of AI heroes with kits fights one on one in the middle of Sky Lanes (sides swapped
+        // each round), time sped up; win rates per hero and per class go to duelbalance.txt
+        System.Collections.IEnumerator DuelBalance(string dir, int rounds, int maxDuels = 0)
+        {
+            System.IO.Directory.CreateDirectory(dir); System.IO.File.Delete(System.IO.Path.Combine(dir, "progress.txt")); yield return new WaitForSecondsRealtime(3); var log = new System.Text.StringBuilder();
+            save.hero = "warrior"; hero.Equip(); StartLane(3, 2); yield return new WaitForSecondsRealtime(1);
+            var ids = Data.Heroes.Where(h => Kits.For(h.id) != null).ToList(); var wins = ids.ToDictionary(h => h.id, _ => 0f); var games = ids.ToDictionary(h => h.id, _ => 0);
+            var vs = new Dictionary<string, float>(); float totalT = 0; int n = 0, draws = 0;
+            TestSpeed = 8; duelOnly = true;
+            for (int a = 0; a < ids.Count; a++) for (int b = a + 1; b < ids.Count; b++) for (int r = 0; r < rounds; r++)
+            {
+                foreach (var f in foes.ToArray()) if (f && f.d.kind is "champ" or "minion") { f.alive = false; Destroy(f.gameObject); }
+                foes.RemoveAll(f => !f || !f.alive); minionT = 999; hero.transform.position = Lane.SpawnOf(0); hero.max = hero.hp = 1e7f; hero.inv = 999;
+                var (h0, h1) = r % 2 == 0 ? (ids[a], ids[b]) : (ids[b], ids[a]);
+                var f0 = SpawnUnit(Lane.Champ(h0), new Vector3(0, 0, 4), 0); var f1 = SpawnUnit(Lane.Champ(h1), new Vector3(0, 0, -4), 1);
+                float t = 0; while (t < 60 && f0 && f0.alive && f1 && f1.alive) { t += Time.deltaTime; yield return null; }
+                bool w0 = f0 && f0.alive && !(f1 && f1.alive), w1 = f1 && f1.alive && !(f0 && f0.alive);
+                games[h0.id]++; games[h1.id]++; n++; totalT += t;
+                System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "progress.txt"), $"{n} {h0.id} v {h1.id}: {(w0 ? h0.id : w1 ? h1.id : "draw")} in {t:0.0}s · hp {(f0 ? f0.hp : 0):0}/{(f0 ? f0.maxHp : 0):0} v {(f1 ? f1.hp : 0):0}/{(f1 ? f1.maxHp : 0):0} · dist {(f0 && f1 ? Flat(f0.Pos - f1.Pos).magnitude : -1):0.0} · casts {(f0 ? f0.AiCasts : 0)}/{(f1 ? f1.AiCasts : 0)}" + System.Environment.NewLine);
+                if (maxDuels > 0 && n >= maxDuels) goto done;
+                if (w0) { wins[h0.id]++; vs[$"{h0.id}>{h1.id}"] = vs.GetValueOrDefault($"{h0.id}>{h1.id}") + 1; }
+                else if (w1) { wins[h1.id]++; vs[$"{h1.id}>{h0.id}"] = vs.GetValueOrDefault($"{h1.id}>{h0.id}") + 1; }
+                else { draws++; wins[h0.id] += .5f; wins[h1.id] += .5f; }
+            }
+            done:
+            TestSpeed = 1; duelOnly = false;
+            log.AppendLine($"duels {n} · draws (60 s) {draws} · average length {totalT / Mathf.Max(1, n):0.0} s (game time)");
+            foreach (var h in ids.OrderByDescending(h => wins[h.id] / games[h.id])) log.AppendLine($"{h.id,-10} {h.cls,-9} win {wins[h.id] / games[h.id] * 100:0}%  ({wins[h.id]:0.#}/{games[h.id]})");
+            log.AppendLine("by class:");
+            foreach (var g in ids.GroupBy(h => h.cls)) log.AppendLine($"  {g.Key,-9} {g.Sum(h => wins[h.id]) / g.Sum(h => games[h.id]) * 100:0}%");
+            log.AppendLine("pairs (wins):"); foreach (var kv in vs.OrderBy(k => k.Key)) log.AppendLine($"  {kv.Key} {kv.Value:0}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "duelbalance.txt"), log.ToString()); Application.Quit();
+        }
+        // Test mode (-battlesettings <dir>): the settings panel, then each AI difficulty: one AI hero (Valka) against the player for 12 s,
+        // damage taken and skills used; the save's settings are put back
+        System.Collections.IEnumerator BattleSettingsTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); var log = new System.Text.StringBuilder(); int keepM = save.laneMode, keepA = save.aiLevel;
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            ui.ShowLobby(); yield return new WaitForSecondsRealtime(1); Snap("lobby_battle"); ui.ShowBattleSettings(); yield return new WaitForSecondsRealtime(.6f); Snap("battle_settings");
+            save.hero = "spartan"; hero.Equip();
+            for (int lv = 0; lv < 3; lv++)
+            {
+                save.aiLevel = lv; save.laneMode = 3; StartBattle(); yield return new WaitForSecondsRealtime(1);
+                foreach (var f in foes.ToArray()) if (f && f.d.kind is "champ" or "minion") { f.alive = false; Destroy(f.gameObject); }
+                foes.RemoveAll(f => !f || !f.alive); minionT = 999; MoveTo(new Vector3(0, 0, 1)); hero.max = hero.hp = 1e6f;
+                var ai = SpawnUnit(Lane.Champ(Data.Heroes.First(h => h.id == "warrior")), new Vector3(0, 0, -4), 1); float aiHp = ai.maxHp, aiDmg = ai.d.dmg; ai.maxHp = ai.hp = 1e6f; yield return new WaitForSecondsRealtime(1);
+                float before = hero.hp; for (float t = 0; t < 12; t += Time.unscaledDeltaTime) { hero.transform.position = new Vector3(Mathf.Sin(t * .7f) * 1.5f, hero.Pos.y, 1); yield return null; }
+                log.AppendLine($"AI {lv}: Valka hp {aiHp:0} basic dmg {aiDmg:0} · in 12 s: damage to hero {before - hero.hp:0}, skills {ai.AiCasts}");
+                if (ai) { ai.alive = false; Destroy(ai.gameObject); }
+            }
+            save.laneMode = keepM; save.aiLevel = keepA; Persist();
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "battlesettings.txt"), log.ToString()); Application.Quit();
+        }
+        System.Collections.IEnumerator SkyTimes(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); save.hero = "warrior"; hero.Equip();
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            StartLane(3, 2); hero.max = hero.hp = 999999; var log = new System.Text.StringBuilder();
+            { var eg = Stage("Stage_skylanes")?.Find("SkyLanesRoadEdge"); var er = eg ? eg.GetComponent<Renderer>() : null; log.AppendLine(er ? $"edge: on {er.enabled} active {eg.gameObject.activeInHierarchy} verts {eg.GetComponent<MeshFilter>().sharedMesh?.vertexCount} bounds {er.bounds} mat {er.sharedMaterial?.name} clip {er.sharedMaterial?.IsKeywordEnabled("_ALPHATEST_ON")} tex {er.sharedMaterial?.mainTexture?.name}" : "edge: none"); }
+            { var bz = Stage("Stage_skylanes")?.Find("Braziers"); if (bz) foreach (var ps in bz.GetComponentsInChildren<ParticleSystem>(true)) log.AppendLine($"fx {ps.name} active {ps.gameObject.activeInHierarchy} playing {ps.isPlaying} n {ps.particleCount} at {ps.transform.position} scale {ps.transform.lossyScale.x:0.00} mat {(ps.GetComponent<ParticleSystemRenderer>()?.sharedMaterial ? ps.GetComponent<ParticleSystemRenderer>().sharedMaterial.shader.name : "none")}"); }
+            foreach (var (t, n) in new[] { (0f, "0_day"), (120f, "1_sunset"), (160f, "2_dusk"), (270f, "3_nightfall"), (310f, "4_night") })
+            {   // the match clock moved on: the sky follows it (Tick runs in UpdLane)
+                time = t; yield return new WaitForSecondsRealtime(2.5f); log.AppendLine($"t {t}s phase {SkyTime.Phase:0.00}"); Snap(n + "_play"); yield return new WaitForSecondsRealtime(.2f);
+                ZoomBy(1.2f); ui.Pan = new Vector3(17, 0, 2); yield return new WaitForSecondsRealtime(1.2f); Snap(n + "_jungle"); ui.Pan = new Vector3(0, 0, 44); yield return new WaitForSecondsRealtime(1.2f); Snap(n + "_base"); ui.Pan = null; ZoomBy(-1.2f);
+                if (t == 0) { ZoomBy(-.5f); ui.Pan = new Vector3(3, 0, 22); yield return new WaitForSecondsRealtime(1.2f); Snap("road_close"); ui.Pan = null; ZoomBy(.5f); } yield return new WaitForSecondsRealtime(.3f);
+            }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "skytimes.txt"), log.ToString()); Application.Quit();
+        }
         System.Collections.IEnumerator SkyLanesTest(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.hero = "warrior"; hero.Equip();
             void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
-            StartLane(3, 2); yield return new WaitForSecondsRealtime(2); hero.max = hero.hp = 999999; hitchLog = true;   // slow frames go to the log with what happened before them
+            StartLane(3, 2); yield return new WaitForSecondsRealtime(2);
+            {   // the score bar and a kill call: an enemy champion falls beside the hero
+                var victim = foes.FirstOrDefault(f => f && f.alive && f.team == 1 && f.d.kind == "champ");
+                if (victim) { MoveTo(victim.Pos + new Vector3(1.5f, 0, 0)); yield return null; victim.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(.5f); Snap("killcall"); log.AppendLine($"kill call: score {teamKills[0]}:{teamKills[1]} kda {myK}/{myD}/{myA}"); yield return new WaitForSecondsRealtime(.2f); }
+                MoveTo(Lane.SpawnOf(0)); yield return new WaitForSecondsRealtime(.5f);
+            }
+            hero.max = hero.hp = 999999; hitchLog = true;   // slow frames go to the log with what happened before them
             log.AppendLine($"stage {System.Array.Find(stageRoots, r => r && r.gameObject.activeSelf)?.name} · towers+core ours {TowersLeft(0)} theirs {TowersLeft(1)} · heroes {foes.Count(f => f && f.d.kind == "champ")} · lane lengths {SkyLanes.Length(0):0} / {SkyLanes.Length(1):0} m");
             foreach (var (x, z) in new[] { (5f, 50f), (40f, 40f), (-20f, 10f) }) log.AppendLine($"clamp ({x}, {z}) -> {Clamp(new Vector3(x, 0, z))}");
+            foreach (var (ga, _) in SkyLanes.Gates)
+            {   // walk in by each jungle gate: from the lane end straight for the jungle's middle, kept on the walkable ground at every step
+                var p = new Vector3(ga.x, 0, ga.y); var to = new Vector3(SkyLanes.Jungle.x, 0, SkyLanes.Jungle.y);
+                for (int i = 0; i < 200; i++) p = SkyLanes.Walk(Vector3.MoveTowards(p, to, .25f));
+                log.AppendLine($"gate {ga}: walked in to {Vector3.Distance(p, to):0.0} m from the jungle middle");
+            }
             log.AppendLine($"land: our core {SkyLanes.Height(0, Lane.CoreZ):0.00} m, lane mid {SkyLanes.Height(0, 0):0.00}, jungle mid {SkyLanes.Height(SkyLanes.Jungle.x, SkyLanes.Jungle.y):0.00} · hero stands at y {hero.Pos.y:0.00} (ground {River.Ground(hero.Pos.x, hero.Pos.z):0.00})");
             {   // the spawn pools: where we start, the pool heals, an enemy hero put in our pool is pushed out
                 var ours = SkyLanes.Fountain(0); log.AppendLine($"pool: hero starts {Flat(hero.Pos - ours).magnitude:0.0} m from our pool centre");
@@ -968,6 +1137,24 @@ namespace NovaBlade
                 ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, h + ".png")); yield return new WaitForSecondsRealtime(.4f);
             }
             Application.Quit();
+        }
+        // Test mode (-archerlook <dir>): the three archers in the lobby with a sword and wings chosen, then Aeris close up in the city, a stage and Sky Lanes (are heroes pale in play?)
+        System.Collections.IEnumerator ArcherLook(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); var keep = JsonUtility.ToJson(save);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            var wing = Data.Wings.Length > 0 ? Data.Wings[0].id : ""; save.sword = "w_lava"; if (!save.owned.Contains(Shop.Key(ItemKind.Wings, wing))) save.owned.Add(Shop.Key(ItemKind.Wings, wing)); save.wings = wing;
+            foreach (var h in new[] { "harpy", "elf", "rowan" }) { save.hero = h; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.SetTab("hero"); yield return new WaitForSecondsRealtime(1.6f); Snap("lobby_" + h); yield return new WaitForSecondsRealtime(.3f); }
+            foreach (var hd in Data.Heroes)
+            {   // every hero: in the lobby, then close behind the shoulder on stage 1 (same light every time), to compare how pale each looks in play
+                save.hero = hd.id; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.SetTab("hero"); yield return new WaitForSecondsRealtime(1.2f); Snap("all_lobby_" + hd.id); yield return new WaitForSecondsRealtime(.2f);
+                CamStyle = 3; StartGame(1); foreach (var f in foes.ToArray()) if (f) Destroy(f.gameObject); foes.Clear(); hero.face = 0; yield return new WaitForSecondsRealtime(1.6f); Snap("all_game_" + hd.id); yield return new WaitForSecondsRealtime(.2f); CamStyle = -1; ShowLobby(); yield return new WaitForSecondsRealtime(.3f);
+            }
+            save.hero = "harpy"; CamStyle = 3;
+            StartCity(); yield return new WaitForSecondsRealtime(2); Snap("play_city"); yield return new WaitForSecondsRealtime(.3f);
+            StartGame(1); yield return new WaitForSecondsRealtime(2.5f); Snap("play_stage1"); yield return new WaitForSecondsRealtime(.3f);
+            if (Stage("Stage_skylanes")) { StartLane(3, 2); yield return new WaitForSecondsRealtime(2.5f); Snap("play_skylanes"); yield return new WaitForSecondsRealtime(.3f); }
+            CamStyle = -1; save = JsonUtility.FromJson<Save>(keep); Persist(); yield return new WaitForSecondsRealtime(.5f); Application.Quit();
         }
         // Test mode (-weaponcards <dir>): the weapons tab for one hero of each kind, suited weapons first.
         System.Collections.IEnumerator WeaponCardsTest(string dir)
@@ -1306,7 +1493,9 @@ namespace NovaBlade
         public Foe SpawnFoe(string id, Vector3 p) => SpawnUnit(Data.Foe(id), p, 1);
         public Foe SpawnUnit(FoeDef def, Vector3 p, int team)
         {
-            Crumb.Mark("spawn " + def.id); var f = new GameObject($"Unit_{def.id}_{team}").AddComponent<Foe>(); f.Init(def, p, null, team); foes.Add(f); return f;
+            Crumb.Mark("spawn " + def.id); var f = new GameObject($"Unit_{def.id}_{team}").AddComponent<Foe>(); f.Init(def, p, null, team); foes.Add(f);
+            if (lane && def.kind == "champ" && !duelOnly) { var k = AiLevels[Mathf.Clamp(save.aiLevel, 0, 2)]; f.maxHp *= k.hp; f.hp = f.maxHp; f.d.dmg *= k.dmg; }   // AI heroes sized to the chosen difficulty
+            return f;
         }
         void SpawnBoss()
         {
@@ -1345,7 +1534,7 @@ namespace NovaBlade
         public static Vector3 Dir(float a) => new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a));
         public static float AngDiff(float a, float b) { float d = (b - a) % (Mathf.PI * 2); if (d > Mathf.PI) d -= Mathf.PI * 2; if (d < -Mathf.PI) d += Mathf.PI * 2; return d; }
 
-        public class Hit { public float face, half = 9, kb, poise; public bool melee, byFoe; public float slow; public Color? col; public HashSet<Foe> skip; public float steal; }
+        public class Hit { public float face, half = 9, kb, poise; public bool melee, byFoe, skill; public float slow; public Color? col; public HashSet<Foe> skip; public float steal; }
         public int HitArea(Vector3 c, float r, float dmg, Hit o = null)
         {
             o ??= new Hit(); int n = 0;
@@ -1386,10 +1575,38 @@ namespace NovaBlade
             var open = Quests.All.Where(q => q.kind == kind && !Quests.Done(save, q)).ToList(); Quests.Bump(save, kind, n);
             if (hero) foreach (var q in open) if (Quests.Done(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
         }
+        // lane battles: the score (hero kills per side), the player's kills / deaths / assists, and the calls on screen when a hero falls
+        public readonly int[] teamKills = new int[2]; public int myK, myD, myA; int mySpree, myMulti; float myLastKill = -99;
+        const float KillReach = 12, MultiWindow = 10;
+        void ResetScore() { teamKills[0] = teamKills[1] = 0; myK = myD = myA = mySpree = myMulti = 0; myLastKill = -99; }
+        // a hero is down (the player or an AI champion): the nearest living enemy hero takes the kill, the player nearby on that side an assist;
+        // with no enemy hero near, a tower or soldiers did it (still a point for that side)
+        public void HeroKilled(Vector3 at, int victimTeam, string victimName, bool victimIsPlayer)
+        {
+            if (!lane || mode != Mode.Game) return;
+            int side = 1 - victimTeam; string killer = null; bool playerKilled = false; float best = KillReach;
+            if (side == 0 && hero && !hero.dead) { float d = Flat(hero.Pos - at).magnitude; if (d < best) { best = d; killer = hero.def.name; playerKilled = true; } }
+            foreach (var f in foes) if (f && f.alive && f.team == side && f.d.kind == "champ") { float d = Flat(f.Pos - at).magnitude; if (d < best) { best = d; killer = f.d.name; playerKilled = false; } }
+            teamKills[side]++; bool first = teamKills[0] + teamKills[1] == 1;
+            if (victimIsPlayer) { myD++; mySpree = 0; myMulti = 0; }
+            if (playerKilled || side == 0 && hero && !hero.dead && Flat(hero.Pos - at).magnitude < KillReach) hero.KitTakedown();
+            if (playerKilled) { myK++; mySpree++; myMulti = time - myLastKill < MultiWindow ? myMulti + 1 : 1; myLastKill = time; }
+            else if (side == 0 && hero && !hero.dead && Flat(hero.Pos - at).magnitude < KillReach) myA++;
+            string head = first ? Loc.S("เลือดแรก!", "FIRST BLOOD!")
+                : playerKilled && myMulti >= 3 ? Loc.S("ทริปเปิลคิล!", "TRIPLE KILL!") : playerKilled && myMulti == 2 ? Loc.S("ดับเบิลคิล!", "DOUBLE KILL!")
+                : playerKilled && mySpree >= 5 ? Loc.S("ไม่มีใครหยุดได้!", "UNSTOPPABLE!") : playerKilled && mySpree >= 3 ? Loc.S("กำลังเดือด!", "KILLING SPREE!")
+                : killer == null ? Loc.S("ถูกประหาร!", "EXECUTED!") : victimIsPlayer ? Loc.S("คุณถูกสังหาร!", "YOU HAVE BEEN SLAIN!") : Loc.S("สังหาร!", "SLAIN!");
+            static string Blue(string n) => $"<color=#7fcfff>{n}</color>"; static string Red(string n) => $"<color=#ff7a6e>{n}</color>";   // names in their side's colour
+            string vic = victimTeam == 0 ? Blue(victimName) : Red(victimName), kil = killer == null ? null : side == 0 ? Blue(killer) : Red(killer);
+            string line = kil == null ? vic : $"{kil}  ⚔  {vic}";
+            ui.KillCall(head, line, Color.white);
+        }
+        public int matchXp;   // Sky Lanes: XP of this match only, the hero's level in it (starts at level 1)
+        public bool SkyMatch => lane && Lane.Lanes == 2;
         public void AddXp(int n)
         {
-            if (n <= 0 || !hero) return; int before = hero.Level; save.AddHeroXp(hero.def.id, n); runXp += n; if (hero.Level <= before) return;
-            foreach (var q in Quests.All) if (q.kind == "level" && q.goal == hero.Level && !Quests.Claimed(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
+            if (n <= 0 || !hero) return; int before = hero.Level; save.AddHeroXp(hero.def.id, n); runXp += n; if (SkyMatch) matchXp += n; if (hero.Level <= before) return;
+            if (!SkyMatch) foreach (var q in Quests.All) if (q.kind == "level" && q.goal == hero.Level && !Quests.Claimed(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
             hero.RefreshGear(); hero.hp = hero.max; Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5);
             ui.Banner(Loc.S($"เลเวล {hero.Level}!", $"LEVEL {hero.Level}!"), Loc.S("พลังชีวิตและพลังโจมตีเพิ่มขึ้น", "More health and attack")); Persist();
         }
@@ -1491,7 +1708,7 @@ namespace NovaBlade
             if (paused || mode == Mode.Load) return;
             // hit stop: a few frames of near-freeze on heavy hits (animators and particles slow down too)
             if (hitStop > 0) hitStop -= dt;
-            Time.timeScale = hitStop > 0 ? .06f : 1;
+            Time.timeScale = (hitStop > 0 ? .06f : 1) * TestSpeed;
             if (skyPetals && lane && Lane.Lanes == 2 && hero) skyPetals.position = hero.Pos + new Vector3(0, 6, -7);
             if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city && !wilds && !house && !sky) UpdWaves(dt); UpdDrops(dt); }
             for (int i = foes.Count - 1; i >= 0; i--) if (!foes[i]) foes.RemoveAt(i);
@@ -1545,7 +1762,7 @@ namespace NovaBlade
         // ======================= teams & lane battle =======================
         public IEnumerable<ITarget> Opponents(int team)
         {
-            if (team == 1 && hero && !hero.dead) yield return hero;
+            if (team == 1 && hero && !hero.dead && !hero.Invisible && !duelOnly) yield return hero;
             foreach (var f in foes) if (f && f.alive && !f.spawning && f.team != team) yield return f;
         }
         public ITarget PickTarget(Foe f)
@@ -1602,7 +1819,7 @@ namespace NovaBlade
         {
             if (lanes == 2) { StartSkyLanes(); return; }
             ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = lanes; Lane.Lanes = lanes;
-            kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0;
+            kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0; ResetScore();
             SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == (lanes == 3 ? "Stage_lane3" : "Stage_lane")));   // by name: the zone, house and Sky Court come after the lane maps (the phone build leaves some out)
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             for (int t = 0; t < 2; t++)
@@ -1622,13 +1839,13 @@ namespace NovaBlade
         }
         // Sky Lanes, always 3 against 3: towers along both lanes, the player and one helper start on the straight lane, the other helper takes the curve; the enemy mirrors it
         public static readonly int[] SkyLaneOf = { 0, 1 };   // our two helpers; the enemy's three: 0, 1, 0
-        Transform skyPetals;   // sakura petals over Sky Lanes, kept round the hero
+        Transform skyPetals; bool skyRunes, skyPhone;   // sakura petals over Sky Lanes, kept round the hero
         static readonly Vector3 SkyCam = new(0, 13.5f, 8.4f);
         void StartSkyLanes()
         {
             const int size = 3; ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = 2; Lane.Lanes = 2;
-            kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0;
-            SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_skylanes"));
+            kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0; matchXp = 0; ResetScore();
+            SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == "Stage_skylanes")); SkyTime.Begin(Stage("Stage_skylanes"), 0);
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             for (int t = 0; t < 2; t++)
             {
@@ -1641,11 +1858,27 @@ namespace NovaBlade
             for (int i = 0; i < size; i++) { var u = SpawnUnit(Lane.Champ(foesH[i % foesH.Count]), Lane.SpawnOf(1) + new Vector3((i - 1) * 1.6f, 0, 0), 1); if (u) u.laneIdx = i == 1 ? 1 : 0; }
             camPos = Lane.SpawnOf(0) + new Vector3(0, 13, 8);
             var stageRoot = Stage("Stage_skylanes"); if (stageRoot && !skyPetals) skyPetals = LobbyNight.PetalsAt(stageRoot);
+            if (stageRoot && IsPhone && !skyPhone)
+            {   // phones: the same map, lighter: no 3D grass, no brazier and rim lights (the flames stay)
+                skyPhone = true;
+                foreach (var g in stageRoot.GetComponentsInChildren<GrassField>(true)) g.gameObject.SetActive(false);
+                foreach (var l in stageRoot.GetComponentsInChildren<Light>(true)) if (l.type == LightType.Point && l.GetComponent<FireFlicker>() || l.name == "RimLight") l.enabled = false;
+            }
+            if (stageRoot && !skyRunes)
+            {   // glowing rune rings round each spawn pool: gold outside, the side's colour inside
+                skyRunes = true;
+                for (int t = 0; t < 2; t++) { var c = SkyLanes.Fountain(t); RuneCircle.MakeAt(stageRoot, new Vector3(c.x, SkyLanes.Height(c.x, c.z), c.z), 6.1f, 5.1f, new Color(1, .62f, .25f), Lane.TeamColor(t)); }
+            }
             ui.ShowHud(); ui.Banner(Loc.S("สนามรบลอยฟ้า · 3 ต่อ 3", "Sky Lanes · 3 vs 3"), Loc.S("เลนตรงกับเลนโค้งรอบป่า ทำลายป้อมแล้วทุบคริสตัลหลักของศัตรู", "A straight lane and a curved one round the jungle: break the towers, then the enemy Core Crystal"));
         }
         void UpdLane(float dt)
         {
             Fountains(dt);
+            if (Lane.Lanes == 2) switch (SkyTime.Tick(time))
+            {   // the sky over Sky Lanes darkens with the match
+                case 1: ui.Banner(Loc.S("พลบค่ำ", "Dusk"), Loc.S("ตะวันกำลังตกดิน", "The sun is going down")); break;
+                case 2: ui.Banner(Loc.S("รัตติกาล", "Night"), Loc.S("ความมืดปกคลุมเกาะลอยฟ้า", "Darkness falls over the islands")); break;
+            }
             if (Lane.Lanes == 2)
             {   // a wave of three soldiers down each lane, from each base
                 minionT -= dt; if (minionT > 0) return; minionT = 28; wave++;
