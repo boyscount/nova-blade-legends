@@ -24,9 +24,10 @@ namespace NovaBlade
             ItemKind.Weapon => ((Data.Swords.FirstOrDefault(w => w.id == id)?.price) ?? 0, Currency.Gold),
             ItemKind.Wings => (Data.Wing(id)?.gems ?? 0, Currency.Gem),
             ItemKind.Shield => ((Data.Shields.FirstOrDefault(x => x.id == id)?.price) ?? 0, Currency.Gold),
-            ItemKind.HeroSkin => (HeroSkinGems[Mathf.Clamp(int.Parse(id.Split(':')[1]), 0, HeroSkinGems.Length - 1)], Currency.Gem),
+            ItemKind.HeroSkin => ModelSkinId(id) ? (0, Currency.Gem) : (HeroSkinGems[Mathf.Clamp(int.Parse(id.Split(':')[1]), 0, HeroSkinGems.Length - 1)], Currency.Gem),   // model skins (a hero's old look) are free
             _ => (WeaponSkinGems, Currency.Gem),
         };
+        static bool ModelSkinId(string id) { var p = id.Split(':'); var h = Data.Heroes.FirstOrDefault(x => x.id == p[0]); return h != null && int.TryParse(p[1], out int i) && Data.IsModelSkin(h, i); }
         public static bool Owns(ItemKind k, string id) => Price(k, id).price == 0 || S.owned.Contains(Key(k, id));
         public static int Balance(Currency c) => c == Currency.Gold ? S.gold : S.gems;
         public static string PriceText(ItemKind k, string id) { var (p, c) = Price(k, id); return c == Currency.Gold ? $"{p:N0} Gold" : $"{p:N0} Gem"; }

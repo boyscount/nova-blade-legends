@@ -44,6 +44,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: knight
       objectReference: {fileID: 0}
+    - target: {fileID: 1038546186936427524, guid: 71c5719c433398840980368936505dd2, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 4300000, guid: 74b6d36007bf53a44b29aca0b50cf8ad, type: 2}
     - target: {fileID: 7512201547712726738, guid: 71c5719c433398840980368936505dd2, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

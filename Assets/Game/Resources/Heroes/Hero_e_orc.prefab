@@ -44,6 +44,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: e_orc
       objectReference: {fileID: 0}
+    - target: {fileID: 1038546186936427524, guid: bc9aaabf70503ae429ad7b3ff03f6f0a, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 4300000, guid: ba9cd333f9b8d47459a89d48947b7e41, type: 2}
     - target: {fileID: 7512201547712726738, guid: bc9aaabf70503ae429ad7b3ff03f6f0a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

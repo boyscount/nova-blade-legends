@@ -116,9 +116,9 @@ public static class NovaSetup
         }
         mi.clipAnimations = clips; mi.SaveAndReimport();
     }
-    public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger" };
+    public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger", "knight_classic", "warrior_classic", "samurai_classic", "harpy_classic", "spartan_classic", "elf_classic", "ninja_classic", "hood_classic", "sunpriest_classic", "monk_classic", "mage_classic", "darkmage_classic", "sorceress_classic", "lyra_classic", "rowan_classic", "tenzin_classic", "flamepriest_classic", "tiger_classic" };   // knight_classic: Garland's old look, a model skin
     // class heroes (auto-rigged by arena_autorig.py): build their avatars and prefabs against the existing controller
-    public static readonly string[] ClassHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger" };
+    public static readonly string[] ClassHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger", "knight_classic", "warrior_classic", "samurai_classic", "harpy_classic", "spartan_classic", "elf_classic", "ninja_classic", "hood_classic", "sunpriest_classic", "monk_classic", "mage_classic", "darkmage_classic", "sorceress_classic", "lyra_classic", "rowan_classic", "tenzin_classic", "flamepriest_classic", "tiger_classic" };   // knight_classic: Garland's old look, a model skin
     public static void NewHeroes()
     {
         AssetDatabase.ImportAsset(Heroes, ImportAssetOptions.ImportRecursive);
@@ -255,6 +255,49 @@ public static class NovaSetup
         b.rotation = Quaternion.FromToRotation(cur, dir) * b.rotation;
     }
 
+    // the skin with its leg and shoe weights mended (NovaBlade.FootWeights), saved beside the generated assets and used by the prefab instead of the model's own
+    const string MendedMeshes = "Assets/Game/Generated/HeroMesh";
+    static int MendMesh(string id, GameObject inst)
+    {
+        var body = NovaBlade.FootWeights.Body(inst); if (!body) return 0;
+        var src = body.sharedMesh; var own = AssetDatabase.GetAssetPath(src); if (own.StartsWith(MendedMeshes)) { var model = NovaBuild.Model($"{Heroes}/{id}.glb") ?? NovaBuild.Model($"{Heroes}/{id}.gltf"); var orig = model ? NovaBlade.FootWeights.Body(model) : null; if (!orig) return 0; src = orig.sharedMesh; }
+        var w = NovaBlade.FootWeights.Mended(src, body.bones, out int changed); w ??= src.boneWeights;
+        Directory.CreateDirectory(MendedMeshes); var path = $"{MendedMeshes}/{id}.asset"; if (File.Exists(path)) AssetDatabase.DeleteAsset(path);
+        var copy = Object.Instantiate(src); copy.boneWeights = w; int cut = NovaBlade.FootWeights.CutBridges(copy); if (changed == 0 && cut == 0) { Object.DestroyImmediate(copy); return 0; } AssetDatabase.CreateAsset(copy, path); body.sharedMesh = copy;
+        Debug.Log($"[NovaSetup] mended {id}: {changed} skin points of {src.vertexCount}, {cut} triangles between the legs cut"); return changed + cut;
+    }
+    // mend every hero, NPC and monster prefab already built, without rebuilding avatars
+    public static void MendHeroMeshes()
+    {
+        int n = 0;
+        foreach (var id in ClassHeroes.Concat(Npcs).Concat(Monsters).Distinct())
+        {
+            var path = $"{Prefabs}/Hero_{id}.prefab"; if (!File.Exists(path)) continue;
+            var root = PrefabUtility.LoadPrefabContents(path); if (MendMesh(id, root) > 0) { PrefabUtility.SaveAsPrefabAsset(root, path); n++; } PrefabUtility.UnloadPrefabContents(root);
+        }
+        AssetDatabase.SaveAssets(); Debug.Log($"[NovaSetup] mended prefabs: {n}");
+    }
+    // which leg points still follow a bone of the other side, by distance from the middle (cm), and which bones
+    public static void LegReport()
+    {
+        foreach (var id in new[] { "warrior", "spartan", "knight", "elf" })
+        {
+            var pf = AssetDatabase.LoadAssetAtPath<GameObject>($"{Prefabs}/Hero_{id}.prefab"); var sk = NovaBlade.FootWeights.Body(pf); var m = sk.sharedMesh; var v = m.vertices; var w = m.boneWeights; var bind = m.bindposes; var bones = sk.bones;
+            float X(int b) => bind[b].inverse.GetColumn(3).x; float Y(int b) => bind[b].inverse.GetColumn(3).y;
+            var hist = new int[12]; var who = new Dictionary<string, int>(); int legPts = 0; float lo = v.Min(p => p.y), hi = v.Max(p => p.y);
+            int thigh = System.Array.FindIndex(bones, b => b && b.name.StartsWith("thigh")); float hip = thigh >= 0 ? Y(thigh) : lo + (hi - lo) * .5f;
+            for (int i = 0; i < v.Length; i++)
+            {
+                if (v[i].y > hip) continue; legPts++; var b = w[i]; float x = v[i].x; float opp = 0;
+                void T(int bi, float ww) { if (ww <= 0) return; float bx = X(bi); if (Mathf.Abs(bx) > .02f && Mathf.Sign(bx) != Mathf.Sign(x)) { opp += ww; var n = bones[bi] ? bones[bi].name : "?"; who.TryGetValue(n, out var c); who[n] = c + 1; } }
+                T(b.boneIndex0, b.weight0); T(b.boneIndex1, b.weight1); T(b.boneIndex2, b.weight2); T(b.boneIndex3, b.weight3);
+                if (opp > .05f) hist[Mathf.Min(11, (int)(Mathf.Abs(x) * 100))]++;
+            }
+            Debug.Log($"[LegReport] {id} mesh {m.name} hip {hip:0.00} legPts {legPts} opposite by cm: {string.Join(",", hist)} bones: {string.Join(" ", who.OrderByDescending(k => k.Value).Take(6).Select(k => k.Key + ":" + k.Value))} thighs {string.Join(" ", bones.Where(b => b && (b.name.StartsWith("thigh") || b.name.StartsWith("shin"))).Select(b => b.name + "@" + X(System.Array.IndexOf(bones, b)).ToString("0.00")))}");
+        }
+    }
+    public static void NewHeroesAndWin() { NewHeroes(); NovaBuild.BuildWin(); }
+    public static void MendAndWin() { MendHeroMeshes(); NovaBuild.BuildWin(); }
     static void BuildHero(string id, AnimatorController ctrl)
     {
         var src = NovaBuild.Model($"{Heroes}/{id}.glb");
@@ -297,7 +340,7 @@ public static class NovaSetup
         var anim = inst.AddComponent<Animator>();
         anim.avatar = avatar; anim.runtimeAnimatorController = ctrl; anim.applyRootMotion = false;
         anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-        Directory.CreateDirectory(Prefabs);
+        Directory.CreateDirectory(Prefabs); MendMesh(id, inst);
         PrefabUtility.SaveAsPrefabAsset(holder, $"{Prefabs}/Hero_{id}.prefab");
         Object.DestroyImmediate(holder);
         Debug.Log($"[NovaSetup] hero {id} avatar ok, left side {(leftIsNegX ? "-X" : "+X")}");

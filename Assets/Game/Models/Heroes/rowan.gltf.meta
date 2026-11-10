@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 08b47c0e5fd9a0241a506f0e5f0e1c12
+guid: 9d9878c0040bfca41bcecc2801004992
 ScriptedImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -24,17 +24,5 @@ ScriptedImporter:
     skinUpdateWhenOffscreen: 1
     lightIntensityFactor: 1
     sceneObjectCreation: 2
-  assetDependencies:
-  - type: 0
-    originalUri: Assets\Game\Models\Heroes\rowan.bin
-    assetPath: Assets\Game\Models\Heroes\rowan.bin
-  - type: 1
-    originalUri: Assets\Game\Models\Heroes\rowan_tex0.jpg
-    assetPath: Assets\Game\Models\Heroes\rowan_tex0.jpg
-  - type: 1
-    originalUri: Assets\Game\Models\Heroes\rowan_tex1.jpg
-    assetPath: Assets\Game\Models\Heroes\rowan_tex1.jpg
-  - type: 1
-    originalUri: Assets\Game\Models\Heroes\rowan_tex2.jpg
-    assetPath: Assets\Game\Models\Heroes\rowan_tex2.jpg
+  assetDependencies: []
   reportItems: []

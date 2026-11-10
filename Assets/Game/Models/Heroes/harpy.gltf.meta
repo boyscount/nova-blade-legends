@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: e28f11f49ec89b049b2ab05c116006bf
+guid: 082eb21bc5364914ea59e0314bec7191
 ScriptedImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -25,8 +25,4 @@ ScriptedImporter:
     lightIntensityFactor: 1
     sceneObjectCreation: 2
   assetDependencies: []
-  reportItems:
-  - type: 0
-    code: 20
-    messages:
-    - EXT_texture_webp
+  reportItems: []

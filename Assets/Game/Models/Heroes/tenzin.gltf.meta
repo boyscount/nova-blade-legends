@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 2ca4d5157666dd344a0089b7397eb940
+guid: 925e9d53884a25b409e0766e2c43deda
 ScriptedImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -24,17 +24,5 @@ ScriptedImporter:
     skinUpdateWhenOffscreen: 1
     lightIntensityFactor: 1
     sceneObjectCreation: 2
-  assetDependencies:
-  - type: 0
-    originalUri: Assets\Game\Models\Heroes\tenzin.bin
-    assetPath: Assets\Game\Models\Heroes\tenzin.bin
-  - type: 1
-    originalUri: Assets\Game\Models\Heroes\tenzin_tex0.jpg
-    assetPath: Assets\Game\Models\Heroes\tenzin_tex0.jpg
-  - type: 1
-    originalUri: Assets\Game\Models\Heroes\tenzin_tex1.jpg
-    assetPath: Assets\Game\Models\Heroes\tenzin_tex1.jpg
-  - type: 1
-    originalUri: Assets\Game\Models\Heroes\tenzin_tex2.jpg
-    assetPath: Assets\Game\Models\Heroes\tenzin_tex2.jpg
+  assetDependencies: []
   reportItems: []

@@ -179,6 +179,9 @@ namespace NovaBlade
         public string WingsShown => mode == Mode.Lobby && pvWings != null ? pvWings : Shop.Owns(ItemKind.Wings, save.wings) && Data.Wing(save.wings) != null ? save.wings : null;
         public Save save;
         public int Skin(string id) { int i = save.skinKeys.IndexOf(id); return i < 0 ? 0 : save.skinVals[i]; }
+        // the model a hero shows for the player: its chosen (owned) skin, or the one being previewed in the lobby
+        public int SkinOf(HeroDef h, bool preview = false) { int i = Mathf.Clamp(Skin(h.id), 0, Data.SkinCount(h) - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{h.id}:{i}")) i = 0; if (preview && pvSkin >= 0) i = Mathf.Clamp(pvSkin, 0, Data.SkinCount(h) - 1); return i; }
+        public string ModelKey(HeroDef h, bool preview = false) => Data.ModelOf(h, SkinOf(h, preview));
         public void SetSkin(string id, int v) { int i = save.skinKeys.IndexOf(id); if (i < 0) { save.skinKeys.Add(id); save.skinVals.Add(v); } else save.skinVals[i] = v; Persist(); }
         public void Persist() { PlayerPrefs.SetString("novaBlade", JsonUtility.ToJson(save)); PlayerPrefs.Save(); }
         public int MaxStage => Mathf.Max(Data.Themes.Length, Mathf.Min(99, save.best + 1));   // every stage is open from the start
@@ -243,8 +246,11 @@ namespace NovaBlade
             int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
             int bst = System.Array.IndexOf(args, "-battlesettings"); if (bst >= 0 && bst + 1 < args.Length) StartCoroutine(BattleSettingsTest(args[bst + 1]));
             int tbl = System.Array.IndexOf(args, "-teambalance"); if (tbl >= 0 && tbl + 1 < args.Length) StartCoroutine(TeamBalance(args[tbl + 1], tbl + 2 < args.Length && int.TryParse(args[tbl + 2], out int tf) ? tf : 120));
+            int skt = System.Array.IndexOf(args, "-skintest"); if (skt >= 0 && skt + 1 < args.Length) StartCoroutine(SkinTest(args[skt + 1]));
             int brt = System.Array.IndexOf(args, "-brutetest"); if (brt >= 0 && brt + 1 < args.Length) StartCoroutine(BruteTest(args[brt + 1]));
             int sct = System.Array.IndexOf(args, "-scrolltest"); if (sct >= 0 && sct + 1 < args.Length) StartCoroutine(ScrollTest(args[sct + 1]));
+            int gsg = System.Array.IndexOf(args, "-gripsign"); if (gsg >= 0 && gsg + 1 < args.Length) Grip.Sign = float.Parse(args[gsg + 1], System.Globalization.CultureInfo.InvariantCulture);   // tests
+            int phr = System.Array.IndexOf(args, "-posehero"); if (phr >= 0 && phr + 1 < args.Length) Studio.PoseOnly = args[phr + 1];
             int pst = System.Array.IndexOf(args, "-posesheet"); if (pst >= 0 && pst + 1 < args.Length) { Studio.PoseSheet(args[pst + 1]); Application.Quit(); }
             int mpt = System.Array.IndexOf(args, "-matchprep"); if (mpt >= 0 && mpt + 1 < args.Length) StartCoroutine(MatchPrepTest(args[mpt + 1], mpt + 2 < args.Length && !args[mpt + 2].StartsWith("-") ? args[mpt + 2] : "pc"));
             int dbl = System.Array.IndexOf(args, "-duelbalance"); if (dbl >= 0 && dbl + 1 < args.Length) StartCoroutine(DuelBalance(args[dbl + 1], dbl + 2 < args.Length && int.TryParse(args[dbl + 2], out int dr) ? dr : 2, dbl + 3 < args.Length && int.TryParse(args[dbl + 3], out int dm) ? dm : 0));
@@ -614,7 +620,7 @@ namespace NovaBlade
             {
                 if (ids != "all" && !ids.Split(',').Contains(d.id)) continue; if (!d.rig) continue;
                 save.hero = d.id; StartCity(); pet.gameObject.SetActive(false); hero.max = hero.hp = 999999; yield return new WaitForSecondsRealtime(1.2f);
-                var an = hero.GetComponentInChildren<Animator>(); var sk = hero.GetComponentInChildren<SkinnedMeshRenderer>(); if (!an || !sk || !an.isHuman) { log.AppendLine($"{d.id}: no humanoid"); continue; } log.AppendLine($"{d.id}: readable {sk.sharedMesh.isReadable} sole vertices mended {FootWeights.LastChanged} {FootWeights.Report(sk)}");
+                var an = hero.GetComponentInChildren<Animator>(); var sk = hero.GetComponentInChildren<SkinnedMeshRenderer>(); if (!an || !sk || !an.isHuman) { log.AppendLine($"{d.id}: no humanoid"); continue; } log.AppendLine($"{d.id}: readable {sk.sharedMesh.isReadable} {FootWeights.Report(sk)}");
                 var fl = an.GetBoneTransform(HumanBodyBones.LeftFoot); var fr = an.GetBoneTransform(HumanBodyBones.RightFoot); var tl = an.GetBoneTransform(HumanBodyBones.LeftToes);
                 float standL = Sole(sk, fl), standR = Sole(sk, fr), walkL = 0, walkR = 0; float toeRest = tl ? Vector3.Distance(fl.position, tl.position) : 0, toeMax = toeRest;
                 int k = 0; for (float t = 0; t < 2.6f; t += Time.deltaTime) { hero.inv = 0; ui.Joy = new Vector2(1, 0); if (t > .8f) { walkL = Mathf.Max(walkL, Sole(sk, fl)); walkR = Mathf.Max(walkR, Sole(sk, fr)); if (tl) toeMax = Mathf.Max(toeMax, Vector3.Distance(fl.position, tl.position)); }
@@ -1043,6 +1049,22 @@ namespace NovaBlade
             foreach (var h in ids.OrderByDescending(h => wins[h.id] / Mathf.Max(1, games[h.id]))) log.AppendLine($"{h.id,-10} {h.cls,-9} win {wins[h.id] / Mathf.Max(1, games[h.id]) * 100:0}%  ({wins[h.id]:0.#}/{games[h.id]})");
             log.AppendLine("by class:"); foreach (var g in ids.GroupBy(h => h.cls)) log.AppendLine($"  {g.Key,-9} {g.Sum(h => wins[h.id]) / Mathf.Max(1, g.Sum(h => games[h.id])) * 100:0}%");
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "teambalance.txt"), log.ToString()); Application.Quit();
+        }
+        // Test mode (-skintest <dir>): Garland's skins tab (the classic look as a model skin), wearing it in the lobby, on the VS screen and in a match
+        System.Collections.IEnumerator SkinTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            int keepSkin = Skin("knight"); string keepHero = save.hero;
+            save.hero = "knight"; hero.Equip(); hero.PlaceLobby(); ui.ShowLobby(); ui.SetTab("skin"); yield return new WaitForSecondsRealtime(1.2f); Snap("skin_tab_new");
+            var kd = Data.Heroes.First(h => h.id == "knight"); int classic = kd.skins.Length;
+            log.AppendLine($"knight skins: {Data.SkinCount(kd)} ({string.Join(", ", Enumerable.Range(0, Data.SkinCount(kd)).Select(i => Data.SkinName(kd, i) + (Data.IsModelSkin(kd, i) ? " [model " + Data.ModelOf(kd, i) + "]" : "")))}) · classic free {Shop.Owns(ItemKind.HeroSkin, $"knight:{classic}")}");
+            SetSkin("knight", classic); hero.Equip(); hero.PlaceLobby(); ui.SetTab("skin"); yield return new WaitForSecondsRealtime(1.2f); Snap("skin_tab_classic");
+            log.AppendLine($"wearing: {hero.modelKey} · card {(Studio.HeroFull("knight_classic") ? "yes" : "no")}");
+            save.laneMode = 3; ui.ShowHeroPick(); yield return new WaitForSecondsRealtime(.5f); ui.TestPick("knight", "warrior"); yield return new WaitForSecondsRealtime(.6f); Snap("skin_pick");
+            ui.TestConfirm(); yield return new WaitForSecondsRealtime(4.3f); Snap("skin_vs"); yield return new WaitForSecondsRealtime(2.5f); Snap("skin_match"); log.AppendLine($"in match: {hero.modelKey}");
+            SetSkin("knight", keepSkin); save.hero = keepHero; Persist();
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "skin.txt"), log.ToString()); Application.Quit();
         }
         // Test mode (-brutetest <dir>): Sky Lanes, every enemy outer tower knocked down: the next wave brings a War Brute down each lane; the dash length
         System.Collections.IEnumerator BruteTest(string dir)

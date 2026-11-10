@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -62,11 +63,12 @@ namespace NovaBlade
             embersEl.MarkDirtyRepaint();
         }
         // the six heroes rendered in a fighting stance, ours turned to face right, theirs to face left
+        const float VsYaw = -0.01f;   // facing the camera (the owner preferred it to the sides turned toward each other); the sign still tells the sides apart for the lighting
         void MakePoses(List<HeroDef> us, List<HeroDef> them)
         {
             foreach (var t in vsPoses) if (t) Destroy(t); vsPoses.Clear();
-            var who = new List<(HeroDef, float)>(); foreach (var h in us) who.Add((h, -38)); foreach (var h in them) who.Add((h, 38));
-            vsPoses.AddRange(Studio.VsPoses(who));
+            var who = new List<(HeroDef, float, string)>(); for (int i = 0; i < us.Count; i++) who.Add((us[i], VsYaw, i == 0 ? G.ModelKey(us[i]) : us[i].id)); foreach (var h in them) who.Add((h, -VsYaw, h.id));   // the player in their skin
+            vsPoses.AddRange(Studio.VsPoses(who)); Debug.Log($"[Vs] hero pictures {vsPoses.Count(t => t)} of {who.Count}");
         }
         Texture2D PoseOf(int t, int i, int ourCount) { int k = t == 0 ? i : ourCount + i; return k < vsPoses.Count ? vsPoses[k] : null; }
     }

@@ -44,7 +44,8 @@ namespace NovaBlade
             if (model) Destroy(model);
             if (def.rig)
             {
-                model = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + def.id), transform); FootWeights.Mend(model); SleeveHang.Attach(model);
+                modelKey = G.ModelKey(def, lobby); var mpf = Resources.Load<GameObject>("Heroes/Hero_" + modelKey); if (!mpf) { modelKey = def.id; mpf = Resources.Load<GameObject>("Heroes/Hero_" + def.id); }   // a model skin, or the hero's own
+                model = Instantiate(mpf, transform); SleeveHang.Attach(model); Grip.Attach(model);
                 anim = model.GetComponentInChildren<Animator>();
                 animSet = Data.AnimSet(def.id); if (animSet != null) animSet += def.female ? "_f" : "_m";   // each class set comes in a women's and a men's walk, run and stance
                 if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
@@ -67,9 +68,8 @@ namespace NovaBlade
                 anim = null; animSet = null; mFistR = mFistL = mBowL = mCrossR = mShieldL = null;
             }
             foreach (var r in model.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-            int skinIdx = Mathf.Clamp(G.Skin(def.id), 0, def.skins.Length - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{def.id}:{skinIdx}")) skinIdx = 0;
-            if (lobby && G.pvSkin >= 0) skinIdx = Mathf.Clamp(G.pvSkin, 0, def.skins.Length - 1);
-            look = new Look(model); var sk = def.skins[skinIdx]; look.Set(sk.tint, sk.glow);
+            int skinIdx = G.SkinOf(def, lobby);
+            look = new Look(model); var sk = Data.IsModelSkin(def, skinIdx) ? def.skins[0] : def.skins[skinIdx]; look.Set(sk.tint, sk.glow);   // a model skin is worn untinted
             EquipSword(lobby); EquipShield(lobby);
             WingRig.Wear(gameObject, anim ? anim.GetBoneTransform(HumanBodyBones.Chest) ?? anim.GetBoneTransform(HumanBodyBones.Spine) : model.transform, G.WingsShown, !anim);   // every hero wears the chosen wings, Aeris too (like the other archers)
             state = St.Idle; Play(G.mode == Main.Mode.Lobby ? Show : "idle", .1f);
@@ -499,6 +499,7 @@ namespace NovaBlade
         }
 
         public void TestDodge(Vector2 mv) => StartDodge(mv);   // tests
+        public string modelKey;   // which model is worn: the hero id, or a model skin's   // tests
         void StartDodge(Vector2 mv)
         {
             float a = mv.magnitude > .2f ? Mathf.Atan2(mv.x, mv.y) : face; face = a; dodgeDir = new Vector2(Mathf.Sin(a), Mathf.Cos(a)); dodgeT = 0;

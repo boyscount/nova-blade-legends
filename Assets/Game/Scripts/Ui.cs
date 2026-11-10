@@ -382,13 +382,13 @@ namespace NovaBlade
             }
             else if (tab == "skin")
             {
-                int cur = G.Skin(h.id); if (!Shop.Owns(ItemKind.HeroSkin, $"{h.id}:{cur}")) cur = 0; int shown = G.pvSkin >= 0 ? G.pvSkin : cur;
-                for (int i = 0; i < h.skins.Length; i++)
+                int cur = G.SkinOf(h); int shown = G.pvSkin >= 0 ? G.pvSkin : cur;
+                for (int i = 0; i < Data.SkinCount(h); i++)
                 {
-                    int k = i; string id = $"{h.id}:{i}";
-                    Card(h.skins[i].n, null, h.skins[i], shown == i, () => { if (Shop.Owns(ItemKind.HeroSkin, id)) { G.ClearPreview(); G.SetSkin(h.id, k); } else G.pvSkin = k; Pick(); }, false, Badge(ItemKind.HeroSkin, id, i == cur));
+                    int k = i; string id = $"{h.id}:{i}"; bool look = Data.IsModelSkin(h, i);   // a whole other look: its own card picture instead of a colour swatch
+                    Card(Data.SkinName(h, i), look ? Studio.HeroFull(Data.ModelOf(h, i)) ?? Studio.Hero(Data.ModelOf(h, i)) : null, look ? null : h.skins[i], shown == i, () => { if (Shop.Owns(ItemKind.HeroSkin, id)) { G.ClearPreview(); G.SetSkin(h.id, k); } else G.pvSkin = k; Pick(); }, false, Badge(ItemKind.HeroSkin, id, i == cur));
                 }
-                Offer(ItemKind.HeroSkin, $"{h.id}:{shown}", h.skins[shown].n, Loc.S($"สกินของ {h.name} · {h.skins[shown].n} · เปลี่ยนแค่รูปลักษณ์ ไม่เพิ่มพลัง", $"{h.name} skin · {h.skins[shown].n} · Looks only, no stat change"));
+                Offer(ItemKind.HeroSkin, $"{h.id}:{shown}", Data.SkinName(h, shown), Loc.S($"สกินของ {h.name} · {Data.SkinName(h, shown)} · เปลี่ยนแค่รูปลักษณ์ ไม่เพิ่มพลัง", $"{h.name} skin · {Data.SkinName(h, shown)} · Looks only, no stat change"));
             }
             else if (tab == "sword")
             {
@@ -971,7 +971,7 @@ namespace NovaBlade
         void RenderFieldBag()
         {
             var s = G.save; float big = touchUi ? 1.2f : 1, cs = 104 * big; var entries = FieldEntries();
-            var art = Studio.HeroFull(G.hero.def.id) ?? Studio.Hero(G.hero.def.id); if (art) fbHero.style.backgroundImage = new StyleBackground(art);
+            var mk = G.ModelKey(G.hero.def); var art = Studio.HeroFull(mk) ?? Studio.HeroFull(G.hero.def.id) ?? Studio.Hero(G.hero.def.id); if (art) fbHero.style.backgroundImage = new StyleBackground(art);
             fbTitle.text = fbAll ? Loc.S($"กระเป๋าทั้งหมด ({entries.Count})", $"All gear ({entries.Count})") : Loc.S($"ของที่เก็บได้รอบนี้ ({entries.Count})", $"Found this fight ({entries.Count})");
             fbMode.text = fbAll ? Loc.S("เฉพาะของใหม่", "New only") : Loc.S("ดูทั้งกระเป๋า", "All gear");
             if (fbSel == null && entries.Count > 0) fbSel = "g:" + entries[0].index;
@@ -1551,7 +1551,7 @@ namespace NovaBlade
             string back = G.cameFromCity && !G.city ? Loc.S("กลับเมือง", "Back to City") : Loc.S("กลับล็อบบี้", "Back to Lobby"); if (pauseBack != null) pauseBack.text = back; if (resultBack != null) resultBack.text = G.cameFromCity ? Loc.S("เมือง", "City") : Loc.S("ล็อบบี้", "Lobby");
             lobby.style.display = DisplayStyle.None; hud.style.display = DisplayStyle.Flex; resultOv.style.display = pauseOv.style.display = DisplayStyle.None; bossW.style.display = DisplayStyle.None;
             var h = G.hero.def; hudName.text = h.name; petN.text = G.pet.def.name;
-            porImg.style.backgroundImage = new StyleBackground(Studio.Hero(h.id)); petImg.style.backgroundImage = new StyleBackground(Studio.Pet(G.pet.def.id));
+            porImg.style.backgroundImage = new StyleBackground(Studio.Hero(G.ModelKey(h)) ?? Studio.Hero(h.id)); petImg.style.backgroundImage = new StyleBackground(Studio.Pet(G.pet.def.id));
             var kit = G.lane ? Kits.For(h.id) : null;   // lane battles: the hero's MOBA kit, its own names and pictures
             for (int i = 0; i < 3; i++) { var d = Data.SkillLook(h.id, h.skills[i]); var info = (SkBtn)sk[i + 1].userData; info.id = h.skills[i]; info.c = d.c; sk[i + 1].Q<Label>("lb").text = kit != null ? kit.s[i].n : d.n; SetIcon(i + 1, kit != null ? Kits.IconOf(h.id, i) : $"skill_{h.id}_{h.skills[i]}"); }
             SetIcon(0, G.soul ? "btn_souls_light" : "btn_attack_" + Data.AttackIcon(h)); SetIcon(4, "btn_dodge");

@@ -44,6 +44,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: e_cultist
       objectReference: {fileID: 0}
+    - target: {fileID: 1038546186936427524, guid: f4e8ab5712b22bb44b52f21f522a1e16, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 4300000, guid: 04c184c6e71135949a62204c753d6655, type: 2}
     - target: {fileID: 1957694446290601253, guid: f4e8ab5712b22bb44b52f21f522a1e16, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.0018965633

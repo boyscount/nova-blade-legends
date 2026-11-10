@@ -46,11 +46,11 @@ namespace NovaBlade
             foreach (var h in Data.Heroes.Where(h => h.rig && Kits.For(h.id) != null && (pickCls == "all" || h.cls == pickCls)))
             {
                 var hh = h; bool on = h.id == pickId; var cc = ClassCol(h.cls);
-                var card = Box(new Color(.05f, .06f, .09f, .95f), 12); card.style.width = 170 * big; card.style.height = Length.Percent(92); card.style.marginRight = 12; card.style.flexShrink = 0; card.style.overflow = Overflow.Hidden;
+                var card = Box(new Color(.05f, .06f, .09f, .95f), 12); card.style.width = 270 * big; card.style.height = Length.Percent(92); card.style.marginRight = 12; card.style.flexShrink = 0; card.style.overflow = Overflow.Hidden;
                 Border(card, on ? Gold : new Color(cc.r, cc.g, cc.b, .7f), on ? 4 : 2); card.pickingMode = PickingMode.Position;
                 if (on) { card.style.scale = new Scale(new Vector3(1.04f, 1.04f, 1)); }
                 card.RegisterCallback<PointerDownEvent>(e => { pickId = hh.id; ShowHeroPick(); });
-                var art = Box(); art.style.flexGrow = 1; art.style.backgroundImage = new StyleBackground(Studio.HeroFull(h.id) ?? Studio.Hero(h.id)); art.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
+                var art = Box(); art.style.flexGrow = 1; var mk = G.ModelKey(h); art.style.backgroundImage = new StyleBackground(Studio.HeroFull(mk) ?? Studio.HeroFull(h.id) ?? Studio.Hero(h.id)); art.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;   // the skin the player wears for this hero, filling the card without stretching (the scale mode used to sit inside this comment, so the art was stretched)
                 art.style.backgroundColor = new Color(cc.r * .25f, cc.g * .25f, cc.b * .25f); card.Add(art);
                 var plate = Box(new Color(0, 0, 0, .65f)); plate.style.paddingTop = plate.style.paddingBottom = 6; plate.style.alignItems = Align.Center; card.Add(plate);
                 plate.Add(L(h.name, 22 * big, on ? Gold : Ink, true)); plate.Add(L(ClassName(h.cls), 15 * big, cc));
@@ -104,12 +104,10 @@ namespace NovaBlade
             ourTeam = Pick2(TeamNames[Random.Range(0, TeamNames.Length)]); theirTeam = Pick2(FoeNames[Random.Range(0, FoeNames.Length)]);
             if (vsOv == null) { vsOv = Box(new Color(.01f, .015f, .03f, 1)); Abs(vsOv, 0, 0, 0, 0); vsOv.pickingMode = PickingMode.Position; root.Add(vsOv); }
             vsOv.Clear(); bool phone = touchUi;
-            vsOv.style.backgroundImage = new StyleBackground(VsNight()); vsOv.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
+            var painted = Resources.Load<Texture2D>("UI/Vs/vs_bg"); vsOv.style.backgroundImage = new StyleBackground(painted ? painted : VsDay()); vsOv.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
             void Glow(float l, float t, float w, float h, Color c) { var g = Box(); g.style.position = Position.Absolute; g.style.left = Length.Percent(l); g.style.top = Length.Percent(t); g.style.width = Length.Percent(w); g.style.height = Length.Percent(h); g.style.backgroundImage = new StyleBackground(SoftGlow()); g.style.unityBackgroundImageTintColor = c; g.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; vsOv.Add(g); }
             // our side wrapped in an icy blue spirit glow, theirs in fire and violet; smoke along the bottom
-            Glow(-18, -5, 72, 100, new Color(.25f, .6f, 1f, .7f)); Glow(2, 20, 40, 60, new Color(.6f, .85f, 1f, .45f));
-            Glow(46, -5, 72, 100, new Color(1f, .3f, .08f, .65f)); Glow(66, 15, 36, 55, new Color(.7f, .25f, 1f, .45f));
-            Glow(52, 70, 60, 45, new Color(.55f, .55f, .6f, .55f)); Glow(-12, 74, 50, 40, new Color(.4f, .45f, .55f, .4f));
+            Glow(-18, -5, 64, 90, new Color(.35f, .75f, 1f, .2f)); Glow(54, -5, 64, 90, new Color(1f, .45f, .25f, .16f));   // daylight: only a breath of each side's colour
             // optional painted art (drop-in PNGs under Resources/UI/Vs): a wolf spirit rising behind our side, a flame behind theirs
             VisualElement Art(string name, float l, float t, float w, float h, bool flip)
             {
@@ -119,7 +117,7 @@ namespace NovaBlade
             }
             vsSpirit0 = Art("wolf_spirit", 3, -4, 36, 60, false); vsSpirit1 = Art("foe_spirit", 61, -4, 36, 60, false);   // high up: the wolf's and the skull's heads clear of the heroes' heads   // the ice wolf roars toward the enemy, the demon skull back at us
             // the cliffs both teams stand on, the chasm between them misty
-            Glow(38, 64, 24, 50, new Color(0, 0, .01f, .9f)); vsOv.Add(Cliffs()); Glow(44, 88, 12, 16, new Color(.4f, .55f, .9f, .35f));   // a deep dark chasm, faint mist at its bottom
+            if (!painted) { vsOv.Add(Banners()); vsOv.Add(ArenaFloor()); }   // one bright stone arena for both teams (the dark cliffs and chasm were the night look)   // a deep dark chasm, faint mist at its bottom
             // the heroes, big and overlapping, cut off by the plates (the plates are drawn after them)
             var stage = Box(); stage.style.position = Position.Absolute; stage.style.left = 0; stage.style.right = 0; stage.style.top = Length.Percent(phone ? 14 : 13); stage.style.bottom = Length.Percent(phone ? 9 : 8); stage.style.flexDirection = FlexDirection.Row; vsOv.Add(stage);
             var us = new List<HeroDef> { G.hero.def }; us.AddRange(G.nextAllies ?? new List<HeroDef>()); var them = G.nextEnemies ?? new List<HeroDef>();
@@ -127,15 +125,16 @@ namespace NovaBlade
             stage.Add(vsSide0 = Heroes(us, 0)); var gap = Box(); gap.style.width = Length.Percent(6); stage.Add(gap); stage.Add(vsSide1 = Heroes(them, 1));
             vsSide0.style.opacity = vsSide1.style.opacity = 0;   // they slide in from the edges (UpdVs)
             // the fiery slash, embers, the burning VS
-            vsOv.Add(vsBolt = Lightning()); vsOv.Add(Embers()); vsFlashK = 0;   // a lightning bolt splits the two sides (no VS letters: the owner liked it cleaner)
+            vsBolt = null; vsOv.Add(Embers()); vsFlashK = 0;   // a lightning bolt splits the two sides (no VS letters: the owner liked it cleaner)
             vsFlash = Box(new Color(.85f, .92f, 1f)); vsFlash.style.position = Position.Absolute; vsFlash.style.left = vsFlash.style.right = vsFlash.style.top = vsFlash.style.bottom = 0; vsFlash.style.opacity = 0; vsFlash.pickingMode = PickingMode.Ignore; vsOv.Add(vsFlash);   // the flash as VS slams in
+            if (!painted) vsOv.Add(Blossoms());
             // title: the game's name, and the mode between two gold rules
             var title = Box(); title.style.position = Position.Absolute; title.style.left = 0; title.style.right = 0; title.style.top = Length.Percent(2.5f); title.style.alignItems = Align.Center; vsOv.Add(title);
-            var t1 = L("NOVA BLADE", phone ? 46 : 60, new Color(1, .92f, .75f), true); t1.style.unityTextOutlineWidth = .2f; t1.style.unityTextOutlineColor = new Color(.5f, .3f, .05f); Shadow(t1, 10); title.Add(t1);
-            title.Add(L("LEGENDS", phone ? 17 : 21, Gold, true));
+            var t1 = L("NOVA BLADE", phone ? 54 : 72, new Color(1, .95f, .82f), true); t1.style.unityTextOutlineWidth = .28f; t1.style.unityTextOutlineColor = new Color(.42f, .24f, .04f); Shadow(t1, 12); title.Add(t1);
+            var leg = L("LEGENDS", phone ? 22 : 28, new Color(1f, .82f, .42f), true); leg.style.letterSpacing = 6; leg.style.unityTextOutlineWidth = .3f; leg.style.unityTextOutlineColor = new Color(.25f, .13f, .02f); Shadow(leg, 8); title.Add(leg);
             var mrow = Box(); mrow.style.flexDirection = FlexDirection.Row; mrow.style.alignItems = Align.Center; mrow.style.marginTop = 4; title.Add(mrow);
             VisualElement Rule(bool left) { var r = Box(); r.style.width = phone ? 70 : 110; r.style.height = 2; r.style.backgroundImage = new StyleBackground(Grad(left ? new Color(.85f, .66f, .32f, 0) : new Color(.85f, .66f, .32f), left ? new Color(.85f, .66f, .32f) : new Color(.85f, .66f, .32f, 0), false)); return r; }
-            mrow.Add(Rule(true)); var ml = L(ModeName(G.save.laneMode), phone ? 24 : 30, new Color(1, .93f, .8f), true); ml.style.marginLeft = ml.style.marginRight = 14; Shadow(ml, 8); mrow.Add(ml); mrow.Add(Rule(false));
+            mrow.Add(Rule(true)); var ml = L(ModeName(G.save.laneMode), phone ? 24 : 30, Color.white, true); ml.style.marginLeft = ml.style.marginRight = 14; ml.style.unityTextOutlineWidth = .25f; ml.style.unityTextOutlineColor = new Color(.08f, .1f, .22f); Shadow(ml, 8); mrow.Add(ml); mrow.Add(Rule(false));
             // name plates over the heroes' legs
             var plates = Box(); plates.style.position = Position.Absolute; plates.style.left = Length.Percent(3); plates.style.right = Length.Percent(3); plates.style.bottom = Length.Percent(phone ? 17 : 17); plates.style.flexDirection = FlexDirection.Row; plates.style.justifyContent = Justify.SpaceBetween; vsOv.Add(plates);
             plates.Add(Plates(us, 0, ourTeam, phone)); plates.Add(Plates(them, 1, theirTeam, phone));
@@ -164,6 +163,10 @@ namespace NovaBlade
                 var art = Box(); art.style.position = Position.Absolute; art.style.bottom = 0;
                 float w = lead ? 70 : 58, x = lead ? 12 : i == 1 ? -14 : 50; if (t == 1) x = 100 - x - w;
                 art.style.left = Length.Percent(x); art.style.width = Length.Percent(w); art.style.height = Length.Percent(lead ? 106 : 94); art.style.bottom = Length.Percent(lead ? -12 : -8);   // a little smaller than before, to leave the spirits room above them   // feet go under the plates
+                var shade = Box(); shade.style.position = Position.Absolute; shade.style.left = Length.Percent(x + w * .2f); shade.style.width = Length.Percent(w * .6f);
+                shade.style.bottom = Length.Percent((lead ? -12 : -8) + (lead ? 106 : 94) * .035f - 2); shade.style.height = Length.Percent(6);
+                shade.style.backgroundImage = new StyleBackground(SoftGlow()); shade.style.unityBackgroundImageTintColor = new Color(0, 0, .03f, 1); shade.pickingMode = PickingMode.Ignore; side.Add(shade);
+                var core = Box(); core.style.position = Position.Absolute; core.style.left = Length.Percent(x + w * .32f); core.style.width = Length.Percent(w * .36f); core.style.bottom = Length.Percent((lead ? -12 : -8) + (lead ? 106 : 94) * .035f - .5f); core.style.height = Length.Percent(3); core.style.backgroundImage = new StyleBackground(SoftGlow()); core.style.unityBackgroundImageTintColor = new Color(0, 0, .03f, 1); core.pickingMode = PickingMode.Ignore; side.Add(core);
                 var pose = PoseOf(t, i, vsOurCount); art.style.backgroundImage = new StyleBackground(pose ? pose : Studio.HeroFull(h.id) ?? Studio.Hero(h.id)); art.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit;
                 if (!lead) art.style.unityBackgroundImageTintColor = new Color(.85f, .86f, .9f);   // the ones behind a little darker
                 if (t == 1 && !pose) art.style.scale = new Scale(new Vector3(-1, 1, 1));
@@ -180,8 +183,8 @@ namespace NovaBlade
             foreach (int ix in at)
             {
                 if (ix >= team.Count) continue; var h = team[ix]; bool me = t == 0 && h == G.hero.def; var cc = ClassCol(h.cls);
-                var p = Box(); p.style.backgroundImage = new StyleBackground(Grad(new Color(cc.r * .4f, cc.g * .4f, cc.b * .4f, .95f), new Color(cc.r * .12f, cc.g * .12f, cc.b * .12f, .95f), true)); Round(p, 6);
-                Border(p, me ? Gold : new Color(cc.r * .9f + .1f, cc.g * .9f + .1f, cc.b * .9f + .1f), me ? 3 : 2);
+                var p = Box(); p.style.backgroundImage = new StyleBackground(Grad(new Color(cc.r * .72f, cc.g * .72f, cc.b * .72f, .9f), new Color(cc.r * .3f, cc.g * .3f, cc.b * .3f, .92f), true)); Round(p, 6);
+                Border(p, me ? Gold : new Color(Mathf.Min(1, cc.r * .6f + .45f), Mathf.Min(1, cc.g * .6f + .4f), Mathf.Min(1, cc.b * .6f + .25f)), me ? 3 : 2);
                 p.style.width = Length.Percent(32); p.style.marginLeft = p.style.marginRight = 4; p.style.paddingTop = p.style.paddingBottom = 5; p.style.paddingLeft = p.style.paddingRight = 6;
                 var lv = L("Lv.1", phone ? 13 : 14, new Color(1, .9f, .7f), true); lv.style.position = Position.Absolute; lv.style.left = 6; lv.style.top = 3; p.Add(lv);
                 var n = L(h.name + (me ? Loc.S(" (คุณ)", " (you)") : ""), phone ? 24 : 26, me ? Gold : Color.white, true); n.style.unityTextAlign = TextAnchor.MiddleCenter; n.style.marginTop = phone ? 8 : 10; Shadow(n, 4); p.Add(n);
@@ -202,7 +205,8 @@ namespace NovaBlade
         {
             if (!vsOn) return;
             dt = Mathf.Min(dt, .05f); UpdFire(dt); vsT += dt; VsIntro();   // the first frame carries the poses' render time; don't let it skip the bar
-            float k = Mathf.Clamp01((vsT - .4f) / 4f);   // the bar fills by 4.4 s vsFill.style.width = Length.Percent(k * 100);
+            float k = Mathf.Clamp01((vsT - .4f) / 4f);   // the bar fills by 4.4 s
+            vsFill.style.width = Length.Percent(k * 100);
             vsPct.text = $"{k * 100:0}%";
             if (vsT > 5.5f) StartFromVs();   // no start button: the match begins by itself at 5.5 s (the owner wanted time to look at it)
         }
@@ -223,7 +227,7 @@ namespace NovaBlade
                 e.style.translate = new Translate(0, Length.Percent(4 * (1 - sp) - 1.2f * p));   // rises a little as it breathes
             }
             Spirit(vsSpirit0, 0); Spirit(vsSpirit1, 1.7f);
-            float hit = UpdLightning(Mathf.Min(Time.unscaledDeltaTime, .05f), vsT); vsFlashK = Mathf.Max(vsFlashK * Mathf.Pow(.02f, Time.unscaledDeltaTime), hit * .6f);   // a white flash with each strike, gone in about a quarter second
+            float hit = vsBolt != null ? UpdLightning(Mathf.Min(Time.unscaledDeltaTime, .05f), vsT) : 0; vsFlashK = Mathf.Max(vsFlashK * Mathf.Pow(.02f, Time.unscaledDeltaTime), hit * .6f);   // a white flash with each strike, gone in about a quarter second
             if (vsFlash != null) vsFlash.style.opacity = vsFlashK; vsBolt?.MarkDirtyRepaint();
         }
         public bool VsShown => vsOn;

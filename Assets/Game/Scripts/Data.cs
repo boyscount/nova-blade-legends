@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace NovaBlade
@@ -21,6 +23,22 @@ namespace NovaBlade
     public static class Data
     {
         // per-class movement and attack clips (AnimatorOverrideController in Resources/Anim/<set>); null = the shared Great Sword set
+        // Model skins: a whole other look for a hero (its old model, kept when the hero got a new one). They come after the colour skins
+        // in the same list (index skins.Length and up), are free, and keep the hero's name, class, kit and animation set.
+        // every rigged hero's first look (before the 2026-11 remake) is kept as its "classic" model skin
+        static readonly string[] Classic = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger" };
+        public static (string n, string model)[] ModelSkins(string hero)
+        {
+            if (hero == "knight") return new[] { (Loc.S("เจ้าชายการ์แลนด์ (ดั้งเดิม)", "Prince Garland (classic)"), "knight_classic") };
+            if (System.Array.IndexOf(Classic, hero) < 0) return System.Array.Empty<(string, string)>();
+            var h = Heroes.FirstOrDefault(x => x.id == hero); string n = h != null ? h.name : hero;
+            return new[] { (Loc.S($"{n} ดั้งเดิม", $"Classic {n}"), hero + "_classic") };
+        }
+        public static IEnumerable<string> AllSkinModels => Heroes.SelectMany(h => ModelSkins(h.id).Select(m => m.model));
+        public static int SkinCount(HeroDef h) => h.skins.Length + ModelSkins(h.id).Length;
+        public static bool IsModelSkin(HeroDef h, int i) => i >= h.skins.Length;
+        public static string ModelOf(HeroDef h, int i) => IsModelSkin(h, i) && i - h.skins.Length < ModelSkins(h.id).Length ? ModelSkins(h.id)[i - h.skins.Length].model : h.id;
+        public static string SkinName(HeroDef h, int i) => IsModelSkin(h, i) ? ModelSkins(h.id)[i - h.skins.Length].n : h.skins[i].n;
         public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" or "lyra" or "flamepriest" => "mage", "elf" or "hood" or "harpy" or "rowan" => "bow", "ninja" => "ninja", "monk" or "tenzin" or "tiger" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };
         static Color C(int hex) => new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f);
         static Color G(int hex, float k) => C(hex) * k;

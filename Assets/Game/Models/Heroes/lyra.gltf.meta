@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 2659892af50b1e149b546d94d7793d81
+guid: ec979d4e2594731468eed79b8cf31f64
 ScriptedImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -24,11 +24,5 @@ ScriptedImporter:
     skinUpdateWhenOffscreen: 1
     lightIntensityFactor: 1
     sceneObjectCreation: 2
-  assetDependencies:
-  - type: 0
-    originalUri: Assets\Game\Models\Heroes\lyra.bin
-    assetPath: Assets\Game\Models\Heroes\lyra.bin
-  - type: 1
-    originalUri: Assets\Game\Models\Heroes\lyra_tex0.jpg
-    assetPath: Assets\Game\Models\Heroes\lyra_tex0.jpg
+  assetDependencies: []
   reportItems: []

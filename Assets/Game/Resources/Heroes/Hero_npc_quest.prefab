@@ -44,6 +44,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: npc_quest
       objectReference: {fileID: 0}
+    - target: {fileID: 1038546186936427524, guid: a39c1ef58e16dbc4b9fdf5810ead8ca3, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 4300000, guid: 468f72f32c341a440982342c75a96be8, type: 2}
     - target: {fileID: 7512201547712726738, guid: a39c1ef58e16dbc4b9fdf5810ead8ca3, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

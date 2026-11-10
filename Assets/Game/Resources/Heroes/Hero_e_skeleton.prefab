@@ -45,13 +45,25 @@ PrefabInstance:
       value: e_skeleton
       objectReference: {fileID: 0}
     - target: {fileID: -2510939798276254756, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.99808687
+      objectReference: {fileID: 0}
+    - target: {fileID: -2510939798276254756, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.043169238
+      value: -0.04317357
+      objectReference: {fileID: 0}
+    - target: {fileID: -2510939798276254756, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.043946583
       objectReference: {fileID: 0}
     - target: {fileID: -2510939798276254756, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.0052313693
+      value: -0.0052318946
       objectReference: {fileID: 0}
+    - target: {fileID: 1038546186936427524, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 4300000, guid: 46e0c4c73f4ea264ba5d207130c3ae66, type: 2}
     - target: {fileID: 7512201547712726738, guid: 563395f5dd2e9a6489217d971425572a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

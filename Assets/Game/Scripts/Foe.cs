@@ -50,7 +50,7 @@ namespace NovaBlade
             if (d.model.StartsWith("@")) go = Lane.Model(d.model, team, transform);
             else if (d.model.StartsWith("hero_"))
             {   // AI hero: the real rigged hero with its Mixamo clips and a random weapon
-                go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + d.model.Substring(5)), transform); anim = go.GetComponentInChildren<Animator>();
+                go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + d.model.Substring(5)), transform); anim = go.GetComponentInChildren<Animator>(); SleeveHang.Attach(go); Grip.Attach(go);   // hanging sleeves and closed hands, as on the player
                 animSet = Data.AnimSet(d.model.Substring(5)); if (animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
                 var sock = go.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "SwordSocket");
                 if (sock) { var w = Data.Swords[Random.Range(0, Data.Swords.Length)]; Instantiate(Catalog.I.Model(w.id), sock); }
@@ -58,7 +58,7 @@ namespace NovaBlade
             else if (d.model.StartsWith("rig_"))
             {   // realistic monster, auto-rigged like the heroes: Humanoid avatar + the shared clips; its weapon is part of the model
                 var id = d.model == "rig_minion" ? (team == 0 ? "m_blue" : "m_red") : d.model.Substring(4);   // (KayKit knights Hero_kk_knight_* exist for a toy-style map; the painted Sky Lanes uses the realistic soldiers)
-                go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + id), transform); anim = go.GetComponentInChildren<Animator>();
+                go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + id), transform); anim = go.GetComponentInChildren<Animator>(); SleeveHang.Attach(go); Grip.Attach(go);   // hanging sleeves and closed hands, as on the player
             }
             else go = Instantiate(Catalog.I.Model(d.model), transform);
             body = go.transform;
