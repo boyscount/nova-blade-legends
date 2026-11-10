@@ -228,11 +228,11 @@ namespace NovaBlade
                     ui.aimDown[i] = false;
                     if (cds[i] > 0) continue;
                     if (mp < SkillCostOf(i)) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); continue; }
-                    aimI = i; aimMouse = key && m != null; ui.aimDrag = Vector2.zero;
+                    aimI = i; aimMouse = key && m != null; ui.aimDrag = Vector2.zero; ui.aimCancel = false;   // a cancel left over from before does not count
                 }
                 if (aimI < 0) { if (Time.frameCount - testAimFrame > 2) aim.Hide(); return; }
             }
-            var s = kit.s[aimI]; var at = AimPoint(s); aim.Show(this, s, at, KitCol(aimI));
+            var s = kit.s[aimI]; var at = AimPoint(s); aim.Show(this, s, at, !aimMouse && ui.AimOut ? new Color(1, .2f, .15f) : KitCol(aimI));   // red: let go here and it is called off
             bool cancel = m != null && m.rightButton.wasPressedThisFrame || ui.aimCancel;
             bool release = aimMouse ? kb == null || !(kb[KitKeys[aimI]].isPressed || kb[Key.Digit1 + aimI].isPressed) : ui.aimUp[aimI];
             if (cancel) { ui.aimCancel = false; ui.aimUp[aimI] = false; aimI = -1; aim.Hide(); return; }

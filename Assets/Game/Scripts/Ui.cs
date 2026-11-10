@@ -15,6 +15,8 @@ namespace NovaBlade
         string ViewLabel() => Loc.S("มุม ", "View ") + (G.ViewStyle + 1); public readonly bool[] skP = new bool[3];
         // MOBA aiming (lane battles): a skill button held down aims, dragging points it, letting go casts
         public readonly bool[] aimDown = new bool[3], aimUp = new bool[3]; public Vector2 aimDrag; public bool aimCancel; Vector2 aimFrom;
+        // drag a held skill well past its range ring and let go: the skill is called off (touch has no right-click)
+        public const float AimCancelAt = 1.6f; public bool AimOut => aimDrag.magnitude > AimCancelAt; Label aimCancelL;
         public bool heavyP, lockP, blockHold;   // Soulslike buttons
         Vector2 lookAcc; public Vector2 TakeLook() { var d = lookAcc; lookAcc = Vector2.zero; return d; }
         VisualElement stamFill, stamBar, poiseFill, reticle, lookZone; Label hint;
@@ -1317,11 +1319,14 @@ namespace NovaBlade
                 var cd = L("", sz * .3f, Color.white, true); Abs(cd, 0, 0, 0, 0); cd.style.unityTextAlign = TextAnchor.MiddleCenter; cd.style.unityTextOutlineWidth = .2f; cd.style.unityTextOutlineColor = new Color(0, 0, 0, .8f); cd.name = "cd"; b.Add(cd);
                 var key = L((WebPc ? new[] { "A", "Q", "W", "E", "R" } : new[] { "J", "U", "I", "O", "SPC" })[k], WebPc ? 19 : 15, WebPc ? Gold : Muted, WebPc); Abs(key, null, -6, -4); key.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; b.Add(key);
                 b.RegisterCallback<PointerDownEvent>(e => { b.CapturePointer(e.pointerId); b.style.scale = new Scale(Vector3.one * .9f); ((SkBtn)b.userData).down = true; b.MarkDirtyRepaint(); Press(k, true); aimFrom = e.position; });
-                b.RegisterCallback<PointerMoveEvent>(e => { if (b.HasPointerCapture(e.pointerId) && k >= 1 && k <= 3) { var d = (Vector2)e.position - aimFrom; aimDrag = new Vector2(d.x, -d.y) / 140f; } });   // drag to aim (screen y grows downward)
-                System.Action<IPointerEvent> release = e => { if (b.HasPointerCapture(e.pointerId)) b.ReleasePointer(e.pointerId); b.style.scale = new Scale(Vector3.one); ((SkBtn)b.userData).down = false; b.MarkDirtyRepaint(); Press(k, false); };
+                b.RegisterCallback<PointerMoveEvent>(e => { if (b.HasPointerCapture(e.pointerId) && k >= 1 && k <= 3) { var d = (Vector2)e.position - aimFrom; aimDrag = new Vector2(d.x, -d.y) / 140f; if (aimCancelL != null) aimCancelL.style.display = AimOut ? DisplayStyle.Flex : DisplayStyle.None; } });   // drag to aim (screen y grows downward)
+                System.Action<IPointerEvent> release = e => { if (b.HasPointerCapture(e.pointerId)) b.ReleasePointer(e.pointerId); if (k >= 1 && k <= 3 && AimOut) aimCancel = true; aimDrag = Vector2.zero; if (aimCancelL != null) aimCancelL.style.display = DisplayStyle.None; b.style.scale = new Scale(Vector3.one); ((SkBtn)b.userData).down = false; b.MarkDirtyRepaint(); Press(k, false); };
                 b.RegisterCallback<PointerUpEvent>(e => release(e)); b.RegisterCallback<PointerCancelEvent>(e => release(e));
                 btns.Add(b); sk[k] = b;
             }
+            aimCancelL = L(Loc.S("✕ ปล่อยเพื่อยกเลิก", "✕ Release to cancel"), touchUi ? 30 : 22, Color.white, true); aimCancelL.style.position = Position.Absolute; aimCancelL.style.right = Length.Percent(10); aimCancelL.style.bottom = Length.Percent(touchUi ? 58 : 40);
+            aimCancelL.style.backgroundColor = new Color(.7f, .08f, .06f, .9f); aimCancelL.style.paddingLeft = aimCancelL.style.paddingRight = 18; aimCancelL.style.paddingTop = aimCancelL.style.paddingBottom = 6; Round(aimCancelL, 10); Border(aimCancelL, new Color(1, .6f, .5f), 2);
+            aimCancelL.pickingMode = PickingMode.Ignore; aimCancelL.style.display = DisplayStyle.None; root.Add(aimCancelL);
             {   // weapon swap (shown when an off-hand weapon is set): small, above the dodge button
                 float ss = touchUi ? 110 : 76; var c = at[4].c + new Vector2(0, at[4].s / 2 + ss / 2 + 18);
                 swapBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(swapBtn, null, null, c.x - ss / 2, c.y - ss / 2); swapBtn.style.width = swapBtn.style.height = ss; Round(swapBtn, ss / 2);
@@ -1658,10 +1663,11 @@ namespace NovaBlade
             {
                 var col = Box(); col.style.flexGrow = 1; col.style.marginLeft = t == 1 ? 18 : 0; board.Add(col);
                 var head = L(t == 0 ? Loc.S("ฝ่ายเรา", "Our side") : Loc.S("ฝ่ายศัตรู", "Enemy"), 20, t == 0 ? new Color(.45f, .78f, 1) : new Color(1, .45f, .42f), true); col.Add(head);
-                var hr = Box(); hr.style.flexDirection = FlexDirection.Row; col.Add(hr); var hn = L(Loc.S("ฮีโร่", "Hero"), 15, Muted); hn.style.flexGrow = 1; hr.Add(hn); hr.Add(L("K / D / A", 15, Muted));
+                var hr = Box(); hr.style.flexDirection = FlexDirection.Row; col.Add(hr); bool lvOn = G.SkyMatch; if (lvOn) { var hl = L("Lv", 15, Muted); hl.style.width = 44; hr.Add(hl); } var hn = L(Loc.S("ฮีโร่", "Hero"), 15, Muted); hn.style.flexGrow = 1; hr.Add(hn); hr.Add(L("K / D / A", 15, Muted));
                 foreach (var s in G.stats.Where(x => x.team == t).OrderByDescending(x => x.k).ThenBy(x => x.d))
                 {
                     var r = Box(); r.style.flexDirection = FlexDirection.Row; r.style.marginTop = 4; col.Add(r);
+                    if (lvOn) { var lv = L(G.LevelOf(s).ToString(), 19, s.me ? Gold : new Color(.75f, .85f, 1), true); lv.style.width = 44; r.Add(lv); }   // the hero's level this match
                     var n = L(s.name + (s.me ? Loc.S(" (คุณ)", " (you)") : ""), 19, s.me ? Gold : Ink, s.me); n.style.flexGrow = 1; r.Add(n);
                     r.Add(L($"{s.k} / {s.d} / {s.a}", 19, s.me ? Gold : Ink, true));
                 }
@@ -1674,7 +1680,7 @@ namespace NovaBlade
             if (!on) { killBox.style.display = DisplayStyle.None; killT = 0; board.style.display = DisplayStyle.None; respawnL.style.display = DisplayStyle.None; return; }
             bool show = boardOn || UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.tabKey.isPressed;
             board.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
-            if (show) { var key = string.Join("|", G.stats.Select(s => $"{s.name}{s.team}{s.k}{s.d}{s.a}")); if (key != boardKey) { boardKey = key; FillBoard(); } }
+            if (show) { var key = string.Join("|", G.stats.Select(s => $"{s.name}{s.team}{s.k}{s.d}{s.a}{G.LevelOf(s)}")); if (key != boardKey) { boardKey = key; FillBoard(); } }
             float left = G.respawnAt - Time.time; bool dead = G.hero && G.hero.dead && left > 0;
             respawnL.style.display = dead ? DisplayStyle.Flex : DisplayStyle.None; if (dead) respawnL.text = Loc.S($"เกิดใหม่ใน {Mathf.CeilToInt(left)}", $"Respawn in {Mathf.CeilToInt(left)}");
             scoreBlue.text = G.teamKills[0].ToString(); scoreRed.text = G.teamKills[1].ToString(); int t = Mathf.FloorToInt(G.time); scoreTime.text = $"{t / 60:00}:{t % 60:00}";

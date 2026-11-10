@@ -1457,13 +1457,13 @@ public static class NovaBuild
             for (int i = 0; i < p.Length; i++) { if (i > 0) run += Vector2.Distance(p[i - 1], p[i]); if (SkyLanes.OnBridge(lane, run)) continue; Disc(v, t, p[i], half, y, 24); if (rim) Rim(p[i], half, y, 24); }
         }
         var ev = new List<Vector3>(); var et = new List<int>();   // the rough edge band of the road
-        for (int l = 0; l < SkyLanes.Paths.Length; l++) { Strip(gv, gt, l, SkyLanes.LaneHalf + Shoulder, -.14f, true); Strip(rv, rt, l, SkyLanes.LaneHalf - Road - .9f, .02f, false); Strip(ev, et, l, SkyLanes.LaneHalf + .8f, 0, false); }
+        for (int l = 0; l < SkyLanes.Paths.Length; l++) { Strip(gv, gt, l, SkyLanes.LaneHalf + Shoulder, -.14f, true); Strip(rv, rt, l, SkyLanes.LaneHalf - Road - .9f, .06f, false); Strip(ev, et, l, SkyLanes.LaneHalf + .8f, 0, false); }   // road 6 cm over the edge band: at 2 cm one lane's edge band flickered through the other lane's road where they meet
         foreach (var g in SkyLanes.Gates)
         {   // the stone paths into the jungle, in 0.5 m steps so they follow the slope down
             var dir = (g.b - g.a).normalized; var n = new Vector2(-dir.y, dir.x) * 2.2f; float len = Vector2.Distance(g.a, g.b) + 2;
-            for (float s = -1; s < len - 1; s += .5f) { var a = g.a + dir * s; var b = g.a + dir * (s + .5f); int k = rv.Count; foreach (var p2 in new[] { a + n, b + n, b - n, a - n }) rv.Add(new Vector3(p2.x, .1f + SkyLanes.Height(p2.x, p2.y), p2.y)); rt.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 }); }
+            for (float s = -1; s < len - 1; s += .5f) { var a = g.a + dir * s; var b = g.a + dir * (s + .5f); int k = rv.Count; foreach (var p2 in new[] { a + n, b + n, b - n, a - n }) rv.Add(new Vector3(p2.x, .12f + SkyLanes.Height(p2.x, p2.y), p2.y)); rt.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 }); }
         }
-        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Disc(gv, gt, b, SkyLanes.BaseR + 3, -.14f); Rim(b, SkyLanes.BaseR + 3, -.14f); Disc(rv, rt, b, SkyLanes.BaseR, 0); }
+        foreach (var b in new[] { SkyLanes.BaseOf(0), SkyLanes.BaseOf(1) }) { Disc(gv, gt, b, SkyLanes.BaseR + 3, -.14f); Rim(b, SkyLanes.BaseR + 3, -.14f); Disc(rv, rt, b, SkyLanes.BaseR, .06f); }   // the base plaza at the road's height: at 0 it lay exactly on the lanes' edge band and flickered
         Disc(gv, gt, SkyLanes.Jungle, SkyLanes.JungleR + 1, -.04f, 56); Rim(SkyLanes.Jungle, SkyLanes.JungleR + 1, -.04f, 56);
         // the small floating islands round about: grass on a rock, a tree or a ruin on top
         var isles = new[] { (new Vector2(-16, 24), 4.5f), (new Vector2(-18, -20), 5f), (new Vector2(54, 26), 4f), (new Vector2(56, -16), 5.5f), (new Vector2(18, 58), 4f), (new Vector2(30, -56), 4.5f), (new Vector2(-14, 0), 3.5f), (new Vector2(46, 2), 3f) };

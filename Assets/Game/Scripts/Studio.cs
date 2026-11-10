@@ -155,14 +155,20 @@ namespace NovaBlade
             var go = new GameObject("VsCam"); var c = go.AddComponent<Camera>(); c.enabled = false; c.clearFlags = CameraClearFlags.SolidColor; c.backgroundColor = new Color(0, 0, 0, 0);
             c.cullingMask = 1 << Layer; c.fieldOfView = 30; c.nearClipPlane = .05f; c.farClipPlane = 50;
             Light Lt(Color col, float i, Vector3 e) { var l = new GameObject("VsLight").AddComponent<Light>(); l.transform.SetParent(go.transform); l.type = LightType.Directional; l.color = col; l.intensity = i; l.cullingMask = 1 << Layer; l.transform.rotation = Quaternion.Euler(e); return l; }
-            Lt(new Color(.95f, .93f, .9f), .95f, new Vector3(30, 200, 0)); var under = Lt(new Color(1f, .45f, .15f), .7f, new Vector3(-25, 160, 0)); var rimL = Lt(new Color(1f, .3f, .2f), 2.2f, new Vector3(15, 20, 0));
+            var key = Lt(new Color(.95f, .93f, .9f), .95f, new Vector3(30, 200, 0)); var under = Lt(new Color(1f, .45f, .15f), .7f, new Vector3(-25, 160, 0)); var rimL = Lt(new Color(1f, .3f, .2f), 2.2f, new Vector3(15, 20, 0));
             var amb = (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe);
             var sh = new UnityEngine.Rendering.SphericalHarmonicsL2(); sh.AddAmbientLight(new Color(.1f, .1f, .13f)); RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(.11f, .11f, .14f);   // low ambient: the pale, washed-out look came from too much fill RenderSettings.ambientProbe = sh;
+            // the scene's sun would be the "main" light and the key only an extra one; the phones' render settings drop much of the extra
+            // lights, and the heroes came out dark there: the scene's suns off for the shot, the key made the main light
+            var suns = Object.FindObjectsByType<Light>(FindObjectsSortMode.None).Where(l => l.enabled && l.type == LightType.Directional && l.transform.parent != go.transform).ToList();
+            var sun0 = RenderSettings.sun; foreach (var l in suns) l.enabled = false; RenderSettings.sun = key;
+            if (Main.IsPhone || PhoneLook) { RenderSettings.ambientLight = new Color(.2f, .2f, .24f); key.intensity = 1.25f; }   // in case the extra lights are lost all the same
             var outl = new List<Texture2D>(); foreach (var (h, yaw) in who)
             {   // each side in its own colour: ours edged in icy blue, theirs in fire and violet
                 bool ours = yaw < 0; rimL.color = ours ? new Color(.45f, .75f, 1f) : new Color(1f, .4f, .2f); rimL.intensity = ours ? 1.5f : 1.1f;
                 under.color = ours ? new Color(.5f, .7f, 1f) : new Color(1f, .45f, .15f); outl.Add(Pose(c, h, yaw));
             }
+            foreach (var l in suns) if (l) l.enabled = true; RenderSettings.sun = sun0;
             (RenderSettings.ambientMode, RenderSettings.ambientLight, RenderSettings.ambientProbe) = amb; Object.Destroy(go); return outl;
         }
         // test (-posesheet <dir>): every candidate stance for one hero of each class, to pick the VS poses by eye
@@ -184,7 +190,7 @@ namespace NovaBlade
         static Texture2D Pose(Camera c, HeroDef h, float yaw, string forceSt = null, float forceAt = 0)
         {
             if (h == null || !h.rig) return null; var pf = Resources.Load<GameObject>("Heroes/Hero_" + h.id); if (!pf) return null;
-            int W = Main.IsPhone ? 288 : 432, H = Main.IsPhone ? 384 : 576;
+            const int W = 432, H = 576;   // the same on phones (they looked soft at 288 x 384)
             var inst = Object.Instantiate(pf, Spot, Quaternion.identity); FootWeights.Mend(inst);
             foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
             var an = inst.GetComponentInChildren<Animator>(); var hang = SleeveHang.Attach(inst);
@@ -213,7 +219,7 @@ namespace NovaBlade
             var pa = RenderTexture.active; RenderTexture.active = big; var t2 = new Texture2D(W, H, TextureFormat.RGBA32, false); t2.ReadPixels(new Rect(0, 0, W, H), 0, 0); Grade(t2); t2.Apply();
             RenderTexture.active = pa; c.targetTexture = null; big.Release(); Object.DestroyImmediate(inst); return t2;
         }
-        public static float VsWeaponScale = .82f;
+        public static float VsWeaponScale = .82f; public static bool PhoneLook;   // PhoneLook: tests on Windows with the phones' render settings
         static void Grade(Texture2D t)
         {   // a little more saturation and contrast, so the heroes don't come out pale against the night
             var px = t.GetPixels32();

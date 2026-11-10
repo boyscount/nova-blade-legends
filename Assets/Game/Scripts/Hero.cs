@@ -26,7 +26,7 @@ namespace NovaBlade
         Transform socket, pivot, holder, tipT, baseT;
         float buf, chain, hurtT, flashT, spin, kbx, kbz; int lastI = -1;
         (int i, float t, float d, float ht, bool hit) atk; bool inAtk;
-        Vector2 dodgeDir; float dodgeT;
+        Vector2 dodgeDir; float dodgeT; const float DodgeSpeed = 9f, DodgeTime = .4f;   // distance = speed × time × 3/4
         Coroutine skillCo;
         Main G => Main.G;
         public Vector3 Pos => transform.position;
@@ -411,9 +411,9 @@ namespace NovaBlade
 
             if (state == St.Dodge)
             {
-                dodgeT += dt; float s = 12.5f * (1 - dodgeT / .45f * .5f); MoveBy(dodgeDir.x * s * dt, dodgeDir.y * s * dt);
+                dodgeT += dt; float s = DodgeSpeed * (1 - dodgeT / DodgeTime * .5f); MoveBy(dodgeDir.x * s * dt, dodgeDir.y * s * dt);   // about 2.7 m (was 4.2: the owner found it too far)
                 if (Random.value < .7f) Fx.Burst(Pos + Vector3.up * .8f, 2, new Color(.62f, .9f, 1), 1, .6f, 0);
-                if (dodgeT >= .45f) state = St.Idle;
+                if (dodgeT >= DodgeTime) state = St.Idle;
             }
             else if (state == St.Hurt) { hurtT -= dt; if (hurtT <= 0) state = St.Idle; }
             else if (state == St.Atk)
@@ -498,10 +498,11 @@ namespace NovaBlade
             var p = transform.position; p.y = Mathf.Max(River.Ground(p.x, p.z), River.Wet ? River.WaterY : 0) + .35f + Mathf.Sin(Time.time * 3) * .08f; transform.position = p;
         }
 
+        public void TestDodge(Vector2 mv) => StartDodge(mv);   // tests
         void StartDodge(Vector2 mv)
         {
             float a = mv.magnitude > .2f ? Mathf.Atan2(mv.x, mv.y) : face; face = a; dodgeDir = new Vector2(Mathf.Sin(a), Mathf.Cos(a)); dodgeT = 0;
-            dodgeCD = 1.1f; inv = Mathf.Max(inv, .48f); inAtk = false; state = St.Dodge;
+            dodgeCD = 1.1f; inv = Mathf.Max(inv, DodgeTime + .03f); inAtk = false; state = St.Dodge;
             Play("roll", .04f, 2.2f, .93f); Fx.Burst(Pos + Vector3.up * .5f, 14, new Color(.62f, .9f, 1), 3, .5f, 1, .14f, true);
         }
 

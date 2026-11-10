@@ -117,11 +117,11 @@ namespace NovaBlade
                 var a = Box(); a.style.position = Position.Absolute; a.style.left = Length.Percent(l); a.style.top = Length.Percent(t); a.style.width = Length.Percent(w); a.style.height = Length.Percent(h);
                 a.style.backgroundImage = new StyleBackground(tex); a.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit; if (flip) a.style.scale = new Scale(new Vector3(-1, 1, 1)); a.style.opacity = 0; vsOv.Add(a); return a;
             }
-            vsSpirit0 = Art("wolf_spirit", 10, 8, 28, 62, false); vsSpirit1 = Art("foe_spirit", 62, 8, 28, 62, false);   // the ice wolf roars toward the enemy, the demon skull back at us
+            vsSpirit0 = Art("wolf_spirit", 3, -4, 36, 60, false); vsSpirit1 = Art("foe_spirit", 61, -4, 36, 60, false);   // high up: the wolf's and the skull's heads clear of the heroes' heads   // the ice wolf roars toward the enemy, the demon skull back at us
             // the cliffs both teams stand on, the chasm between them misty
             Glow(38, 64, 24, 50, new Color(0, 0, .01f, .9f)); vsOv.Add(Cliffs()); Glow(44, 88, 12, 16, new Color(.4f, .55f, .9f, .35f));   // a deep dark chasm, faint mist at its bottom
             // the heroes, big and overlapping, cut off by the plates (the plates are drawn after them)
-            var stage = Box(); stage.style.position = Position.Absolute; stage.style.left = 0; stage.style.right = 0; stage.style.top = Length.Percent(phone ? 6 : 5); stage.style.bottom = Length.Percent(phone ? 9 : 8); stage.style.flexDirection = FlexDirection.Row; vsOv.Add(stage);
+            var stage = Box(); stage.style.position = Position.Absolute; stage.style.left = 0; stage.style.right = 0; stage.style.top = Length.Percent(phone ? 14 : 13); stage.style.bottom = Length.Percent(phone ? 9 : 8); stage.style.flexDirection = FlexDirection.Row; vsOv.Add(stage);
             var us = new List<HeroDef> { G.hero.def }; us.AddRange(G.nextAllies ?? new List<HeroDef>()); var them = G.nextEnemies ?? new List<HeroDef>();
             MakePoses(us, them); vsOurCount = us.Count;
             stage.Add(vsSide0 = Heroes(us, 0)); var gap = Box(); gap.style.width = Length.Percent(6); stage.Add(gap); stage.Add(vsSide1 = Heroes(them, 1));
@@ -163,7 +163,7 @@ namespace NovaBlade
                 if (i >= team.Count) continue; var h = team[i]; bool lead = i == 0;
                 var art = Box(); art.style.position = Position.Absolute; art.style.bottom = 0;
                 float w = lead ? 70 : 58, x = lead ? 12 : i == 1 ? -14 : 50; if (t == 1) x = 100 - x - w;
-                art.style.left = Length.Percent(x); art.style.width = Length.Percent(w); art.style.height = Length.Percent(lead ? 122 : 108); art.style.bottom = Length.Percent(lead ? -16 : -10);   // feet go under the plates
+                art.style.left = Length.Percent(x); art.style.width = Length.Percent(w); art.style.height = Length.Percent(lead ? 106 : 94); art.style.bottom = Length.Percent(lead ? -12 : -8);   // a little smaller than before, to leave the spirits room above them   // feet go under the plates
                 var pose = PoseOf(t, i, vsOurCount); art.style.backgroundImage = new StyleBackground(pose ? pose : Studio.HeroFull(h.id) ?? Studio.Hero(h.id)); art.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit;
                 if (!lead) art.style.unityBackgroundImageTintColor = new Color(.85f, .86f, .9f);   // the ones behind a little darker
                 if (t == 1 && !pose) art.style.scale = new Scale(new Vector3(-1, 1, 1));
@@ -218,7 +218,7 @@ namespace NovaBlade
             void Spirit(VisualElement e, float ph)
             {
                 if (e == null) return; float p = .5f + .5f * Mathf.Sin(tm * 2.4f + ph);
-                e.style.opacity = sp * (.38f + .22f * p + .14f * Mathf.PerlinNoise(tm * 7, ph));   // dim, glowing in and out, a flicker like flame
+                e.style.opacity = sp * (.68f + .18f * p + .12f * Mathf.PerlinNoise(tm * 7, ph));   // dim, glowing in and out, a flicker like flame
                 float sc = .96f + .04f * sp + .02f * p; e.style.scale = new Scale(new Vector3(sc, sc, 1));
                 e.style.translate = new Translate(0, Length.Percent(4 * (1 - sp) - 1.2f * p));   // rises a little as it breathes
             }

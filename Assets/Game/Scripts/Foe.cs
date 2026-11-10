@@ -18,6 +18,7 @@ namespace NovaBlade
         public Vector3 Pos => transform.position;
         public float Rad => rad; public bool Down => !alive || spawning; public int Team => team;
         public int laneIdx = 1;   // which lane this unit walks (three-lane mode)
+        public int aiLv = 1;   // Sky Lanes: an AI hero's level this match (its side's XP), its health and damage grown to it like the player's
         public int towerTier = -1;   // lane maps: 0 outer tower, 1 inner tower, 2 core (-1: not a tower)
         // towers fall in order: an inner tower takes no damage while its lane's outer tower stands, the core none while every lane still has a tower
         public bool Shielded
@@ -155,7 +156,7 @@ namespace NovaBlade
 
         void Kill()
         {
-            alive = false; s = S.Dead; st = 0; if (d.kind == "champ") G.HeroKilled(Pos, team, d.name, false); if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
+            alive = false; s = S.Dead; st = 0; if (d.kind == "champ") G.HeroKilled(Pos, team, d.name, false); G.TeamXp(1 - team, isBoss ? Data.BossXp : d.gold); if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
             Fx.Burst(Pos + Vector3.up * h * .5f, isBoss ? 140 : 26, isBoss ? bd.color : new Color(1, .48f, .29f), isBoss ? 10 : 6);
             Fx.Dust(Pos, isBoss ? 1.8f : .8f, isBoss ? 26 : 10); Fx.Burst(Pos + Vector3.up * h * .45f, isBoss ? 40 : 14, new Color(1, .55f, .25f), isBoss ? 6 : 4, .45f, 1.6f, .08f);
             if (team == 1) G.DropLoot(Pos, isBoss, d.gold);
