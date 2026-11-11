@@ -126,6 +126,11 @@ namespace NovaBlade
         }
         // leaving a stage or the pause menu: back where the player came from
         public void LeaveStage() { if (city) { cameFromCity = false; ShowLobby(); } else if (cameFromCity) StartCity(); else ShowLobby(); }
+        readonly HashSet<string> crumbed = new();
+        // a Sky Lanes wave is let out a few units a frame instead of twenty-odd in one frame (owner: "it stutters when a wave comes out")
+        readonly Queue<(FoeDef d, Vector3 p, int team, int lane)> waveQueue = new(); const int WavePerFrame = 3;
+        void QueueUnit(FoeDef d, Vector3 p, int team, int lane) => waveQueue.Enqueue((d, p, team, lane));
+        void LetOutWave() { for (int i = 0; i < WavePerFrame && waveQueue.Count > 0; i++) { var (d, p, t, l) = waveQueue.Dequeue(); var u = SpawnUnit(d, p, t); if (u) u.laneIdx = l; } }
         public bool lane; public int laneSize = 3; float minionT; readonly bool[] brutesOn = new bool[2];
         public bool soul;   // Soulslike mode (third-person, lock-on, block/parry/stamina) — see SoulController   // lane battle mode (see Lane.cs)
         public int stage = 1, wave, kills, gold, banked;
@@ -1648,7 +1653,8 @@ namespace NovaBlade
         public Foe SpawnUnit(FoeDef def, Vector3 p, int team)
         {
             var src = def; bool scale = lane && def.kind == "champ" && !duelOnly; if (scale) def = def.Copy();   // the difficulty goes on a copy: a respawn starts again from the base (it used to compound)
-            Crumb.Mark("spawn " + def.id); var f = new GameObject($"Unit_{def.id}_{team}").AddComponent<Foe>(); f.Init(def, p, null, team); foes.Add(f); f.baseDef = src;
+            if (crumbed.Add(def.id)) Crumb.Mark("spawn " + def.id);   // once per kind: a log line and a localStorage write for every soldier made each wave stutter
+            var f = new GameObject($"Unit_{def.id}_{team}").AddComponent<Foe>(); f.Init(def, p, null, team); foes.Add(f); f.baseDef = src;
             if (scale) { var k = AiLevels[Mathf.Clamp(save.aiLevel, 0, 2)]; f.maxHp *= k.hp; f.hp = f.maxHp; f.d.dmg *= k.dmg; }   // AI heroes sized to the chosen difficulty
             if (lane && def.kind == "champ") Stat(def.name, team);
             if (lane && def.kind == "champ") GrowAi(f);   // a hero coming back joins at its side's level
@@ -2060,6 +2066,7 @@ namespace NovaBlade
             }
             if (Lane.Lanes == 2)
             {   // a wave of three soldiers down each lane, from each base
+                LetOutWave();
                 minionT -= dt; if (minionT > 0) return; minionT = 28; wave++;
                 for (int t = 0; t < 2; t++)
                 {
@@ -2067,10 +2074,10 @@ namespace NovaBlade
                     if (brutes && !brutesOn[t]) { brutesOn[t] = true; ui.Banner(t == 0 ? Loc.S("ยักษ์ศึกของเราออกรบ!", "Our War Brutes march!") : Loc.S("ศัตรูส่งยักษ์ศึก!", "The enemy sends War Brutes!"), Loc.S("ป้อมนอกพังหมดแล้ว", "All outer towers have fallen")); }
                     for (int l = 0; l < 2; l++)
                     {
-                        var s0 = SkyLanes.LaneStart(t, l); for (int i = 0; i < 3; i++) { var u = SpawnUnit(Lane.Minion, s0 + new Vector3((i - 1) * 1.6f, 0, 0), t); if (u) u.laneIdx = l; }
-                        for (int i = 0; i < 2; i++) { var u = SpawnUnit(Lane.Archer, s0 + new Vector3(i == 0 ? -.8f : .8f, 0, Lane.Side(t) * 1.6f), t); if (u) u.laneIdx = l; }   // archers behind the front line
-                        if (wave % Lane.SiegeEvery == 0) { var u = SpawnUnit(Lane.Siege, s0 + new Vector3(0, 0, Lane.Side(t) * 3.2f), t); if (u) u.laneIdx = l; }
-                        if (brutes) { var b = SpawnUnit(Lane.Brute, s0 + new Vector3(0, 0, Lane.Side(t) * 2.4f), t); if (b) b.laneIdx = l; }   // behind the soldiers
+                        var s0 = SkyLanes.LaneStart(t, l); for (int i = 0; i < 3; i++) QueueUnit(Lane.Minion, s0 + new Vector3((i - 1) * 1.6f, 0, 0), t, l);
+                        for (int i = 0; i < 2; i++) QueueUnit(Lane.Archer, s0 + new Vector3(i == 0 ? -.8f : .8f, 0, Lane.Side(t) * 1.6f), t, l);   // archers behind the front line
+                        if (wave % Lane.SiegeEvery == 0) QueueUnit(Lane.Siege, s0 + new Vector3(0, 0, Lane.Side(t) * 3.2f), t, l);
+                        if (brutes) QueueUnit(Lane.Brute, s0 + new Vector3(0, 0, Lane.Side(t) * 2.4f), t, l);   // behind the soldiers
                     }
                 }
                 return;

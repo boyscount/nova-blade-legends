@@ -219,6 +219,7 @@ namespace NovaBlade
                     if (kb.eKey.wasPressedThisFrame || kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
                     if (kb.rKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame) ui.dodgeP = true;
                     if (kb.aKey.wasPressedThisFrame || kb.jKey.wasPressedThisFrame) ui.atkP = true;
+                    if (kb.fKey.wasPressedThisFrame) ui.farmP = true;
                     if (kb.sKey.wasPressedThisFrame) { clickGoal = null; clickFoe = null; }   // S = stop
                     if (kb.xKey.wasPressedThisFrame) ui.swapP = true;
                     if (kb.cKey.wasPressedThisFrame) G.CycleView();
@@ -232,7 +233,7 @@ namespace NovaBlade
                         var p = ray.GetPoint(t); ITarget best = null; float bd = 1.8f;
                         foreach (var o in G.Opponents(0)) { float dd = Main.Flat(o.Pos - p).magnitude - o.Rad; if (dd < bd) { bd = dd; best = o; } }
                         if (m.rightButton.wasPressedThisFrame) Fx.Ring(best != null ? best.Pos : p, best != null ? 1.2f : .7f, best != null ? new Color(1, .3f, .25f) : new Color(.4f, 1, .6f), .35f, .12f);
-                        clickFoe = best; clickGoal = best == null ? p : null;
+                        clickFoe = best; clickGoal = best == null ? p : null; if (best is Foe bf) lockOn = bf;
                     }
                 }
                 if (m != null && m.leftButton.wasPressedThisFrame && !ui.PointerOverUi) ui.atkP = true;
@@ -241,6 +242,7 @@ namespace NovaBlade
             if (kb != null)
             {
                 if (kb.jKey.wasPressedThisFrame) ui.atkP = true;
+                if (kb.hKey.wasPressedThisFrame) ui.farmP = true;
                 if (kb.uKey.wasPressedThisFrame || kb.digit1Key.wasPressedThisFrame) ui.skP[0] = true;
                 if (kb.iKey.wasPressedThisFrame || kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
                 if (kb.oKey.wasPressedThisFrame || kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
@@ -276,9 +278,38 @@ namespace NovaBlade
             Fx.Burst(Pos + Vector3.up * 1.2f, 18, sword.color, 3, .5f, 0); G.Number(Pos + Vector3.up * 2.4f, sword.name, "crit");
         }
         void FaceTo(Foe f) { if (f) face = Main.Ang(f.Pos - Pos); }
+        // ---------- lane battle targets (owner, 2026-11-11) ----------
+        // the attack button goes for enemy heroes first; the second button (farmAtk) for soldiers and towers first; an enemy tapped
+        // (or right-clicked) stays the target until it falls or gets well out of reach, with a red ring under it
+        public Foe lockOn; public bool farmAtk; float lockRingT;
+        const float LockKeep = 6;   // beyond the attack reach, how far a locked enemy may get before the lock lets go
+        Foe LanePick(float r)
+        {
+            if (lockOn && lockOn.alive && Main.Flat(lockOn.Pos - Pos).magnitude <= r + 2) return lockOn;
+            Foe hero = null, other = null; float bh = r, bo = r;
+            foreach (var f in G.Live) { float d = Main.Flat(f.Pos - Pos).magnitude - f.rad; if (d >= r) continue; if (f.d.kind == "champ") { if (d < bh) { bh = d; hero = f; } } else if (d < bo) { bo = d; other = f; } }
+            return farmAtk ? (other ?? hero) : (hero ?? other);
+        }
+        void LaneTargets(float dt)
+        {
+            if (lockOn && (!lockOn.alive || Main.Flat(lockOn.Pos - Pos).magnitude > AtkRange + LockKeep)) lockOn = null;
+            var tp = UnityEngine.InputSystem.Touchscreen.current;   // a tap on an enemy in the world picks it
+            if (tp != null && tp.primaryTouch.press.wasPressedThisFrame && !G.ui.PointerOverUi && Camera.main)
+            {
+                var ray = Camera.main.ScreenPointToRay(tp.primaryTouch.position.ReadValue());
+                if (new Plane(Vector3.up, Vector3.zero).Raycast(ray, out float t))
+                {
+                    var p = ray.GetPoint(t); Foe best = null; float bd = 2.2f;
+                    foreach (var f in G.Live) { if (f.team == 0) continue; float dd = Main.Flat(f.Pos - p).magnitude - f.rad; if (dd < bd) { bd = dd; best = f; } }
+                    if (best) { lockOn = best; lockRingT = 0; }
+                }
+            }
+            lockRingT -= dt; if (lockOn && lockRingT <= 0) { lockRingT = .45f; Fx.Ring(lockOn.Pos + Vector3.up * .05f, lockOn.rad + .7f, new Color(1, .25f, .2f), .4f, .1f); }
+        }
         void AimAuto(float r = 6)
         {
             var mv = Move();
+            if (G.lane && (mv.magnitude <= .3f || lockOn || farmAtk)) { var lt = LanePick(r); if (lt) { FaceTo(lt); return; } }   // lane battles: heroes first, or soldiers and towers with the second button, or the tapped one
             if (mv.magnitude > .3f) { face = Mathf.Atan2(mv.x, mv.y); var e = G.Nearest(Pos, 2.5f); if (e && Mathf.Abs(Main.AngDiff(face, Main.Ang(e.Pos - Pos))) < .9f) FaceTo(e); }
             else FaceTo(G.Nearest(Pos, r));
         }
@@ -407,7 +438,8 @@ namespace NovaBlade
                 mp -= cost; CastSkill(i);
             }
             if (G.city) { ui.atkP = ui.dodgeP = false; for (int i = 0; i < ui.skP.Length; i++) ui.skP[i] = false; }   // nobody fights in the city
-            if (ui.atkP) { buf = .3f; ui.atkP = false; }
+            if (ui.farmP) { buf = .3f; farmAtk = true; ui.farmP = false; ui.atkP = false; } else if (ui.atkP) { buf = .3f; farmAtk = false; ui.atkP = false; }
+            if (G.lane) LaneTargets(dt);
             if (AtkHeld) buf = Mathf.Max(buf, .12f); buf -= dt; if (stunT > 0) buf = 0;
 
             if (state == St.Dodge)

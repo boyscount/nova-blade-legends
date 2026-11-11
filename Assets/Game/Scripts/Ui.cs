@@ -11,6 +11,7 @@ namespace NovaBlade
     public partial class Ui : MonoBehaviour
     {
         // input read by Hero
+        public bool farmP;   // the second attack button: soldiers and towers first (lane battles)
         public Vector2 Joy; public bool atkP, atkHold, dodgeP, swapP, potP; bool pickOff; VisualElement swapBtn; Button viewBtn;
         string ViewLabel() => Loc.S("มุม ", "View ") + (G.ViewStyle + 1); public readonly bool[] skP = new bool[3];
         // MOBA aiming (lane battles): a skill button held down aims, dragging points it, letting go casts
@@ -1305,11 +1306,11 @@ namespace NovaBlade
             // thumb cluster: big attack button in the corner, the three skills on an arc around it, dodge further left
             // (panel units are 1/1080 of the screen height: on a 6.5" phone held sideways 330 is about 2.1 cm and 215 about 1.4 cm)
             var btns = Box(); Abs(btns, null, null, 0, 0); btns.style.width = 980; btns.style.height = 820; hud.Add(btns); hudBtns = btns;
-            float mainS = touchUi ? 330 : 220, skS = touchUi ? 215 : 140, dgS = touchUi ? 185 : 124, arc = mainS / 2 + skS / 2 + (touchUi ? 30 : 26);
+            float mainS = touchUi ? 290 : 220, skS = touchUi ? 215 : 140, dgS = touchUi ? 185 : 124, arc = mainS / 2 + skS / 2 + (touchUi ? 30 : 26);
             var mc = new Vector2(44 + mainS / 2, 40 + mainS / 2);   // attack centre, measured from the bottom-right corner
             var at = new (Vector2 c, float s)[5];
             at[0] = (mc, mainS);
-            for (int i = 0; i < 3; i++) { float a = (8 + i * 44) * Mathf.Deg2Rad; at[i + 1] = (mc + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * arc, skS); }
+            for (int i = 0; i < 3; i++) { float a = (22 + i * 40) * Mathf.Deg2Rad; at[i + 1] = (mc + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * arc, skS); }   // the arc starts higher: room below it, beside the attack button, for the tower button
             at[4] = (new Vector2(at[1].c.x + skS / 2 + dgS / 2 + 34, 40 + dgS / 2), dgS);
             for (int i = 0; i < 5; i++)
             {
@@ -1331,6 +1332,26 @@ namespace NovaBlade
             aimCancelL = L(Loc.S("✕ ปล่อยเพื่อยกเลิก", "✕ Release to cancel"), touchUi ? 30 : 22, Color.white, true); aimCancelL.style.position = Position.Absolute; aimCancelL.style.right = Length.Percent(10); aimCancelL.style.bottom = Length.Percent(touchUi ? 58 : 40);
             aimCancelL.style.backgroundColor = new Color(.7f, .08f, .06f, .9f); aimCancelL.style.paddingLeft = aimCancelL.style.paddingRight = 18; aimCancelL.style.paddingTop = aimCancelL.style.paddingBottom = 6; Round(aimCancelL, 10); Border(aimCancelL, new Color(1, .6f, .5f), 2);
             aimCancelL.pickingMode = PickingMode.Ignore; aimCancelL.style.display = DisplayStyle.None; root.Add(aimCancelL);
+            {   // lane battles: a small second attack button with a castle on it, tucked beside the big one at its lower left: it goes for soldiers and towers (farming, pushing)
+                float fs = touchUi ? 124 : 84; float fa = -24 * Mathf.Deg2Rad; var c = mc + new Vector2(Mathf.Cos(fa), Mathf.Sin(fa)) * (mainS / 2 + fs / 2 + 6);
+                farmBtn = Box(new Color(.08f, .1f, .14f, .88f)); Abs(farmBtn, null, null, c.x - fs / 2, c.y - fs / 2); farmBtn.style.width = farmBtn.style.height = fs; Round(farmBtn, fs / 2); Border(farmBtn, new Color(1f, .78f, .38f), 3);
+                farmBtn.pickingMode = PickingMode.Position;
+                farmBtn.generateVisualContent += ctx =>
+                {   // a castle: three towers with battlements, a gate
+                    var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height; Vector2 P(float x, float y) => new(w * x, h * y);
+                    p.fillColor = new Color(1f, .9f, .7f);
+                    void Rect(float x0, float y0, float x1, float y1) { p.BeginPath(); p.MoveTo(P(x0, y0)); p.LineTo(P(x1, y0)); p.LineTo(P(x1, y1)); p.LineTo(P(x0, y1)); p.ClosePath(); p.Fill(); }
+                    Rect(.24f, .46f, .76f, .74f);                                   // the wall
+                    Rect(.2f, .3f, .36f, .74f); Rect(.64f, .3f, .8f, .74f);         // side towers
+                    Rect(.42f, .22f, .58f, .5f);                                    // the keep
+                    foreach (var x in new[] { .2f, .3f, .64f, .74f }) Rect(x, .25f, x + .06f, .31f);   // battlements
+                    foreach (var x in new[] { .42f, .52f }) Rect(x, .17f, x + .06f, .23f);
+                    p.fillColor = new Color(.08f, .1f, .14f); p.BeginPath(); p.MoveTo(P(.44f, .74f)); p.LineTo(P(.44f, .6f)); p.Arc(P(.5f, .6f), w * .06f, 180, 360); p.LineTo(P(.56f, .74f)); p.ClosePath(); p.Fill();   // the gate
+                };
+                var fk = L(WebPc ? "F" : "H", 15, Gold, true); Abs(fk, null, -2, -4); fk.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; farmBtn.Add(fk);
+                farmBtn.RegisterCallback<PointerDownEvent>(e => { farmP = true; farmBtn.style.scale = new Scale(Vector3.one * .9f); });
+                farmBtn.RegisterCallback<PointerUpEvent>(e => farmBtn.style.scale = new Scale(Vector3.one)); farmBtn.style.display = DisplayStyle.None; btns.Add(farmBtn);
+            }
             {   // weapon swap (shown when an off-hand weapon is set): small, above the dodge button
                 float ss = touchUi ? 110 : 76; var c = at[4].c + new Vector2(0, at[4].s / 2 + ss / 2 + 18);
                 swapBtn = Box(new Color(.05f, .08f, .1f, .82f)); Abs(swapBtn, null, null, c.x - ss / 2, c.y - ss / 2); swapBtn.style.width = swapBtn.style.height = ss; Round(swapBtn, ss / 2);
@@ -1424,8 +1445,10 @@ namespace NovaBlade
             var frame = Box(); Abs(frame, 0, 0, 0, 0); Img(frame, "hud_bar_frame"); frame.pickingMode = PickingMode.Ignore; pcBar.Add(frame);
             // the slots sit under the frame art; picking ignores the frame so clicks reach them
         }
+        VisualElement farmBtn; bool farmShown;
         void UpdPcBar(Hero h)
         {
+            if (farmBtn != null && farmShown != G.lane) { farmShown = G.lane; farmBtn.style.display = G.lane ? DisplayStyle.Flex : DisplayStyle.None; }
             if (viewBtn != null) { var vt = ViewLabel(); if (viewBtn.text != vt) viewBtn.text = vt; }   // the phone default is only known once the HUD runs
             if (swapBtn != null) swapBtn.style.display = h.OffHand != null && !G.soul ? DisplayStyle.Flex : DisplayStyle.None;
             if (pcBar == null) return;

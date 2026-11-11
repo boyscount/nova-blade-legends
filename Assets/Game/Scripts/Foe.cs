@@ -59,7 +59,8 @@ namespace NovaBlade
             else if (d.model.StartsWith("rig_"))
             {   // realistic monster, auto-rigged like the heroes: Humanoid avatar + the shared clips; its weapon is part of the model
                 var id = d.model == "rig_minion" ? (team == 0 ? "m_blue" : "m_red") : d.model.Substring(4);   // (KayKit knights Hero_kk_knight_* exist for a toy-style map; the painted Sky Lanes uses the realistic soldiers)
-                go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + id), transform); FootWeights.Matte(go); anim = go.GetComponentInChildren<Animator>(); SleeveHang.Attach(go); Grip.Attach(go);   // hanging sleeves and closed hands, as on the player
+                go = Instantiate(Resources.Load<GameObject>("Heroes/Hero_" + id), transform); anim = go.GetComponentInChildren<Animator>(); SleeveHang.Attach(go); Grip.Attach(go);   // hanging sleeves and closed hands, as on the player
+                if (anim && G.lane) anim.cullingMode = AnimatorCullingMode.CullUpdateTransforms;   // soldiers off the screen stop working their bones (dozens of animators were the cost on the web)
             }
             else go = Instantiate(Catalog.I.Model(d.model), transform);
             body = go.transform;
