@@ -278,17 +278,18 @@ namespace NovaBlade
             detail = L("", touchUi ? 25 : 21, new Color(.86f, .88f, .86f)); detail.style.whiteSpace = WhiteSpace.Normal; detail.style.minHeight = touchUi ? 40 : 60; detail.style.flexShrink = 0; detail.style.marginTop = 8; panel.Add(detail);
             buyBtn = Btn("", () => AskBuy()); buyBtn.style.fontSize = (22) * TextK; buyBtn.style.paddingTop = buyBtn.style.paddingBottom = 8; buyBtn.style.marginTop = 4; buyBtn.style.display = DisplayStyle.None; panel.Add(buyBtn);
             var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
-            {   // the battle banner (owner's pick, design B): "MOBA ARENA" over the mode and AI level chosen; a tap opens the battle settings, whose "Choose Hero" leads on to the VS screen
+            {   // the story banner (owner, 2026-11-11: the big START BATTLE is the MOBA now): "STORY" over the stage reached; a tap plays on from it (the Stages tab still picks any stage)
                 var ink = new Color(.69f, .66f, .93f); var ban = Box(new Color(.15f, .13f, .36f, .94f), 14); Border(ban, ink, 2); ban.style.flexGrow = 1; ban.style.flexShrink = 0; ban.style.minHeight = touchUi ? 100 : 74; ban.style.flexDirection = FlexDirection.Row; ban.style.alignItems = Align.Center;
                 ban.style.paddingLeft = ban.style.paddingRight = touchUi ? 16 : 12; ban.style.paddingTop = ban.style.paddingBottom = touchUi ? 10 : 6; ban.pickingMode = PickingMode.Position; laneRow.Add(ban);
-                var ic = Box(); ic.style.width = ic.style.height = touchUi ? 64 : 46; ic.style.flexShrink = 0; ic.pickingMode = PickingMode.Ignore; ic.generateVisualContent += ctx => DrawCastle(ctx, new Color(.81f, .8f, .96f), new Color(.15f, .13f, .36f)); ban.Add(ic);
+                storyBan = ban; StoryLook(StoryStyle);
+                var ic = Box(); ic.style.width = ic.style.height = touchUi ? 64 : 46; ic.style.flexShrink = 0; ic.pickingMode = PickingMode.Ignore; ic.generateVisualContent += ctx => DrawBook(ctx, new Color(.81f, .8f, .96f), new Color(.15f, .13f, .36f)); ban.Add(ic);
                 var tx = Box(); tx.style.flexGrow = 1; tx.style.flexShrink = 1; tx.style.marginLeft = 10; tx.pickingMode = PickingMode.Ignore; ban.Add(tx);
-                var top = L(Loc.S("สมรภูมิ MOBA", "MOBA ARENA"), touchUi ? 20 : 15, ink, true); top.style.letterSpacing = 1; top.pickingMode = PickingMode.Ignore; tx.Add(top);
+                var top = L(Loc.S("เนื้อเรื่อง", "STORY"), touchUi ? 20 : 15, ink, true); top.style.letterSpacing = 1; top.pickingMode = PickingMode.Ignore; tx.Add(top);
                 battleTxt = L("", touchUi ? 30 : 22, Color.white, true); battleTxt.pickingMode = PickingMode.Ignore; tx.Add(battleTxt);
-                var ch = L(Loc.S("เปลี่ยน ▶", "Change ▶"), touchUi ? 22 : 16, new Color(.81f, .8f, .96f), true); ch.style.flexShrink = 0; ch.pickingMode = PickingMode.Ignore; ban.Add(ch);
+                var ch = L(Loc.S("เล่นต่อ ▶", "Play ▶"), touchUi ? 22 : 16, new Color(.81f, .8f, .96f), true); ch.style.flexShrink = 0; ch.pickingMode = PickingMode.Ignore; ban.Add(ch);
                 ban.RegisterCallback<PointerDownEvent>(e => ban.style.scale = new Scale(Vector3.one * .97f));
                 ban.RegisterCallback<PointerLeaveEvent>(e => ban.style.scale = new Scale(Vector3.one));
-                ban.RegisterCallback<PointerUpEvent>(e => { ban.style.scale = new Scale(Vector3.one); ShowBattleSettings(); });
+                ban.RegisterCallback<PointerUpEvent>(e => { ban.style.scale = new Scale(Vector3.one); G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage)); });
                 BattleLabel();
             }
             var bottom = Box(); bottom.style.flexShrink = 0; bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
@@ -296,7 +297,7 @@ namespace NovaBlade
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
             gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); cur.style.alignSelf = Align.FlexStart; cur.style.marginTop = touchUi ? 10 : 42; logo.Add(cur);   // the money sits under the logo, clear of the two big buttons
-            var play = Btn(Loc.S("เริ่มต่อสู้", "START BATTLE"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = (touchUi ? 42 : 32) * TextK; Round(play, 16);
+            var play = Btn(Loc.S("เริ่มต่อสู้", "START BATTLE"), () => ShowBattleSettings());   // the MOBA: battle settings, then Choose Hero, then the VS screen (the story moved to the banner above) play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = (touchUi ? 42 : 32) * TextK; Round(play, 16);
             if (Resources.Load<Texture2D>("UI/Lobby/btn_play_frame_new") is Texture2D pf)
             {   // painted frame at its own proportions (1200 x 360): the diamonds top and bottom must not stretch
                 float pw = touchUi ? 560 : 440; play.style.flexGrow = 0; play.style.width = pw; play.style.height = pw * .3f; play.style.marginLeft = Length.Auto(); play.style.marginRight = Length.Auto();
@@ -356,7 +357,7 @@ namespace NovaBlade
         public void ShowLobby()
         {
             lobby.style.display = DisplayStyle.Flex; hud.style.display = DisplayStyle.None; pauseOv.style.display = resultOv.style.display = DisplayStyle.None;
-            RenderInfo(); RenderCards();
+            RenderInfo(); RenderCards(); BattleLabel();
         }
         void RenderInfo()
         {
@@ -1607,7 +1608,67 @@ namespace NovaBlade
         }
         static string ModeName(int m) => m switch { 0 => Loc.S("1 เลน 1v1", "1 Lane 1v1"), 1 => Loc.S("1 เลน 3v3", "1 Lane 3v3"), 2 => Loc.S("3 เลน 3v3", "3 Lanes 3v3"), _ => Loc.S("ลอยฟ้า 3v3", "Sky Lanes 3v3") };
         static string LevelName(int l) => l switch { 0 => Loc.S("ง่าย", "Easy"), 1 => Loc.S("ปกติ", "Normal"), _ => Loc.S("ยาก", "Hard") };
-        void BattleLabel() { if (battleTxt != null) battleTxt.text = $"{ModeName(G.save.laneMode)} · AI {LevelName(G.save.aiLevel)}"; }
+        void BattleLabel()
+        {   // the story banner: the stage the player has reached and its land's name
+            if (battleTxt == null || !G) return; int st = Mathf.Clamp(G.save.stage, 1, G.MaxStage); var th = Data.Themes[Data.ThemeOf(st)];
+            battleTxt.text = Loc.S($"ด่าน {st} · {th.name}", $"Stage {st} · {th.name}");
+        }
+        // the story banner's look (owner, 2026-11-11: a violet gradient with a frame; three to choose from):
+        // 0 royal: deep violet top to bottom, a double gold edge, small gems on the corners; 1 gilded: the painted gold filigree card
+        // of the Battle Settings over the gradient; 2 twilight: night blue into violet left to right, a lilac edge and a few stars
+        public static int StoryStyle = 2;   // the owner picked twilight (3rd look)
+        VisualElement storyBan;
+        public void StoryLook(int k)
+        {
+            var b = storyBan; if (b == null) return; StoryStyle = k;
+            foreach (var d in b.Children().Where(c => c.name == "deco").ToList()) d.RemoveFromHierarchy();
+            var gold = new Color(1f, .82f, .42f);
+            VisualElement Deco() { var d = Box(); d.name = "deco"; Abs(d, 0, 0, 0, 0); d.pickingMode = PickingMode.Ignore; b.Insert(0, d); return d; }
+            b.style.unitySliceLeft = b.style.unitySliceRight = b.style.unitySliceTop = b.style.unitySliceBottom = 0; b.style.unityBackgroundScaleMode = ScaleMode.StretchToFill;
+            if (k == 1 && Resources.Load<Texture2D>("UI/Battle/card") is Texture2D card)
+            {   // gilded: the gradient under the painted gold filigree frame
+                b.style.backgroundColor = Color.clear; b.style.backgroundImage = new StyleBackground(Grad(new Color(.36f, .2f, .62f), new Color(.12f, .07f, .3f), true)); Border(b, Color.clear, 0);
+                var f = Deco(); Abs(f, -6, -6, -6, -6); f.style.backgroundImage = new StyleBackground(card); f.style.unityBackgroundScaleMode = ScaleMode.StretchToFill;
+                f.style.unitySliceLeft = f.style.unitySliceRight = f.style.unitySliceTop = f.style.unitySliceBottom = 40; f.style.unityBackgroundImageTintColor = new Color(1, 1, 1, .95f);
+                return;
+            }
+            if (k == 2)
+            {   // twilight: night blue into violet, a soft lilac edge, a few stars
+                b.style.backgroundColor = Color.clear; b.style.backgroundImage = new StyleBackground(Grad(new Color(.08f, .14f, .38f), new Color(.38f, .14f, .5f), false)); Border(b, new Color(.78f, .74f, .98f, .9f), 2);
+                var e = Deco(); Abs(e, 4, 4, 4, 4); Border(e, new Color(.78f, .74f, .98f, .35f), 1); Round(e, 10);
+                var st = Deco(); st.generateVisualContent += ctx =>
+                {
+                    var r = ctx.visualElement.contentRect; var p = ctx.painter2D; var rnd = new System.Random(7);
+                    for (int i = 0; i < 22; i++)
+                    {
+                        float x = (float)rnd.NextDouble() * r.width, y = (float)rnd.NextDouble() * r.height, sz = 1 + (float)rnd.NextDouble() * 2.2f;
+                        p.fillColor = new Color(1, 1, 1, .25f + (float)rnd.NextDouble() * .5f); p.BeginPath(); p.Arc(new Vector2(x, y), sz, 0, 360); p.Fill();
+                    }
+                };
+                return;
+            }
+            // royal: deep violet top to bottom, a double gold edge, gems on the corners
+            b.style.backgroundColor = Color.clear; b.style.backgroundImage = new StyleBackground(Grad(new Color(.34f, .2f, .6f), new Color(.1f, .06f, .26f), true)); Border(b, gold, 2);
+            var inner = Deco(); Abs(inner, 4, 4, 4, 4); Border(inner, new Color(gold.r, gold.g, gold.b, .45f), 1); Round(inner, 10);
+            foreach (var (x, y) in new[] { (0, 0), (1, 0), (0, 1), (1, 1) })
+            {
+                float gs = touchUi ? 18 : 14; var g = Deco(); g.style.left = g.style.right = g.style.top = g.style.bottom = StyleKeyword.Auto; g.style.width = gs; g.style.height = gs;
+                if (x == 0) g.style.left = -gs / 2; else g.style.right = -gs / 2;
+                if (y == 0) g.style.top = -gs / 2; else g.style.bottom = -gs / 2;
+                g.generateVisualContent += ctx => Gem(ctx, new Color(.45f, .8f, 1f), gold);
+            }
+        }
+        // an open book (the story banner's mark)
+        static void DrawBook(MeshGenerationContext ctx, Color page, Color ink)
+        {
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height; Vector2 P(float x, float y) => new(w * x, h * y);
+            p.fillColor = page;
+            p.BeginPath(); p.MoveTo(P(.5f, .32f)); p.BezierCurveTo(P(.38f, .24f), P(.22f, .24f), P(.1f, .28f)); p.LineTo(P(.1f, .76f)); p.BezierCurveTo(P(.22f, .72f), P(.38f, .72f), P(.5f, .8f)); p.ClosePath(); p.Fill();
+            p.BeginPath(); p.MoveTo(P(.5f, .32f)); p.BezierCurveTo(P(.62f, .24f), P(.78f, .24f), P(.9f, .28f)); p.LineTo(P(.9f, .76f)); p.BezierCurveTo(P(.78f, .72f), P(.62f, .72f), P(.5f, .8f)); p.ClosePath(); p.Fill();
+            p.strokeColor = ink; p.lineWidth = Mathf.Max(1.5f, w * .03f);
+            p.BeginPath(); p.MoveTo(P(.5f, .32f)); p.LineTo(P(.5f, .8f)); p.Stroke();
+            foreach (var y in new[] { .4f, .5f, .6f }) { p.BeginPath(); p.MoveTo(P(.18f, y)); p.LineTo(P(.42f, y + .02f)); p.MoveTo(P(.58f, y + .02f)); p.LineTo(P(.82f, y)); p.Stroke(); }
+        }
         // Battle Settings (owner's reference, 2026-11-11): a violet panel in a double gold frame with a blue gem over the title, the four modes as
         // picture cards (a shot of each map, made by -modethumbs; Sky Lanes marked Recommended), the AI levels as cards with a face each
         // (a slime, a knight's helm, a horned demon), a gold Choose Hero and a violet Close

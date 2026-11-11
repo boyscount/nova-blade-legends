@@ -249,6 +249,7 @@ namespace NovaBlade
             int cw = System.Array.IndexOf(args, "-crowdtest"); if (cw >= 0 && cw + 1 < args.Length) StartCoroutine(CrowdTest(args[cw + 1]));
             int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
             int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
+            int slk = System.Array.IndexOf(args, "-storylooks"); if (slk >= 0 && slk + 1 < args.Length) StartCoroutine(StoryLooks(args[slk + 1]));
             int mth = System.Array.IndexOf(args, "-modethumbs"); if (mth >= 0 && mth + 1 < args.Length) StartCoroutine(ModeThumbs.Run(this, args[mth + 1]));
             int bst = System.Array.IndexOf(args, "-battlesettings"); if (bst >= 0 && bst + 1 < args.Length) StartCoroutine(BattleSettingsTest(args[bst + 1]));
             int tbl = System.Array.IndexOf(args, "-teambalance"); if (tbl >= 0 && tbl + 1 < args.Length) StartCoroutine(TeamBalance(args[tbl + 1], tbl + 2 < args.Length && int.TryParse(args[tbl + 2], out int tf) ? tf : 120));
@@ -1010,6 +1011,13 @@ namespace NovaBlade
         }
         // Test mode (-battlesettings <dir>): the settings panel, then each AI difficulty: one AI hero (Valka) against the player for 12 s,
         // damage taken and skills used; the save's settings are put back
+        // -storylooks <dir>: the lobby with each of the story banner's three looks (the owner picks one)
+        System.Collections.IEnumerator StoryLooks(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); ui.ShowLobby(); yield return new WaitForSecondsRealtime(1);
+            for (int k = 0; k < 3; k++) { ui.StoryLook(k); yield return new WaitForSecondsRealtime(1.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"look{k + 1}.png")); yield return new WaitForSecondsRealtime(1.2f); }
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "end.png")); yield return new WaitForSecondsRealtime(1); Application.Quit();
+        }
         System.Collections.IEnumerator BattleSettingsTest(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); var log = new System.Text.StringBuilder(); int keepM = save.laneMode, keepA = save.aiLevel;
