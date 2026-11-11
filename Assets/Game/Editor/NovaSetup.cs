@@ -22,7 +22,8 @@ public static class NovaSetup
     const string Prefabs = "Assets/Game/Resources/Heroes";
     // the classic skins live outside Resources, so they are not in the game's main data: each goes out as an AssetBundle (NovaBuild.SkinBundles, SkinPacks)
     public const string SkinPackDir = "Assets/Game/SkinPacks";
-    static string PrefabPath(string id) => id.EndsWith("_classic") ? $"{SkinPackDir}/Hero_{id}.prefab" : $"{Prefabs}/Hero_{id}.prefab";
+    public static bool IsPack(string id) => id.EndsWith("_classic") || id.EndsWith("_legend");   // model skins (classic, legend): built into asset bundles, fetched when worn
+    static string PrefabPath(string id) => IsPack(id) ? $"{SkinPackDir}/Hero_{id}.prefab" : $"{Prefabs}/Hero_{id}.prefab";
     const string ControllerPath = "Assets/Game/Animations/Hero.controller";
 
     // state name -> (Mixamo file, loops)
@@ -119,9 +120,9 @@ public static class NovaSetup
         }
         mi.clipAnimations = clips; mi.SaveAndReimport();
     }
-    public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger", "knight_classic", "warrior_classic", "samurai_classic", "harpy_classic", "spartan_classic", "elf_classic", "ninja_classic", "hood_classic", "sunpriest_classic", "monk_classic", "mage_classic", "darkmage_classic", "sorceress_classic", "lyra_classic", "rowan_classic", "tenzin_classic", "flamepriest_classic", "tiger_classic" };   // knight_classic: Garland's old look, a model skin
+    public static readonly string[] RiggedHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger", "knight_classic", "warrior_classic", "samurai_classic", "harpy_classic", "spartan_classic", "elf_classic", "ninja_classic", "hood_classic", "sunpriest_classic", "monk_classic", "mage_classic", "darkmage_classic", "sorceress_classic", "lyra_classic", "rowan_classic", "tenzin_classic", "flamepriest_classic", "tiger_classic", "ninja_legend", "darkmage_legend", "flamepriest_legend", "tiger_legend" };   // knight_classic: Garland's old look, a model skin
     // class heroes (auto-rigged by arena_autorig.py): build their avatars and prefabs against the existing controller
-    public static readonly string[] ClassHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger", "knight_classic", "warrior_classic", "samurai_classic", "harpy_classic", "spartan_classic", "elf_classic", "ninja_classic", "hood_classic", "sunpriest_classic", "monk_classic", "mage_classic", "darkmage_classic", "sorceress_classic", "lyra_classic", "rowan_classic", "tenzin_classic", "flamepriest_classic", "tiger_classic" };   // knight_classic: Garland's old look, a model skin
+    public static readonly string[] ClassHeroes = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger", "knight_classic", "warrior_classic", "samurai_classic", "harpy_classic", "spartan_classic", "elf_classic", "ninja_classic", "hood_classic", "sunpriest_classic", "monk_classic", "mage_classic", "darkmage_classic", "sorceress_classic", "lyra_classic", "rowan_classic", "tenzin_classic", "flamepriest_classic", "tiger_classic", "ninja_legend", "darkmage_legend", "flamepriest_legend", "tiger_legend" };   // knight_classic: Garland's old look, a model skin
     public static void NewHeroes()
     {
         AssetDatabase.ImportAsset(Heroes, ImportAssetOptions.ImportRecursive);
@@ -355,7 +356,7 @@ public static class NovaSetup
         var holder = new GameObject("Hero_" + id);
         inst.transform.SetParent(holder.transform, false);
         var anim = inst.AddComponent<Animator>();
-        anim.avatar = avatar; anim.runtimeAnimatorController = id.EndsWith("_classic") ? null : ctrl; anim.applyRootMotion = false;   // a skin bundle would carry the controller and every clip: the game gives it the hero's (SkinPacks.Animate)
+        anim.avatar = avatar; anim.runtimeAnimatorController = IsPack(id) ? null : ctrl; anim.applyRootMotion = false;   // a skin bundle would carry the controller and every clip: the game gives it the hero's (SkinPacks.Animate)
         anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         Directory.CreateDirectory(Prefabs); Directory.CreateDirectory(SkinPackDir); MendMesh(id, inst);
         PrefabUtility.SaveAsPrefabAsset(holder, PrefabPath(id));

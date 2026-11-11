@@ -27,12 +27,19 @@ namespace NovaBlade
         // in the same list (index skins.Length and up), are free, and keep the hero's name, class, kit and animation set.
         // every rigged hero's first look (before the 2026-11 remake) is kept as its "classic" model skin
         static readonly string[] Classic = { "warrior", "samurai", "harpy", "spartan", "elf", "ninja", "hood", "sunpriest", "monk", "mage", "darkmage", "sorceress", "lyra", "rowan", "tenzin", "knight", "flamepriest", "tiger" };
+        // legend skins (STORY-LORE.md, LEGEND-PROMPTS.md): the prize of a hero's legend on its hard level; the models the owner has made so far
+        static readonly Dictionary<string, string> Legends = new()
+        {
+            ["ninja"] = Loc.S("ตำนาน · เงาจันทร์ดับ", "Legend · Moonless Shadow"), ["darkmage"] = Loc.S("ตำนาน · ผู้ถูกขับไล่แห่งนภา", "Legend · Outcast of the Spire"),
+            ["flamepriest"] = Loc.S("ตำนาน · เพลิงพิพากษา", "Legend · Judgement Flame"), ["tiger"] = Loc.S("ตำนาน · เจ้าพยัคฆ์ขาว", "Legend · White Tiger Lord"),
+        };
         public static (string n, string model)[] ModelSkins(string hero)
         {
-            if (hero == "knight") return new[] { (Loc.S("เจ้าชายการ์แลนด์ (ดั้งเดิม)", "Prince Garland (classic)"), "knight_classic") };
-            if (System.Array.IndexOf(Classic, hero) < 0) return System.Array.Empty<(string, string)>();
-            var h = Heroes.FirstOrDefault(x => x.id == hero); string n = h != null ? h.name : hero;
-            return new[] { (Loc.S($"{n} ดั้งเดิม", $"Classic {n}"), hero + "_classic") };
+            var list = new List<(string n, string model)>();
+            if (hero == "knight") list.Add((Loc.S("เจ้าชายการ์แลนด์ (ดั้งเดิม)", "Prince Garland (classic)"), "knight_classic"));
+            else if (System.Array.IndexOf(Classic, hero) >= 0) { var h = Heroes.FirstOrDefault(x => x.id == hero); string n = h != null ? h.name : hero; list.Add((Loc.S($"{n} ดั้งเดิม", $"Classic {n}"), hero + "_classic")); }
+            if (Legends.TryGetValue(hero, out var lg)) list.Add((lg, hero + "_legend"));   // after the classic one: the saved skin numbers stay put
+            return list.ToArray();
         }
         public static IEnumerable<string> AllSkinModels => Heroes.SelectMany(h => ModelSkins(h.id).Select(m => m.model));
         public static int SkinCount(HeroDef h) => h.skins.Length + ModelSkins(h.id).Length;

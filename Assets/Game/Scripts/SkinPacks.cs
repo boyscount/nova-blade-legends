@@ -14,7 +14,7 @@ namespace NovaBlade
         public const uint Version = 1;   // raise when the bundles are rebuilt with new content, so browsers fetch them again
         static readonly Dictionary<string, GameObject> ready = new();
         static readonly Dictionary<string, List<System.Action>> waiting = new();
-        public static bool IsPack(string model) => model != null && model.EndsWith("_classic");
+        public static bool IsPack(string model) => model != null && (model.EndsWith("_classic") || model.EndsWith("_legend"));
         // the prefab for a hero model, if it is here now
         public static GameObject Get(string model)
         {

@@ -265,6 +265,7 @@ namespace NovaBlade
             int akt = System.Array.IndexOf(args, "-aikittest"); if (akt >= 0 && akt + 1 < args.Length) StartCoroutine(AiKitTest(args[akt + 1]));
             int ktt = System.Array.IndexOf(args, "-kittest"); if (ktt >= 0 && ktt + 1 < args.Length) StartCoroutine(KitTest(args[ktt + 1]));
             int stt = System.Array.IndexOf(args, "-skytimes"); if (stt >= 0 && stt + 1 < args.Length) StartCoroutine(SkyTimes(args[stt + 1]));
+            int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1]));
             int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
             int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
             int dlt = System.Array.IndexOf(args, "-duelstest"); if (dlt >= 0 && dlt + 1 < args.Length) StartCoroutine(DuelsTest(args[dlt + 1]));
@@ -549,6 +550,13 @@ namespace NovaBlade
         System.Collections.IEnumerator BakeCards(string dir)
         {
             yield return new WaitForSecondsRealtime(3); System.IO.Directory.CreateDirectory(dir); int n = 0;
+            bool fetched = false;
+            foreach (var h in Data.Heroes) foreach (var (_, m) in Data.ModelSkins(h.id))
+            {   // model skins live in bundles: fetch every one, then shoot all the cards again with them in hand
+                bool done = false; SkinPacks.Fetch(m, () => done = true); float t0 = Time.realtimeSinceStartup;
+                while (!done && SkinPacks.Get(m) == null && Time.realtimeSinceStartup - t0 < 20) yield return null; fetched = true;
+            }
+            if (fetched) Studio.Build();
             foreach (var kv in Studio.Rendered) { System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, kv.Key + ".png"), kv.Value.EncodeToPNG()); n++; }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "baked.txt"), n.ToString()); Application.Quit();
         }
@@ -1161,10 +1169,40 @@ namespace NovaBlade
                 hero.dead = true; hero.max = hero.hp = 1e9f; hero.inv = 1e9f; hero.transform.position = Lane.SpawnOf(0) + new Vector3(0, -40, 0); foreach (var rr in hero.GetComponentsInChildren<Renderer>()) rr.enabled = false;
                 TestSpeed = Speed; float t0 = time; int lastMin = -1;
                 float real0 = Time.realtimeSinceStartup; while (mode == Mode.Game && time - t0 < Cap && Time.realtimeSinceStartup - real0 < Cap / Speed + 60) { if ((int)((time - t0) / 60) != lastMin || Time.frameCount % 600 == 0) { lastMin = (int)((time - t0) / 60); System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "matchlen.txt"), log.ToString() + $"now: game {time - t0:0} s real {Time.realtimeSinceStartup - real0:0} s mode {mode} scale {Time.timeScale} paused {paused}"); log.AppendLine($"  round {r + 1} min {lastMin}: towers ours {TowersLeft(0)} theirs {TowersLeft(1)} · kills {teamKills[0]}:{teamKills[1]} · Lv {Data.Level(teamXp[0])}:{Data.Level(teamXp[1])}"); } yield return null; }
+                log.AppendLine($"jungle round {r + 1}: {Jungle.Events.Count} camps cleared · " + string.Join(" | ", Jungle.Events));
                 TestSpeed = 1; float m = (time - t0) / 60; log.AppendLine($"round {r + 1}: {m:0.0} min · winner {(TowersLeft(1) == 0 || !foes.Any(f => f && f.alive && f.team == 1 && f.d.id == "core") ? "blue" : TowersLeft(0) == 0 || !foes.Any(f => f && f.alive && f.team == 0 && f.d.id == "core") ? "red" : "none (cap)")} · towers ours {TowersLeft(0)} theirs {TowersLeft(1)} · kills {teamKills[0]}:{teamKills[1]}");
                 System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "matchlen.txt"), log.ToString()); hero.dead = false; foreach (var rr in hero.GetComponentsInChildren<Renderer>()) rr.enabled = true; yield return new WaitForSecondsRealtime(2.5f);
             }
             Application.Quit();
+        }
+        // -jungletest <dir>: the camps come up on time, a camp fights back and leashes home, the player clears the Giant and gets its buff
+        System.Collections.IEnumerator JungleTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            StartLane(3, 2); yield return null; time = 49; yield return new WaitForSecondsRealtime(1.5f);
+            log.AppendLine("camps up at 0:50: " + string.Join(", ", Jungle.camps.Select(c => $"{c.id} {(c.Alive ? "up" : "down")} x{c.members.Count(m => m && m.alive)} at {c.at}")));
+            var g = Jungle.camps.First(c => c.id == "might").members.First(m => m);
+            MoveTo(g.Pos + new Vector3(0, 0, 3.5f)); yield return new WaitForSecondsRealtime(.8f); Snap("camp_giant");
+            float hp0 = hero.hp; g.Damage(10, hero.Pos); yield return new WaitForSecondsRealtime(3); log.AppendLine($"giant struck: targets player {g.lastHitBy == (ITarget)hero} · player hp {hp0:0} -> {hero.hp:0}");
+            MoveTo(g.home + new Vector3(0, 0, 14)); yield return new WaitForSecondsRealtime(4); log.AppendLine($"player ran off: giant target {(g.lastHitBy == null ? "none" : "still")} · giant from home {Flat(g.Pos - g.home).magnitude:0.0} m · hp {g.hp:0}/{g.maxHp:0}");
+            MoveTo(g.Pos + new Vector3(0, 0, 2.5f)); yield return null; float atk0 = hero.AtkPow; g.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(1);
+            log.AppendLine($"giant down: player might {hero.mightT:0} s · attack {atk0:0} -> {hero.AtkPow:0} · camp back at {Jungle.camps.First(c => c.id == "might").nextAt:0} s · events {string.Join(" | ", Jungle.Events)}");
+            Snap("buff_might");
+            time = 300; TestSpeed = 4; float r0 = Time.realtimeSinceStartup, nextLog = 0;
+            while (Time.realtimeSinceStartup - r0 < 45 && mode == Mode.Game)
+            {   // where each side's jungler is and what it is doing
+                if (Time.realtimeSinceStartup - r0 >= nextLog)
+                {
+                    nextLog += 3; var js = foes.Where(f => f && f.alive && Jungle.IsJungler(f)).ToList();
+                    log.AppendLine($"  {time:0}s junglers: " + string.Join(" ; ", js.Select(f => $"{f.d.name} T{f.team} at ({f.Pos.x:0},{f.Pos.z:0}) hp {f.hp / f.maxHp:0.00} camp {(f.JungleCamp != null ? f.JungleCamp.id : "-")} tgt {(f.Tgt == null ? "-" : f.Tgt is Hero ? "player" : f.Tgt is Foe tf ? tf.d.id : "?")}")) + $" · camps up: {string.Join(",", Jungle.camps.Where(c => c.Alive).Select(c => c.id))}");
+                }
+                yield return null;
+            }
+            TestSpeed = 1;
+            log.AppendLine($"after ~3 min of AI play: {Jungle.Events.Count} clears · {string.Join(" | ", Jungle.Events)}");
+            log.AppendLine($"AI buffs now: {string.Join(", ", foes.Where(f => f && f.alive && f.d.kind == "champ").Select(f => $"{f.d.name} T{f.team} might {f.mightT:0} haste {f.hasteT:0}"))}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "jungle.txt"), log.ToString()); Application.Quit();
         }
         System.Collections.IEnumerator SkyLanesTest(string dir)
         {
@@ -1681,7 +1719,7 @@ namespace NovaBlade
         }
 
         // ---------- combat helpers ----------
-        public IEnumerable<Foe> Live => foes.Where(f => f && f.alive && !f.spawning && f.team == 1);   // what the player and pet can hit
+        public IEnumerable<Foe> Live => foes.Where(f => f && f.alive && !f.spawning && (f.team == 1 || f.team == Jungle.Neutral));   // what the player and pet can hit
         public Foe Nearest(Vector3 p, float maxD = 99)
         {
             Foe best = null; float bd = maxD;
@@ -1940,10 +1978,18 @@ namespace NovaBlade
         }
 
         // ======================= teams & lane battle =======================
-        public IEnumerable<ITarget> Opponents(int team)
+        // camps: include the jungle's monsters (team 2), left out by default so soldiers, towers and heroes in lane pass them by;
+        // the monsters themselves (team 2) fight only heroes
+        public IEnumerable<ITarget> Opponents(int team, bool camps = false)
         {
-            if (team == 1 && hero && !hero.dead && !hero.Invisible && !duelOnly) yield return hero;
-            foreach (var f in foes) if (f && f.alive && !f.spawning && f.team != team) yield return f;
+            if (team != 0 && hero && !hero.dead && !hero.Invisible && !duelOnly) yield return hero;
+            foreach (var f in foes)
+            {
+                if (!f || !f.alive || f.spawning || f.team == team) continue;
+                if (f.team == Jungle.Neutral && !camps) continue;
+                if (team == Jungle.Neutral && f.d.kind != "champ") continue;
+                yield return f;
+            }
         }
         public ITarget PickTarget(Foe f)
         {
@@ -1960,7 +2006,7 @@ namespace NovaBlade
         }
         public void HitTeamArea(int team, Vector3 c, float r, float dmg)
         {
-            foreach (var o in Opponents(team).ToList()) if (Flat(o.Pos - c).magnitude < r + o.Rad) o.Take(dmg, c);
+            foreach (var o in Opponents(team, true).ToList()) if (Flat(o.Pos - c).magnitude < r + o.Rad) o.Take(dmg, c);
         }
         public Vector3 Clamp(Vector3 p, float margin = 0)
         {
@@ -2020,6 +2066,7 @@ namespace NovaBlade
                 for (int l = 0; l < 2; l++) for (int k = 0; k < SkyLanes.Towers; k++) { var u = SpawnUnit(Lane.Tower, SkyLanes.Tower(t, l, k), t); if (u) { u.laneIdx = l; u.towerTier = k; } }
                 SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t).towerTier = SkyLanes.Towers;
             }
+            Jungle.Begin();   // the jungle camps (stage B)
             var others = TakeAllies() is { Count: > 0 } pa ? pa : Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();   // the VS screen's team when there was one
             for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), Lane.SpawnOf(0) + new Vector3(i == 0 ? -1.5f : 1.5f, 0, 0), 0); if (u) u.laneIdx = SkyLaneOf[i]; }
             var foesH = TakeEnemies() is { Count: > 0 } pe ? pe : Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
@@ -2047,6 +2094,7 @@ namespace NovaBlade
                 case 1: ui.Banner(Loc.S("พลบค่ำ", "Dusk"), Loc.S("ตะวันกำลังตกดิน", "The sun is going down")); break;
                 case 2: ui.Banner(Loc.S("รัตติกาล", "Night"), Loc.S("ความมืดปกคลุมเกาะลอยฟ้า", "Darkness falls over the islands")); break;
             }
+            if (Lane.Lanes == 2) Jungle.Tick(dt);
             if (Lane.Lanes == 2)
             {   // a wave of three soldiers down each lane, from each base
                 LetOutWave();

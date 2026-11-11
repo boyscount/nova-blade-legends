@@ -15,6 +15,7 @@ namespace NovaBlade
         public float poise, poiseMax, brokenT;   // stagger meter: full -> broken (open to a finisher)
         public bool Broken => brokenT > 0;
         public int team = 1;   // 1 = enemies of the player, 0 = the player's side (lane mode)
+        public Jungle.Camp camp; public ITarget lastHitBy; public float mightT, hasteT; Jungle.Camp jungleCamp; public Jungle.Camp JungleCamp => jungleCamp; public ITarget Tgt => tgt;   // Sky Lanes jungle: a camp monster (team 2) and who struck it last; an AI hero's buffs and the camp it is clearing
         public Vector3 Pos => transform.position;
         public float Rad => rad; public bool Down => !alive || spawning; public int Team => team;
         public int laneIdx = 1;   // which lane this unit walks (three-lane mode)
@@ -118,6 +119,7 @@ namespace NovaBlade
         {
             aggro = true;
             if (!alive) return; o ??= new Main.Hit(); var hero = G.hero; OnDamage?.Invoke(this, dmg, from, o);
+            if (camp != null) Jungle.Struck(this, from, o);
             if (towerTier >= 0 && G.lane && !o.byFoe) dmg *= Lane.HeroVsTower(this, 0);   // the player's hits on a structure (AI heroes: FoeKit.AiHunt)
             if (towerTier >= 1 && Shielded)
             {   // no shortcuts: the towers before it must fall first
@@ -159,6 +161,7 @@ namespace NovaBlade
 
         void Kill()
         {
+            if (camp != null) Jungle.Down(this);
             alive = false; s = S.Dead; st = 0; if (d.kind == "champ") G.HeroKilled(Pos, team, d.name, false); G.TeamXp(1 - team, isBoss ? Data.BossXp : d.gold); if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
             Fx.Burst(Pos + Vector3.up * h * .5f, isBoss ? 140 : 26, isBoss ? bd.color : new Color(1, .48f, .29f), isBoss ? 10 : 6);
             Fx.Dust(Pos, isBoss ? 1.8f : .8f, isBoss ? 26 : 10); Fx.Burst(Pos + Vector3.up * h * .45f, isBoss ? 40 : 14, new Color(1, .55f, .25f), isBoss ? 6 : 4, .45f, 1.6f, .08f);
@@ -201,12 +204,15 @@ namespace NovaBlade
             if (G.mode != Main.Mode.Game) { Play("Idle", "Flying_Idle"); AnimLoop("idle"); return; }
             if (burn > 0) { burn -= dt; burnT -= dt; if (burnT <= 0) { burnT = .5f; Damage(burnD, Pos, new Main.Hit { col = burnC }); if (!alive) return; } if (Random.value < .3f) Fx.Burst(Pos + Vector3.up * h * .6f, 1, burnC, 1.5f, .5f, -.3f); }
             var hero = G.hero;
-            retarget -= dt; if (retarget <= 0 || tgt == null || tgt.Down) { retarget = .3f; tgt = G.PickTarget(this); }
+            retarget -= dt; if (retarget <= 0 || tgt == null || tgt.Down) { retarget = .3f; tgt = camp != null ? Jungle.TargetOf(this) : G.PickTarget(this); }
             bool has = tgt != null && !tgt.Down;
             if (leash > 0) { float hd = Main.Flat(hero.Pos - Pos).magnitude; if (hd < AggroRange) aggro = true; else if (hd > LoseRange || Main.Flat(hero.Pos - home).magnitude > leash) aggro = false; if (!aggro) has = false; }
             // no target in lane mode: march toward the other side's base
             Vector3? plan = G.lane && d.kind == "champ" && !G.duelOnly ? ChampPlan(ref has) : null;
-            var goal = plan ?? (has ? tgt.Pos : G.lane ? Lane.Goal(Pos, team, laneIdx) : leash > 0 ? home : Pos);
+            var goal = plan ?? (has ? tgt.Pos : camp != null ? home : G.lane ? Lane.Goal(Pos, team, laneIdx) : leash > 0 ? home : Pos);
+            if (camp != null && !has && Main.Flat(home - Pos).magnitude < 1.2f) { hp = Mathf.Min(maxHp, hp + maxHp * .35f * dt); goal = Pos; }
+            if (d.kind == "champ" && G.SkyMatch) goal = Jungle.Route(Pos, goal);   // into and out of the jungle by its stone paths
+            mightT -= dt; hasteT -= dt;
             var to = Main.Flat(goal - Pos); float dd = has ? Mathf.Max(0, to.magnitude - tgt.Rad + .45f) : 99, want = Main.Ang(to);
             if (pull > 0) { pull -= dt; if (dd > 1.3f && d.kind != "tower") transform.position += to.normalized * 9 * dt; }
             slow -= dt; float sp = d.spd * AiSpeedK * (slow > 0 ? .45f : 1) * (raged ? 1.3f : 1) * (!d.fly && River.InWater(Pos.x, Pos.z) ? .7f : 1);
@@ -304,16 +310,21 @@ namespace NovaBlade
         bool OpponentFocusing(ITarget target) => G.foes.Any(o => o && o.alive && o.team != team && o.d.kind == "champ" && o.tgt == target);
         public ITarget ChampTarget()
         {
-            ITarget best = null; float bs = 1e9f;
+            ITarget best = null; float bs = 1e9f; var jc = Jungle.ForAi(this);   // a jungler with a camp up looks only at heroes on the way
             foreach (var o in G.Opponents(team))
             {
                 float dist = Main.Flat(o.Pos - Pos).magnitude - o.Rad; if (dist > SeeRange * (G.AiLv.focus ? 1.25f : 1) || !SafeToReach(o) || o is Foe so && so.Shielded) continue;
                 float hpK = o is Foe of ? of.hp / of.maxHp : o is Hero oh ? oh.hp / oh.max : 1; bool isHero = o is Hero || o is Foe oc && oc.d.kind == "champ"; bool tower = o is Foe ot && ot.d.kind == "tower";
+                if (jc != null && !isHero) continue;
                 float score = dist - (isHero ? 2 + (1 - hpK) * (G.AiLv.focus ? 11 : 6) : 0)   // hard AI hunts the weakest hero
                     - (!isHero && !tower && hpK < .35f ? 2.5f : 0) + (tower ? 3 : 0);
                 if (isHero && OpponentFocusing(o)) score -= 3;   // join a teammate's fight instead of spreading damage
                 if (isHero && IsAssassin && (o is Foe so2 && so2.d.shoot || o is Hero oh2 && oh2.def.ranged)) score -= 4;   // assassins dive for the shooters at the back
                 if (score < bs) { bs = score; best = o; }
+            }
+            if (jc != null && best == null)
+            {   // the jungler at its camp: a camp monster unless an enemy hero is about
+                var m = Jungle.Member(jc, Pos, 9); if (m) return m;
             }
             return best;
         }
@@ -327,6 +338,8 @@ namespace NovaBlade
             foreach (var f in G.foes) if (f && f != this && f.alive && f.team == team && f.d.kind == "champ" && Main.Flat(f.Pos - Pos).magnitude < SeeRange) friendsNear++;
             if (team == 0 && G.hero && !G.hero.dead && Main.Flat(G.hero.Pos - Pos).magnitude < SeeRange) friendsNear++;
             if (foesNear > friendsNear && hp < maxHp * .7f) { has = false; return Pos + (homeCore - Pos).normalized * 6; }   // outnumbered and hurt: give ground
+            jungleCamp = Jungle.ForAi(this);   // the side's jungler: to the best camp up, past the soldiers in lane; it stops for enemy heroes and for its camp
+            if (jungleCamp != null && !(has && (tgt is Hero || tgt is Foe tj && (tj.d.kind == "champ" || tj.camp != null)))) { has = false; return jungleCamp.at; }
             if (has) return null;
             var next = Lane.Goal(Pos, team, laneIdx); var tw = EnemyTowerOver(next, 1);
             if (tw && OwnSoldiersNear(tw.Pos, tw.d.range + 1) < 2) { var back = Main.Flat(Pos - tw.Pos); return tw.Pos + (back.sqrMagnitude > .01f ? back.normalized : -Main.Dir(face)) * (tw.d.range + 2); }   // wait for the soldiers before the tower

@@ -157,7 +157,7 @@ namespace NovaBlade
             KitBegin();
             StopWalk(); mp = mpMax; offActive = false; swapCD = 0; G.runLoot.Clear(); G.runXp = 0;
             transform.position = G.lane ? Lane.SpawnOf(0) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
-            buffT = shieldT = dodgeCD = orbAtkT = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
+            buffT = shieldT = dodgeCD = orbAtkT = mightT = hasteT = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
             if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
             Play("idle", .05f);
             if (G.soul) { if (!soul) soul = gameObject.AddComponent<SoulController>(); soul.Begin(this); } else if (soul) soul.End();
@@ -255,7 +255,8 @@ namespace NovaBlade
         bool AtkHeld => G.ui.atkHold || ClickAttacking || (Keyboard.current?.jKey.isPressed ?? false) || (Mouse.current != null && Mouse.current.leftButton.isPressed && !G.ui.PointerOverUi);
 
         // ---------- helpers ----------
-        public float AtkPow => 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier] + Items.Bonus(G.save).atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
+        public float mightT, hasteT;   // Sky Lanes jungle buffs (Jungle): more damage, faster skills
+        public float AtkPow => (mightT > 0 ? Jungle.MightK : 1) * 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier] + Items.Bonus(G.save).atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
         public int MasteryTier => Data.Tier(G.save.Mastery(sword.id));
         public float CritBonus => Data.MasteryCrit[MasteryTier] + Items.Bonus(G.save).crit;
         // a healing potion from the bag: 35% of health, 3 s apart
@@ -408,7 +409,7 @@ namespace NovaBlade
             if (G.mode == Main.Mode.Lobby) { LobbyIdle(); return; }
             if (G.mode != Main.Mode.Game && G.mode != Main.Mode.Result) return;
             float dt = Time.deltaTime; var ui = G.ui;
-            inv -= dt; dodgeCD -= dt; buffT -= dt; orbAtkT -= dt; shieldT -= dt; chain -= dt; for (int i = 0; i < 3; i++) cds[i] -= dt;
+            inv -= dt; dodgeCD -= dt; buffT -= dt; orbAtkT -= dt; shieldT -= dt; chain -= dt; mightT -= dt; hasteT -= dt; for (int i = 0; i < 3; i++) cds[i] -= dt * (hasteT > 0 ? Jungle.HasteK : 1);
             if (flashT > 0) { flashT -= dt; if (flashT <= 0) look.Flash(0); }
             if (bubble) { bubble.SetActive(shieldT > 0); bubble.transform.position = Pos + Vector3.up * (def.rig ? 1 : .65f); }
             trail.on = def.blade && (state == St.Atk || (state == St.Skill && skillId != "shield" && skillId != "cry" && skillId != "missile" && skillId != "heal" && skillId != "laser"));

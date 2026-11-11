@@ -31,7 +31,7 @@ namespace NovaBlade
         // called each frame while chasing; true when a skill was started
         bool KitAi(float dt, ITarget t, float dd)
         {
-            for (int i = 0; i < 3; i++) aiCd[i] -= dt; AiAura(dt);
+            for (int i = 0; i < 3; i++) aiCd[i] -= dt * (hasteT > 0 ? Jungle.HasteK : 1); AiAura(dt);
             if (Time.time < aiNext || kitBusy > 0) return false;
             int near = G.Opponents(team).Count(o => Main.Flat(o.Pos - Pos).magnitude < 7);
             for (int i = 0; i < 3; i++)
@@ -155,7 +155,8 @@ namespace NovaBlade
         // the assassins' passive on AI heroes too: +30% on a target under 35% health
         // AI heroes' passives (as the player's, HeroKit.KitOut/KitIn), on basic hits and skills: the damage multiplier for a hit on o
         int aiShots, aiStacks; float aiLastFight = -99, aiFocusReady;
-        public float AiHunt(ITarget o, bool skill = false)
+        public float AiHunt(ITarget o, bool skill = false) => AiHuntBase(o, skill) * (mightT > 0 ? Jungle.MightK : 1);   // the Giant's Might buff (jungle)
+        float AiHuntBase(ITarget o, bool skill)
         {
             if (G.lane && d.kind == "champ" && o is Foe tw && tw.towerTier >= 0) return Lane.HeroVsTower(tw, team);   // heroes against structures (see Lane)
             if (!G.lane || AiKit == null) return 1;

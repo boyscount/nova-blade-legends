@@ -1559,7 +1559,7 @@ namespace NovaBlade
             }
             else if (G.lane) { p.fillColor = new Color(.6f, .45f, .28f, .35f); p.BeginPath(); var a0 = M(new Vector3(Lane.HalfW, 0, -Lane.HalfL)); var a1 = M(new Vector3(-Lane.HalfW, 0, Lane.HalfL)); p.MoveTo(a0); p.LineTo(new Vector2(a1.x, a0.y)); p.LineTo(a1); p.LineTo(new Vector2(a0.x, a1.y)); p.ClosePath(); p.Fill(); }
             else if (!G.house && !G.sky) { p.strokeColor = new Color(.85f, .68f, .4f, .8f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
-            foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower"; Dot(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5.5f, f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : Red); }
+            foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower"; Dot(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5.5f, f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : f.team == Jungle.Neutral ? new Color(1f, .78f, .3f) : Red); }   // jungle camps in gold
             if (G.wilds) Dot(M(OpenWorld.Gate), 6, new Color(1, .55f, .8f));   // the way back to the city
             Dot(M(G.pet.Pos), 4, new Color(1, .88f, .54f));
             var hp = M(G.hero.Pos); float a = G.hero.face; Vector2 R(float x, float y) => hp + new Vector2(-(x * Mathf.Cos(a) + y * Mathf.Sin(a)), -x * Mathf.Sin(a) + y * Mathf.Cos(a));

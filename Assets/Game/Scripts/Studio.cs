@@ -15,6 +15,7 @@ namespace NovaBlade
 
         // saved pictures (Resources/UI/Cards, made with -bakecards) load when a card shows them; pictures rendered this run are used when there is no file
         static Texture2D Card(string key) => tex.TryGetValue(key, out var t) ? t : Resources.Load<Texture2D>("UI/Cards/" + key);
+        public static bool Has(string key) => tex.TryGetValue(key, out var t) && t;
         public static IEnumerable<KeyValuePair<string, Texture2D>> Rendered => tex.Where(kv => !kv.Key.StartsWith("stage_") && kv.Value);
         public static Texture2D Hero(string id) => Card("hero_" + id);
         public static Texture2D HeroFull(string id) => Card("herofull_" + id);   // full-body card art
