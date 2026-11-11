@@ -37,10 +37,13 @@ namespace NovaBlade
         public bool WebPc { get; private set; }   // J: joystick scale (phones get a much bigger stick)
 
         // ---------- helpers ----------
+        // every text in the game a size up (owner, 2026-11-11: "too small to read, everywhere"); phones more, as the panel scales down to a 720 px tall screen
+        public float TextK => touchUi ? 1.25f : 1.15f;
         Label L(string t, float size, Color c, bool bold = false)
         {
             var l = new Label(t); l.style.unityFontDefinition = bold ? fontBold : font; l.style.unityTextGenerator = TextGeneratorType.Advanced;
-            l.style.fontSize = size; l.style.color = c; l.pickingMode = PickingMode.Ignore; l.style.marginLeft = l.style.marginRight = l.style.marginTop = l.style.marginBottom = 0;
+            // the small print grows; big titles stay as they were
+            l.style.fontSize = size * (size >= 40 ? 1 : TextK); l.style.color = c; l.pickingMode = PickingMode.Ignore; l.style.marginLeft = l.style.marginRight = l.style.marginTop = l.style.marginBottom = 0;
             l.style.paddingLeft = l.style.paddingRight = l.style.paddingTop = l.style.paddingBottom = 0; return l;
         }
         static VisualElement Box(Color? bg = null, float radius = 0)
@@ -83,7 +86,7 @@ namespace NovaBlade
         Button Btn(string text, System.Action onClick, bool primary = true)
         {
             var b = new Button(onClick) { text = text }; b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced;
-            b.style.fontSize = primary ? 30 : 24; b.style.color = Color.white; b.style.backgroundColor = primary ? new Color(.78f, .38f, .1f) : new Color(.06f, .14f, .17f, .92f);
+            b.style.fontSize = (primary ? 30 : 24) * TextK; b.style.color = Color.white; b.style.backgroundColor = primary ? new Color(.78f, .38f, .1f) : new Color(.06f, .14f, .17f, .92f);
             if (primary) { b.style.backgroundImage = new StyleBackground(Grad(new Color(1, .62f, .2f), new Color(.72f, .2f, .06f), true)); Shadow(b, 4, .6f); }
             Border(b, primary ? new Color(1, .84f, .45f) : new Color(.37f, .96f, 1, .55f), 2); b.style.borderTopLeftRadius = b.style.borderTopRightRadius = b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 12;
             b.style.paddingLeft = b.style.paddingRight = 26; b.style.paddingTop = b.style.paddingBottom = 12; return b;
@@ -188,7 +191,7 @@ namespace NovaBlade
             var t1 = L("NOVA BLADE", 64, new Color(1, .95f, .82f), true); t1.style.letterSpacing = 4; t1.style.textShadow = new TextShadow { offset = Vector2.zero, blurRadius = 14, color = new Color(1, .6f, .2f, .75f) }; logo.Add(t1);
             var t2 = L("LEGENDS", 24, Gold, true); t2.style.letterSpacing = 14; t2.style.marginLeft = 4; Shadow(t2); logo.Add(t2);
             // language: English / ไทย (switching reloads the game)
-            var lang = Btn(Loc.En ? "EN  ·  ไทย" : "ไทย  ·  EN", () => Loc.Switch(), false); lang.style.alignSelf = Align.FlexStart; lang.style.marginTop = 12; lang.style.fontSize = touchUi ? 24 : 18;
+            var lang = Btn(Loc.En ? "EN  ·  ไทย" : "ไทย  ·  EN", () => Loc.Switch(), false); lang.style.alignSelf = Align.FlexStart; lang.style.marginTop = 12; lang.style.fontSize = (touchUi ? 24 : 18) * TextK;
             lang.style.paddingTop = lang.style.paddingBottom = touchUi ? 10 : 6; lang.style.paddingLeft = lang.style.paddingRight = 16; Round(lang, 18); lang.pickingMode = PickingMode.Position; logo.Add(lang); logo.pickingMode = PickingMode.Position;
             // hero info on a dark fade so it reads over any stage
             var info = Box(); Abs(info, 0, null, null, 0); info.style.width = Length.Percent(42); info.style.paddingLeft = 44; info.style.paddingRight = 60; info.style.paddingTop = 140; info.style.paddingBottom = 34;
@@ -196,11 +199,11 @@ namespace NovaBlade
             heroT = L("", touchUi ? 29 : 24, Gold, true); Shadow(heroT); info.Add(heroT);
             heroN = L("", 72, Color.white, true); heroN.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 10, color = new Color(0, 0, 0, .9f) }; heroN.style.marginTop = -4; info.Add(heroN);
             heroD = L("", touchUi ? 27 : 22, new Color(.9f, .92f, .9f)); heroD.style.whiteSpace = WhiteSpace.Normal; Shadow(heroD); info.Add(heroD);
-            var sk = Btn(Loc.S("ดูรายละเอียดสกิล", "Skill details"), ShowSkills, false); sk.style.alignSelf = Align.FlexStart; sk.style.marginTop = 10; sk.style.fontSize = touchUi ? 24 : 18;
+            var sk = Btn(Loc.S("ดูรายละเอียดสกิล", "Skill details"), ShowSkills, false); sk.style.alignSelf = Align.FlexStart; sk.style.marginTop = 10; sk.style.fontSize = (touchUi ? 24 : 18) * TextK;
             sk.style.paddingTop = sk.style.paddingBottom = touchUi ? 10 : 6; sk.style.paddingLeft = sk.style.paddingRight = 16; Round(sk, 18); sk.pickingMode = PickingMode.Position;
-            var bagB = Btn(Loc.S("กระเป๋า", "Bag"), () => ShowBag(true)); bagB.style.fontSize = touchUi ? 24 : 18; bagB.style.marginTop = 10; bagB.style.marginLeft = 10;
+            var bagB = Btn(Loc.S("กระเป๋า", "Bag"), () => ShowBag(true)); bagB.style.fontSize = (touchUi ? 24 : 18) * TextK; bagB.style.marginTop = 10; bagB.style.marginLeft = 10;
             bagB.style.paddingTop = bagB.style.paddingBottom = touchUi ? 10 : 6; bagB.style.paddingLeft = bagB.style.paddingRight = 20; Round(bagB, 18); bagB.pickingMode = PickingMode.Position; BagIcon(bagB, touchUi ? 34 : 28);
-            questB = Btn(Loc.S("เควสต์", "Quests"), () => ShowQuests(true)); questB.style.fontSize = touchUi ? 24 : 18; questB.style.marginTop = 10; questB.style.marginLeft = 10;
+            questB = Btn(Loc.S("เควสต์", "Quests"), () => ShowQuests(true)); questB.style.fontSize = (touchUi ? 24 : 18) * TextK; questB.style.marginTop = 10; questB.style.marginLeft = 10;
             questB.style.paddingTop = questB.style.paddingBottom = touchUi ? 10 : 6; questB.style.paddingLeft = questB.style.paddingRight = 20; Round(questB, 18); questB.pickingMode = PickingMode.Position;
             var brow = Box(); brow.style.flexDirection = FlexDirection.Row; brow.style.alignItems = Align.Center; brow.Add(sk); brow.Add(bagB); brow.Add(questB); info.Add(brow); brow.style.flexWrap = Wrap.Wrap;
             var cityB = Btn(Loc.S("เข้าเมือง", "ENTER CITY"), () => G.StartCity()); cityB.style.fontSize = touchUi ? 32 : 26; cityB.style.flexShrink = 0; cityB.style.paddingTop = cityB.style.paddingBottom = touchUi ? 18 : 14; cityB.style.paddingLeft = cityB.style.paddingRight = touchUi ? 26 : 22; cityB.style.marginLeft = 2; lobbyCityB = cityB;
@@ -226,6 +229,7 @@ namespace NovaBlade
                 b.style.marginBottom = 10; b.style.paddingLeft = b.style.paddingRight = b.style.paddingTop = b.style.paddingBottom = 0; vc.Add(b);
             }
             var hintV = L(touchUi ? Loc.S("ลากเพื่อหมุน · ถ่างนิ้วเพื่อซูม", "Drag to rotate · Pinch to zoom") : Loc.S("ลากเพื่อหมุน · ล้อเมาส์เพื่อซูม", "Drag to rotate · Mouse wheel to zoom"), 17, new Color(1, 1, 1, .8f)); Shadow(hintV); hintV.style.unityTextAlign = TextAnchor.MiddleCenter; vc.Add(hintV);
+            if (touchUi) hintV.style.display = DisplayStyle.None;   // with the larger text it ran into the hero's title on phones; pinch and drag need no telling there
             // right panel: dark glass with a thin gold rim
             var panel = Box(new Color(.045f, .085f, .125f, .76f), 12); lobbyPanel = panel; Border(panel, Gold, 2.5f); Abs(panel, null, 56, 44, 36); panel.style.width = Length.Percent(44); Pad(panel, 24); panel.pickingMode = PickingMode.Position; lobby.Add(panel);
             var tabs = Box(new Color(0, 0, 0, .3f), 12); Border(tabs, new Color(1, .84f, .55f, .25f)); tabs.style.flexDirection = FlexDirection.Row; Pad(tabs, 4); panel.Add(tabs);
@@ -271,9 +275,9 @@ namespace NovaBlade
             drg.style.backgroundImage = new StyleBackground(Grad(new Color(1, .86f, .5f), new Color(.85f, .52f, .15f), false));
             cards = sv.contentContainer; cards.style.flexDirection = FlexDirection.Row; cards.style.flexWrap = Wrap.Wrap;
             detail = L("", touchUi ? 25 : 21, new Color(.86f, .88f, .86f)); detail.style.whiteSpace = WhiteSpace.Normal; detail.style.minHeight = touchUi ? 40 : 60; detail.style.flexShrink = 0; detail.style.marginTop = 8; panel.Add(detail);
-            buyBtn = Btn("", () => AskBuy()); buyBtn.style.fontSize = 22; buyBtn.style.paddingTop = buyBtn.style.paddingBottom = 8; buyBtn.style.marginTop = 4; buyBtn.style.display = DisplayStyle.None; panel.Add(buyBtn);
+            buyBtn = Btn("", () => AskBuy()); buyBtn.style.fontSize = (22) * TextK; buyBtn.style.paddingTop = buyBtn.style.paddingBottom = 8; buyBtn.style.marginTop = 4; buyBtn.style.display = DisplayStyle.None; panel.Add(buyBtn);
             VisualElement Pill(string text) { var p = Box(new Color(1, .78f, .35f, .16f), 20); Border(p, new Color(1, .8f, .45f, .7f), 2); p.style.paddingLeft = p.style.paddingRight = 14; p.style.paddingTop = p.style.paddingBottom = touchUi ? 12 : 6; p.style.marginRight = 10; p.Add(L(text, touchUi ? 26 : 21, Gold, true)); return p; }
-            Button Sec(string text, System.Action act) { var b = Btn(text, act, false); Frame(b, "btn_mode_frame", 70, 50, touchUi ? .4f : .3f); b.style.fontSize = touchUi ? 30 : 22; b.style.paddingTop = b.style.paddingBottom = touchUi ? 18 : 9; Round(b, touchUi ? 28 : 22); return b; }
+            Button Sec(string text, System.Action act) { var b = Btn(text, act, false); Frame(b, "btn_mode_frame", 70, 50, touchUi ? .4f : .3f); b.style.fontSize = (touchUi ? 30 : 22) * TextK; b.style.paddingTop = b.style.paddingBottom = touchUi ? 18 : 9; Round(b, touchUi ? 28 : 22); return b; }
             var soulRow = Box(); soulRow.style.flexShrink = 0; soulRow.style.flexDirection = FlexDirection.Row; soulRow.style.alignItems = Align.Center; soulRow.style.marginTop = 10; panel.Add(soulRow);
             soulRow.Add(Pill(Loc.S("โหมด Soulslike", "Soulslike Mode"))); var sb = Sec(Loc.S("ดวลบอส (มุมกล้องบุคคลที่สาม) ▶", "Boss Duel (third-person) ▶"), () => G.StartSoul()); sb.style.flexGrow = 1; soulRow.Add(sb);
             var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
@@ -288,7 +292,7 @@ namespace NovaBlade
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
             var gem = Box(new Color(.62f, .4f, 1), 4); gem.style.width = gem.style.height = 20; gem.style.rotate = new Rotate(45); gem.style.marginLeft = 16; Border(gem, new Color(.85f, .75f, 1), 2); cur.Add(gem);
             gemsL = L("0", 24, Ink, true); gemsL.style.marginLeft = 8; cur.Add(gemsL); cur.style.alignSelf = Align.FlexStart; cur.style.marginTop = touchUi ? 10 : 42; logo.Add(cur);   // the money sits under the logo, clear of the two big buttons
-            var play = Btn(Loc.S("เริ่มต่อสู้", "START BATTLE"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = touchUi ? 42 : 32; Round(play, 16);
+            var play = Btn(Loc.S("เริ่มต่อสู้", "START BATTLE"), () => G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage))); play.style.flexGrow = 1; play.style.marginLeft = 12; play.style.fontSize = (touchUi ? 42 : 32) * TextK; Round(play, 16);
             if (Resources.Load<Texture2D>("UI/Lobby/btn_play_frame_new") is Texture2D pf)
             {   // painted frame at its own proportions (1200 x 360): the diamonds top and bottom must not stretch
                 float pw = touchUi ? 560 : 440; play.style.flexGrow = 0; play.style.width = pw; play.style.height = pw * .3f; play.style.marginLeft = Length.Auto(); play.style.marginRight = Length.Auto();
@@ -482,7 +486,7 @@ namespace NovaBlade
             var cr = Box(); cr.style.flexDirection = FlexDirection.Row; cr.style.alignItems = Align.Center; cr.style.marginTop = 4; tt.Add(cr);
             var ci = Box(); ci.style.width = ci.style.height = 30 * big; ci.style.marginRight = 8; string cid = h.cls; ci.generateVisualContent += ctx => ClassIcon(ctx, cid, ci.resolvedStyle.width, true); cr.Add(ci);
             cr.Add(L(cl.th, 24 * big, Gold, true)); var ttl = L("  ·  " + h.title, 19 * big, Muted); cr.Add(ttl);
-            var x = new Button(() => skillOv.style.display = DisplayStyle.None) { text = "" }; DrawX(x); x.style.fontSize = 30 * big; x.style.color = Ink; x.style.width = x.style.height = 52 * big;
+            var x = new Button(() => skillOv.style.display = DisplayStyle.None) { text = "" }; DrawX(x); x.style.fontSize = (30 * big) * TextK; x.style.color = Ink; x.style.width = x.style.height = 52 * big;
             x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 26 * big); x.style.unityFontDefinition = fontBold; x.style.flexShrink = 0; top.Add(x);
             // stats: 2 x 2, each with its picture, value and a bar against the strongest hero
             var sb = Box(new Color(1, 1, 1, .035f), 14); Border(sb, new Color(1, .84f, .55f, .22f), 1.5f); Pad(sb, 16); sb.style.marginTop = 16; sb.style.flexDirection = FlexDirection.Row; sb.style.flexWrap = Wrap.Wrap; skillBox.Add(sb);
@@ -625,7 +629,7 @@ namespace NovaBlade
                 else
                 {
                     side.Add(L(Quests.Reward(q), 18 * big, Gold, true));
-                    if (ready) { var c = Btn(Loc.S("รับรางวัล", "CLAIM"), () => { if (Quests.Claim(G.save, qq)) { G.Persist(); RenderQuests(); } }); StyleGold(c, true); c.style.fontSize = 20 * big; c.style.marginTop = 6; c.style.paddingTop = c.style.paddingBottom = 6 * big; c.style.paddingLeft = c.style.paddingRight = 18; side.Add(c); }
+                    if (ready) { var c = Btn(Loc.S("รับรางวัล", "CLAIM"), () => { if (Quests.Claim(G.save, qq)) { G.Persist(); RenderQuests(); } }); StyleGold(c, true); c.style.fontSize = (20 * big) * TextK; c.style.marginTop = 6; c.style.paddingTop = c.style.paddingBottom = 6 * big; c.style.paddingLeft = c.style.paddingRight = 18; side.Add(c); }
                     else side.Add(L($"{prog} / {q.goal}", 20 * big, Muted, true));
                 }
             }
@@ -644,13 +648,13 @@ namespace NovaBlade
             var tl = L(Loc.S("กระเป๋าและไอเทม", "INVENTORY & BAG"), 40 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; tl.style.marginLeft = 10; var titleBag = BagPic(52 * big); titleBag.style.marginLeft = 20; top.Add(titleBag); top.Add(tl);
             bagCap = L("", 22 * big, Muted, true); top.Add(bagCap);
             var plus = new Button(() => { var s = G.save; if (s.bagCap >= 120) { bagMsg.text = Loc.S("กระเป๋าขยายเต็มที่แล้ว", "The bag is at its largest"); return; } if (s.gems < 50) { bagMsg.text = Loc.S("Gem ไม่พอ (ต้องใช้ 50)", "Not enough Gems (50 needed)"); return; } s.gems -= 50; s.bagCap += 10; G.Persist(); bagMsg.text = Loc.S("ขยายกระเป๋า +10 ช่อง (-50 Gem)", "Bag +10 slots (-50 Gems)"); RenderBag(); }) { text = "+" };
-            plus.style.fontSize = 26 * big; plus.style.width = plus.style.height = 40 * big; Round(plus, 20 * big); plus.style.color = Ink; plus.style.backgroundColor = new Color(1, .7f, .25f, .25f); Border(plus, Gold, 1.5f); plus.style.marginLeft = 8; top.Add(plus);
-            var x = new Button(() => ShowBag(false)) { text = "" }; DrawX(x); x.style.fontSize = 28 * big; x.style.color = Ink; x.style.width = x.style.height = 48 * big; x.style.marginLeft = 14;
+            plus.style.fontSize = (26 * big) * TextK; plus.style.width = plus.style.height = 40 * big; Round(plus, 20 * big); plus.style.color = Ink; plus.style.backgroundColor = new Color(1, .7f, .25f, .25f); Border(plus, Gold, 1.5f); plus.style.marginLeft = 8; top.Add(plus);
+            var x = new Button(() => ShowBag(false)) { text = "" }; DrawX(x); x.style.fontSize = (28 * big) * TextK; x.style.color = Ink; x.style.width = x.style.height = 48 * big; x.style.marginLeft = 14;
             x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); x.style.unityFontDefinition = fontBold; top.Add(x);
             var fr = Box(); fr.style.flexDirection = FlexDirection.Row; fr.style.marginTop = 12; pn.Add(fr);
             foreach (var (id, th, en) in new[] { ("all", "ทั้งหมด", "ALL"), ("weapon", "อาวุธ", "WEAPONS"), ("gear", "อุปกรณ์", "ARMOR"), ("potion", "ยา", "CONSUMABLES"), ("mat", "วัตถุดิบ", "MATERIALS") })
             {
-                var f = id; var b = new Button(() => { bagFilter = f; RenderBag(); }) { text = Loc.S(th, en), name = "bf_" + id }; b.style.unityFontDefinition = fontBold; b.style.fontSize = 18 * big; b.style.color = Ink;
+                var f = id; var b = new Button(() => { bagFilter = f; RenderBag(); }) { text = Loc.S(th, en), name = "bf_" + id }; b.style.unityFontDefinition = fontBold; b.style.fontSize = (18 * big) * TextK; b.style.color = Ink;
                 Round(b, 16); b.style.paddingLeft = b.style.paddingRight = 14; b.style.paddingTop = b.style.paddingBottom = 6; b.style.marginRight = 8; fr.Add(b);
             }
             var body = Box(); body.style.flexDirection = FlexDirection.Row; body.style.flexGrow = 1; body.style.marginTop = 12; pn.Add(body);
@@ -661,14 +665,14 @@ namespace NovaBlade
             var detailSv = new ScrollView(ScrollViewMode.Vertical); detailSv.style.flexGrow = 1; detailBox.Add(detailSv); bagDetail = detailSv.contentContainer;
             var bot = Box(); bot.style.flexDirection = FlexDirection.Row; bot.style.alignItems = Align.Center; bot.style.marginTop = 10; pn.Add(bot);
             var sort = Btn(Loc.S("เรียง", "SORT"), () => { G.save.bag = G.save.bag.OrderBy(i => Items.Get(i)?.slot ?? Slot.Material).ThenByDescending(i => Items.Get(i)?.rarity ?? 0).ThenByDescending(Items.Level).ToList(); bagSel = null; RenderBag(); }, false);
-            StyleGold(sort, false); sort.style.fontSize = 20 * big; sort.style.paddingLeft = sort.style.paddingRight = 26; bot.Add(sort);
+            StyleGold(sort, false); sort.style.fontSize = (20 * big) * TextK; sort.style.paddingLeft = sort.style.paddingRight = 26; bot.Add(sort);
             var bulk = Btn(Loc.S("ขายของธรรมดา", "BULK SELL"), () =>
             {
                 var s = G.save; var junk = Items.Junk(s); int g = junk.Sum(i => Items.Get(i).Sell);
                 foreach (var i in junk) s.bag.Remove(i); s.gold += g; bagSel = null; G.Persist();
                 bagMsg.text = junk.Count == 0 ? Loc.S("ไม่มีของธรรมดาให้ขาย", "Nothing common to sell") : Loc.S($"ขาย {junk.Count} ชิ้น ได้ {g} Gold", $"Sold {junk.Count} pieces for {g} Gold"); RenderBag();
             }, false);
-            StyleGold(bulk, false); bulk.style.fontSize = 20 * big; bulk.style.marginLeft = 10; bulk.style.paddingLeft = bulk.style.paddingRight = 26; bot.Add(bulk);
+            StyleGold(bulk, false); bulk.style.fontSize = (20 * big) * TextK; bulk.style.marginLeft = 10; bulk.style.paddingLeft = bulk.style.paddingRight = 26; bot.Add(bulk);
             bagMsg = L("", 19 * big, Gold); bagMsg.style.marginLeft = 16; bagMsg.style.flexGrow = 1; bagMsg.style.whiteSpace = WhiteSpace.Normal; bot.Add(bagMsg);
             FrameOrnaments(pn);
             bagOv.style.display = DisplayStyle.None;
@@ -748,7 +752,7 @@ namespace NovaBlade
             IEnumerable<(string k, string v)> lines = wdef != null ? new[] { (Loc.S("ดาเมจ", "DMG"), $"x{wdef.dmg:0.##}"), (Loc.S("ความเร็ว", "SPD"), $"x{wdef.spd:0.##}"), (Loc.S("คริติคอล", "CRIT"), $"+{wdef.crit * 100:0}%") } : Items.Lines(def, Items.Level(sel.id));
             foreach (var (k, v) in lines) { var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.justifyContent = Justify.SpaceBetween; row.Add(L(k + ":", 20 * big, Ink, true)); row.Add(L(v, 20 * big, Green, true)); bagDetail.Add(row); }
             var ds = L(wdef != null ? wdef.desc : def.desc, 17 * big, Muted); ds.style.whiteSpace = WhiteSpace.Normal; ds.style.marginTop = 8; ds.style.flexGrow = 1; bagDetail.Add(ds);
-            void Act(string text, bool primary, System.Action a) { var b = Btn(text, () => { a(); G.Persist(); RenderBag(); }, primary); b.style.fontSize = (primary ? 20 : 16) * big; b.style.whiteSpace = WhiteSpace.Normal; b.style.marginTop = 8; b.style.paddingTop = b.style.paddingBottom = 8; StyleGold(b, primary); bagDetail.Add(b); }
+            void Act(string text, bool primary, System.Action a) { var b = Btn(text, () => { a(); G.Persist(); RenderBag(); }, primary); b.style.fontSize = ((primary ? 20 : 16) * big) * TextK; b.style.whiteSpace = WhiteSpace.Normal; b.style.marginTop = 8; b.style.paddingTop = b.style.paddingBottom = 8; StyleGold(b, primary); bagDetail.Add(b); }
             // the enhance box: what the next level needs, in red when there is not enough
             void EnhanceBox()
             {
@@ -778,7 +782,7 @@ namespace NovaBlade
                         _ => "",
                     };
                     G.Persist(); RenderBag();
-                }); eb.style.fontSize = 20 * big; eb.style.marginTop = 8; eb.style.paddingTop = eb.style.paddingBottom = 8; StyleGold(eb, true); box.Add(eb);
+                }); eb.style.fontSize = (20 * big) * TextK; eb.style.marginTop = 8; eb.style.paddingTop = eb.style.paddingBottom = 8; StyleGold(eb, true); box.Add(eb);
             }
             // an enhanced piece asks for a second tap before it is dismantled or sold
             void Guarded(string what, System.Action a) { if (Confirmed(what + sel.key + sel.id, sel.id, bagMsg)) a(); }
@@ -844,7 +848,7 @@ namespace NovaBlade
             var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
             fbTitle = L("", 34 * big, new Color(1, .93f, .8f), true); fbTitle.style.flexGrow = 1; fbTitle.style.marginLeft = 24; top.Add(fbTitle);
             if (FrameArt("icon_bag") is Texture2D bagIcon) { var bi = Box(); bi.style.width = bi.style.height = 56 * big; bi.style.marginRight = 12; bi.style.backgroundImage = new StyleBackground(bagIcon); bi.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain); top.Add(bi); }
-            fbMode = Btn("", () => { fbAll = !fbAll; fbSel = null; RenderFieldBag(); }, false); fbMode.style.fontSize = 18 * big; fbMode.style.paddingTop = fbMode.style.paddingBottom = 8; fbMode.style.paddingLeft = fbMode.style.paddingRight = 16; top.Add(fbMode);
+            fbMode = Btn("", () => { fbAll = !fbAll; fbSel = null; RenderFieldBag(); }, false); fbMode.style.fontSize = (18 * big) * TextK; fbMode.style.paddingTop = fbMode.style.paddingBottom = 8; fbMode.style.paddingLeft = fbMode.style.paddingRight = 16; top.Add(fbMode);
             var x = new Button(CloseFieldBag) { text = "" }; DrawX(x); x.style.width = x.style.height = 56 * big; x.style.marginLeft = 12; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 28 * big); top.Add(x);
             var strip = new ScrollView(ScrollViewMode.Vertical); strip.style.flexShrink = 0; strip.style.maxHeight = 250 * big; strip.style.marginTop = 12; strip.horizontalScrollerVisibility = ScrollerVisibility.Hidden; pn.Add(strip);
             fbGrid = strip.contentContainer; fbGrid.style.flexDirection = FlexDirection.Row; fbGrid.style.flexWrap = Wrap.Wrap; fbGrid.style.paddingTop = 8;   // rows that wrap and scroll down: a big haul shows two rows at a time instead of one long line
@@ -1020,7 +1024,7 @@ namespace NovaBlade
             }
             void Act(string text, bool primary, System.Action a)
             {
-                var b = Btn(text, () => { a(); RenderFieldBag(); }, primary); b.style.fontSize = (primary ? 24 : 18) * big; b.style.whiteSpace = WhiteSpace.Normal; b.style.paddingTop = b.style.paddingBottom = 13; b.style.paddingLeft = b.style.paddingRight = 10; b.style.flexGrow = primary ? 3 : 1; b.style.flexBasis = 0; b.style.marginLeft = fbActions.childCount > 0 ? 12 : 0;
+                var b = Btn(text, () => { a(); RenderFieldBag(); }, primary); b.style.fontSize = ((primary ? 24 : 18) * big) * TextK; b.style.whiteSpace = WhiteSpace.Normal; b.style.paddingTop = b.style.paddingBottom = 13; b.style.paddingLeft = b.style.paddingRight = 10; b.style.flexGrow = primary ? 3 : 1; b.style.flexBasis = 0; b.style.marginLeft = fbActions.childCount > 0 ? 12 : 0;
                 StyleGold(b, primary); fbActions.Add(b);
             }
             if (worn)
@@ -1120,7 +1124,7 @@ namespace NovaBlade
         {
             if (cityTalk == null)
             {
-                cityTalk = Btn("", () => cityAct?.Invoke()); cityTalk.style.position = Position.Absolute; cityTalk.style.bottom = touchUi ? 300 : 120; cityTalk.style.left = Length.Percent(50); cityTalk.style.translate = new Translate(Length.Percent(-50), 0); cityTalk.style.fontSize = touchUi ? 42 : 32; hud.Add(cityTalk);
+                cityTalk = Btn("", () => cityAct?.Invoke()); cityTalk.style.position = Position.Absolute; cityTalk.style.bottom = touchUi ? 300 : 120; cityTalk.style.left = Length.Percent(50); cityTalk.style.translate = new Translate(Length.Percent(-50), 0); cityTalk.style.fontSize = (touchUi ? 42 : 32) * TextK; hud.Add(cityTalk);
             }
             cityAct = act; cityTalk.text = text ?? ""; cityTalk.style.display = text != null ? DisplayStyle.Flex : DisplayStyle.None;
         }
@@ -1139,7 +1143,7 @@ namespace NovaBlade
             else
             {   // the merchant: the lobby's own panel on weapons, without its battle button
                 if (lobbyPanel != null) lobbyPanel.style.display = DisplayStyle.Flex; if (lobbyPlayBox != null) lobbyPlayBox.style.display = DisplayStyle.None; tab = "sword"; RenderCards();
-                if (cityClose == null) { cityClose = Btn(Loc.S("ปิด", "CLOSE"), CloseCityPanel, false); StyleGold(cityClose, false); cityClose.style.position = Position.Absolute; cityClose.style.left = 60; cityClose.style.bottom = 60; cityClose.style.fontSize = touchUi ? 32 : 26; lobby.Add(cityClose); }
+                if (cityClose == null) { cityClose = Btn(Loc.S("ปิด", "CLOSE"), CloseCityPanel, false); StyleGold(cityClose, false); cityClose.style.position = Position.Absolute; cityClose.style.left = 60; cityClose.style.bottom = 60; cityClose.style.fontSize = (touchUi ? 32 : 26) * TextK; lobby.Add(cityClose); }
                 cityClose.style.display = DisplayStyle.Flex;
             }
         }
@@ -1161,13 +1165,13 @@ namespace NovaBlade
                 var top = Box(); top.style.flexDirection = FlexDirection.Row; top.style.alignItems = Align.Center; pn.Add(top);
                 var tl = L(Loc.S("เลือกด่าน", "CHOOSE A STAGE"), 38 * big, new Color(1, .93f, .8f), true); tl.style.flexGrow = 1; top.Add(tl);
                 var x = new Button(CloseCityPanel) { text = "" }; DrawX(x); x.style.width = x.style.height = 48 * big; x.style.backgroundColor = new Color(1, 1, 1, .08f); Border(x, Line, 1.5f); Round(x, 24 * big); top.Add(x);
-                var wildsB = Btn(Loc.S("เข้าสู่ป่าจันทร์พลัดกลีบ (Open World ทดลอง)", "Enter Driftpetal Wilds (Open World preview)"), () => { CloseCityPanel(); G.StartWilds(); }); wildsB.style.fontSize = 26 * big; wildsB.style.marginTop = 14; wildsB.style.paddingTop = wildsB.style.paddingBottom = 12 * big; if (G.Stage("Stage_wilds")) pn.Add(wildsB);   // the phone build leaves the zone out for now
+                var wildsB = Btn(Loc.S("เข้าสู่ป่าจันทร์พลัดกลีบ (Open World ทดลอง)", "Enter Driftpetal Wilds (Open World preview)"), () => { CloseCityPanel(); G.StartWilds(); }); wildsB.style.fontSize = (26 * big) * TextK; wildsB.style.marginTop = 14; wildsB.style.paddingTop = wildsB.style.paddingBottom = 12 * big; if (G.Stage("Stage_wilds")) pn.Add(wildsB);   // the phone build leaves the zone out for now
                 if (G.Stage("Stage_sky"))
                 {   // duels on the Sky Court straight from the gate (on phones the only way in until the zone comes back)
                     var dr = Box(); dr.style.flexDirection = FlexDirection.Row; dr.style.marginTop = 12; pn.Add(dr);
                     foreach (var (id, th, en) in new[] { ("elite", "ลานประลอง · ยักษ์กูล (Elite)", "Sky Court · Ghoul Warden (Elite)"), ("wanderer", "ลานประลอง · นักดาบพเนจร", "Sky Court · the Wanderer") })
                     {
-                        var duelId = id; var b = Btn(Loc.S(th, en), () => { CloseCityPanel(); G.StartArena(duelId); }); b.style.fontSize = 24 * big; b.style.flexGrow = 1; b.style.flexBasis = 0; b.style.marginRight = 8; b.style.paddingTop = b.style.paddingBottom = 12 * big; dr.Add(b);
+                        var duelId = id; var b = Btn(Loc.S(th, en), () => { CloseCityPanel(); G.StartArena(duelId); }); b.style.fontSize = (24 * big) * TextK; b.style.flexGrow = 1; b.style.flexBasis = 0; b.style.marginRight = 8; b.style.paddingTop = b.style.paddingBottom = 12 * big; dr.Add(b);
                     }
                 }
                 var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.marginTop = 16; pn.Add(row);
@@ -1257,10 +1261,10 @@ namespace NovaBlade
             mini.RegisterCallback<PointerMoveEvent>(e => { if (e.pointerId == mpid) PanTo(e.localPosition); });
             System.Action<IPointerEvent> mup = e => { if (e.pointerId != mpid) return; if (mini.HasPointerCapture(mpid)) mini.ReleasePointer(mpid); mpid = -1; Pan = null; };
             mini.RegisterCallback<PointerUpEvent>(e => mup(e)); mini.RegisterCallback<PointerCancelEvent>(e => mup(e));
-            var pb = Btn("II", () => TogglePause(), false); pb.style.marginLeft = 12; pb.style.paddingLeft = pb.style.paddingRight = 18; if (touchUi) { pb.style.width = pb.style.height = 92; pb.style.fontSize = 34; pb.style.paddingLeft = pb.style.paddingRight = 0; }
+            var pb = Btn("II", () => TogglePause(), false); pb.style.marginLeft = 12; pb.style.paddingLeft = pb.style.paddingRight = 18; if (touchUi) { pb.style.width = pb.style.height = 92; pb.style.fontSize = (34) * TextK; pb.style.paddingLeft = pb.style.paddingRight = 0; }
             else if (PcArt("btn_pause_round") is Texture2D pt) { pb.text = ""; pb.style.width = pb.style.height = 84; pb.style.backgroundColor = Color.clear; Border(pb, Color.clear, 0); pb.style.backgroundImage = new StyleBackground(pt); pb.style.paddingLeft = pb.style.paddingRight = 0; }
             // camera: View cycles high / mid / low, then zoom out and in (also: C, mouse wheel)
-            Button Small(string t, System.Action a) { var b = Btn(t, a, false); b.style.marginLeft = 10; b.style.fontSize = touchUi ? 30 : 20; if (touchUi) { b.style.height = 92; b.style.minWidth = 92; } b.style.paddingLeft = b.style.paddingRight = touchUi ? 18 : 14; return b; }
+            Button Small(string t, System.Action a) { var b = Btn(t, a, false); b.style.marginLeft = 10; b.style.fontSize = (touchUi ? 30 : 20) * TextK; if (touchUi) { b.style.height = 92; b.style.minWidth = 92; } b.style.paddingLeft = b.style.paddingRight = touchUi ? 18 : 14; return b; }
             viewBtn = Small("", () => { G.CycleView(); viewBtn.text = ViewLabel(); }); viewBtn.text = ViewLabel(); tr.Add(viewBtn);
             tr.Add(Small("−", () => G.ZoomBy(.15f))); tr.Add(Small("+", () => G.ZoomBy(-.15f)));
             tr.Add(pb);
@@ -1697,7 +1701,7 @@ namespace NovaBlade
             if (l == null) { l = L("", 30, Color.white, true); l.style.position = Position.Absolute; l.style.unityTextOutlineWidth = .25f; l.style.unityTextOutlineColor = Color.black; nums.Add(l); }
             l.text = txt; l.style.display = DisplayStyle.Flex;
             l.style.color = cls switch { "crit" => new Color(1, .82f, .23f), "hurt" => new Color(1, .35f, .41f), "heal" => Green, "gold" => Gold, _ => Color.white };
-            l.style.fontSize = cls == "crit" ? 42 : cls == "gold" ? 24 : 30;
+            l.style.fontSize = (cls == "crit" ? 42 : cls == "gold" ? 24 : 30) * TextK;
             numList.Add(new Num { l = l, p = p + new Vector3(Random.Range(-.3f, .3f), 0, Random.Range(-.2f, .2f)) });
         }
         public void ClearNums() { foreach (var n in numList) { n.l.style.display = DisplayStyle.None; numPool.Push(n.l); } numList.Clear(); }

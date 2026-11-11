@@ -194,7 +194,7 @@ namespace NovaBlade
         {
             if (h == null || !h.rig) return null; var pf = SkinPacks.Get(model ?? h.id) ?? Resources.Load<GameObject>("Heroes/Hero_" + h.id); if (!pf) return null;
             int W = Main.IsPhone || PhoneLook ? 540 : 720, H = Main.IsPhone || PhoneLook ? 720 : 960;   // the VS shows them up to ~750 px tall: 432 x 576 looked soft when stretched
-            var inst = Object.Instantiate(pf, Spot, Quaternion.identity); SkinPacks.Animate(inst, h.id);
+            var inst = Object.Instantiate(pf, Spot, Quaternion.identity); SkinPacks.Animate(inst, h.id); FootWeights.Matte(inst);
             foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
             var an = inst.GetComponentInChildren<Animator>(); var hang = SleeveHang.Attach(inst); var grip = Grip.Attach(inst);
             string set = Data.AnimSet(h.id); if (set != null) set += h.female ? "_f" : "_m";
@@ -203,7 +203,7 @@ namespace NovaBlade
             if (an)
             {   // every hero stands with their weapon
                 an.enabled = true; an.Rebind();
-                var (st, at) = set == null ? ("idle", .2f) : ("show", .5f);   // heroes on the base clips (Garland) reach a hand out in "show": they stand at ease instead
+                var (st, at) = set == null || h.cls == "warrior" || h.id is "samurai" or "hood" ? ("idle", .2f) : ("show", .5f);   // blades and daggers hang down at the side in "idle" (in "show" they jutted out backwards)   // heroes on the base clips (Garland) reach a hand out in "show": they stand at ease instead
                   // standing tall with the class weapon in hand (picked from -posesheet; the owner wanted a calm stand, not a swing)
                 if (forceSt != null) (st, at) = (forceSt, forceAt);
                 if (!an.HasState(0, Animator.StringToHash(st))) (st, at) = ("idle", 0f);

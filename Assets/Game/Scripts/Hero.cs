@@ -46,7 +46,7 @@ namespace NovaBlade
             {
                 modelKey = G.ModelKey(def, lobby); var mpf = SkinPacks.Get(modelKey);
                 if (!mpf) { if (SkinPacks.IsPack(modelKey)) { var want = modelKey; SkinPacks.Fetch(want, () => { if (this && G.ModelKey(def, G.mode == Main.Mode.Lobby) == want) { Equip(); if (G.mode == Main.Mode.Lobby) PlaceLobby(); } }); } modelKey = def.id; mpf = Resources.Load<GameObject>("Heroes/Hero_" + def.id); }   // a classic skin comes from its bundle: the hero's own model until it is here   // a model skin, or the hero's own
-                model = Instantiate(mpf, transform); SkinPacks.Animate(model, def.id); SleeveHang.Attach(model); Grip.Attach(model);
+                model = Instantiate(mpf, transform); SkinPacks.Animate(model, def.id); FootWeights.Matte(model); SleeveHang.Attach(model); Grip.Attach(model);
                 anim = model.GetComponentInChildren<Animator>();
                 animSet = Data.AnimSet(def.id); if (animSet != null) animSet += def.female ? "_f" : "_m";   // each class set comes in a women's and a men's walk, run and stance
                 if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;

@@ -28,6 +28,12 @@
 
 ## งานค้าง
 
+- **ขึ้นเว็บแล้ว (2026-11-11):** ข้อ 2–4 ด้านล่าง commit `255f756` (main push แล้วถึง `255f756`) เว็บ gh-pages `874caad`: PC 259 MB มือถือ 211 MB, ไฟล์สกิน `skins/hero_knight_classic` เปิดได้ทั้งสองหน้า (มือถือ 1.36 MB); ยังไม่ได้ลองใส่สกินในเบราว์เซอร์และยังไม่ได้จับเวลาแมตช์จริง (รอเจ้าของเกม)
+- **2026-11-11 (build Windows แล้ว ยังไม่ขึ้นเว็บ ยังไม่ commit):**
+  - **ตัวอักษรใหญ่ขึ้นทั้งเกม (เจ้าของเกม: "ตัวเล็กมาก แทบอ่านไม่ออก"):** `Ui.TextK` (PC 1.15, มือถือ 1.25) คูณทุก `style.fontSize` ใน `Ui.cs` และใน `L()` (เฉพาะขนาด < 40; หัวข้อใหญ่คงเดิม) ยกเว้นปุ่มกว้างคงที่: แท็บล็อบบี้ (บรรทัด ~239), ENTER CITY (`lobbyCityB`), START BATTLE; มือถือซ่อนคำแนะนำ "ลากเพื่อหมุน" (ชนชื่อฮีโร่)
+  - **ท่ายืนหน้า VS:** สายนักรบ + Sakura + Hood ใช้ `idle` 20% (ดาบห้อยลงข้างตัว) ที่เหลือ `show` 50%
+  - **เกราะเงาน้อยลง:** `FootWeights.Matte` ลด `metallicFactor` เหลือ 65% ผ่าน property block (ฮีโร่ใน `Hero.Equip`, `Studio.Pose`, AI/มอนสเตอร์ใน `Foe`)
+  - **ระวังซ้ำอีกครั้ง:** แก้ `L()` แล้วคอมเมนต์ไปกลืน `l.style.color` ทำให้ตัวอักษรเป็นสีดำทั้งเกม แก้แล้ว — ห้ามใส่คอมเมนต์กลางบรรทัดที่มีคำสั่งต่อ
 - **คิวงานที่เจ้าของเกมสั่ง (2026-11-10 ดึก) ตามลำดับ:**
   1. ~~ขึ้นเว็บรอบหน้า VS + ฮีโร่ใหม่~~ ทำแล้ว: commit `7c8af88` บน main (ยังไม่ push) เว็บ gh-pages `6691020` ทั้ง PC (324 MB) และมือถือ (247 MB)
   2. **ทำแล้ว (ยังไม่ขึ้นเว็บ ยังไม่ commit):** สกิน classic 18 ตัวย้ายจาก `Resources/Heroes` ไป `Assets/Game/SkinPacks` (ไม่มี animator controller; `SkinPacks.Animate` ใส่ของฮีโร่ให้) แล้วทำเป็น AssetBundle ตัวละไฟล์ `hero_<id>_classic` ตอน build (`NovaBuild.SkinBundles`: เว็บ → `Builds/WebGL*/skins/`, Windows → `StreamingAssets/skins`) เกมโหลดด้วย `SkinPacks.Fetch` เมื่อใส่ (ระหว่างโหลดเห็นโมเดลหลัก) ทดสอบ `-skintest`: โหลด knight_classic 57 ms ใส่ได้ในล็อบบี้ VS และแมตช์; exe 834 → 711 MB; เว็บ PC data 324 → 259 MB (+ skins 72 MB แยก), มือถือ 247 → 211 MB (+ skins 40 MB) build แล้ว ยังไม่ได้ลองโหลดสกินในเบราว์เซอร์; สร้างฮีโร่ classic ใหม่ `NovaSetup.BuildHero` จะบันทึกไปที่ SkinPacks เอง; ถ้าเปลี่ยนเนื้อหาสกินให้เพิ่ม `SkinPacks.Version`

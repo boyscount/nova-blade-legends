@@ -9,6 +9,18 @@ namespace NovaBlade
     // the cards and the AI heroes all get it with no copies at run time.
     public static class FootWeights
     {
+        // the Tripo heroes' armour comes out like chrome: their metal is taken down by a third (per renderer, no material copies)
+        const float MetalKeep = .65f;
+        static readonly int Metallic = Shader.PropertyToID("metallicFactor");
+        public static void Matte(GameObject model)
+        {
+            if (!model) return; var mpb = new MaterialPropertyBlock();
+            foreach (var r in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var ms = r.sharedMaterials;
+                for (int i = 0; i < ms.Length; i++) { if (!ms[i] || !ms[i].HasProperty(Metallic)) continue; r.GetPropertyBlock(mpb, i); mpb.SetFloat(Metallic, ms[i].GetFloat(Metallic) * MetalKeep); r.SetPropertyBlock(mpb, i); }
+            }
+        }
         const float SoleExtra = .005f, SideShare = .012f, LegNear = .09f, LegSide = .03f, HipMargin = .03f, BodyDrop = .08f;   // shares of the model's height
         public static bool Off = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-nomend") >= 0;   // test: compare with the models as rigged
 
