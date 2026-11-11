@@ -27,10 +27,25 @@ namespace NovaBlade
         public const float CoreZ = 40;
         public const float SpawnZ = CoreZ - 9;   // heroes (re)spawn here, in front of their base
         public static float Side(int team) => team == 0 ? 1 : -1;   // +Z for team 0
-        public static readonly FoeDef Tower = new() { id = "tower", model = "@tower", name = Loc.S("ป้อม", "Tower"), hp = 3200, spd = 0, dmg = 90, range = 8.5f, kind = "tower", scale = 1, rad = 1.7f, gold = 60 };
-        public static readonly FoeDef Core = new() { id = "core", model = "@core", name = Loc.S("คริสตัลหลัก", "Core Crystal"), hp = 6000, spd = 0, dmg = 130, range = 8, kind = "tower", scale = 1, rad = 2.4f, gold = 0 };
+        public static readonly FoeDef Tower = new() { id = "tower", model = "@tower", name = Loc.S("ป้อม", "Tower"), hp = 6500, spd = 0, dmg = 90, range = 8.5f, kind = "tower", scale = 1, rad = 1.7f, gold = 60 };
+        public static readonly FoeDef Core = new() { id = "core", model = "@core", name = Loc.S("คริสตัลหลัก", "Core Crystal"), hp = 13000, spd = 0, dmg = 130, range = 8, kind = "tower", scale = 1, rad = 2.4f, gold = 0 };
         // Sky Lanes: once a side has knocked down every outer tower of the other, each of its waves brings a War Brute (a big orc) down each lane
         public static readonly FoeDef Brute = new() { id = "brute", model = "rig_e_orc", name = Loc.S("ยักษ์ศึก", "War Brute"), hp = 1700, spd = 2.7f, dmg = 80, range = 2f, kind = "melee", scale = 1.6f, rad = .75f, gold = 25 };
+        // the other two soldiers of a wave: an archer that shoots from behind the line, and a siege ram every third wave that hits towers hard
+        public static readonly FoeDef Archer = new() { id = "archer", model = "rig_minion", name = Loc.S("พลธนู", "Archer"), hp = 260, spd = 3.0f, dmg = 24, range = 5.5f, kind = "ranged", scale = .62f, rad = .3f, gold = 6 };
+        public static readonly FoeDef Siege = new() { id = "siege", model = "rig_minion", name = Loc.S("ทหารทุบป้อม", "Siege Soldier"), hp = 900, spd = 2.6f, dmg = 40, range = 6.5f, kind = "ranged", scale = .95f, rad = .45f, gold = 15 };
+        public const float SiegeVsTower = 3;   // a siege soldier's shots on towers
+        // longer matches (owner, 2026-11-10: a match was over in 3 minutes, about 10 wanted): towers and the core take only part of a hero's
+        // damage, and much less when the hero's soldiers are not there with them (no lone pushes); deaths cost more time as levels rise
+        public const float HeroVsTowerEscorted = .6f, HeroVsTowerAlone = .35f;
+        public static float HeroVsTower(Foe tower, int team)
+        {
+            foreach (var f in Main.G.foes) if (f && f.alive && f.team == team && Soldier(f.d) && Main.Flat(f.Pos - tower.Pos).magnitude < tower.d.range + 2) return HeroVsTowerEscorted;
+            return HeroVsTowerAlone;
+        }
+        public static float RespawnTime(int level) => Mathf.Min(30, 6 + 1.5f * (level - 1));
+        public const int SiegeEvery = 3;       // waves
+        public static bool Soldier(FoeDef d) => d != null && (d.id == "minion" || d.id == "archer" || d.id == "siege");
         public static readonly FoeDef Minion = new() { id = "minion", model = "rig_minion", name = Loc.S("ทหาร", "Soldier"), hp = 380, spd = 3.0f, dmg = 32, range = 1.4f, kind = "melee", scale = .7f, rad = .33f, gold = 5 };   // 70% of a hero: soldiers read as small at a glance
         public static FoeDef Champ(HeroDef h) => new() { id = "champ", model = "hero_" + h.id, name = h.name, hp = h.hp * 1.1f, spd = h.spd * .85f, dmg = (h.ranged ? 50 : 62) * h.atk * (h.cls == "assassin" ? 1.27f : 1),   // assassins: the least health of the melee heroes, the hardest hits
                  range = h.ranged ? 6.5f : 2.2f, kind = "champ", scale = 1, rad = .5f, gold = 40, shoot = h.ranged };
@@ -220,11 +235,15 @@ namespace NovaBlade
             for (int l = 0; l < Paths.Length; l++) { Nearest(l, q, out var c, out float s); Try(c, HalfAt(l, s) + margin); }
             p.x = best.x; p.z = best.y; return p;
         }
-        // towers: two per lane per team, the outer one further out; the straight lane uses Lane.TowerZ, the curve the same share of its length
-        public static Vector3 Tower(int team, int lane, int inner)
+        // towers: three per lane per team (owner, 2026-11-11: longer matches), tier 0 the outermost; the straight lane by distance from the middle,
+        // the curve by share of its length from the team's own end
+        public const int Towers = 3;
+        static readonly float[] StraightZ = { 9, 18.5f, 28 }, CurveShare = { .4f, .3f, .2f };
+        public static Vector3 Tower(int team, int lane, int tier)
         {
-            if (lane == 0) return new Vector3(0, 0, Lane.Side(team) * Lane.TowerZ[inner == 1 ? 1 : 0]);
-            float len = Length(1), share = inner == 1 ? .2f : .36f; var q = PointAt(1, team == 0 ? share * len : (1 - share) * len); return new Vector3(q.x, 0, q.y);
+            tier = Mathf.Clamp(tier, 0, Towers - 1);
+            if (lane == 0) return new Vector3(0, 0, Lane.Side(team) * StraightZ[tier]);
+            float len = Length(1), share = CurveShare[tier]; var q = PointAt(1, team == 0 ? share * len : (1 - share) * len); return new Vector3(q.x, 0, q.y);
         }
         public static Vector3 LaneStart(int team, int lane) { lane = Mathf.Clamp(lane, 0, 1); float len = Length(lane); var q = PointAt(lane, team == 0 ? 2 : len - 2); return new Vector3(q.x, 0, q.y); }
     }

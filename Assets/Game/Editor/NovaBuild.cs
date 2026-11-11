@@ -130,7 +130,7 @@ public static class NovaBuild
         var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, dir, BuildTarget.WebGL, BuildOptions.None);
         Debug.Log($"[NovaBuild] webgl {(phone ? "phone" : "PC")} build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
-        SplitData(dir);
+        SplitData(dir); SkinBundles(BuildTarget.WebGL, dir + "/skins");
         if (pcCode != null)
         {
             foreach (var f in Directory.GetFiles(otherBuild).Where(f => !f.Contains(".data.") && !pcCode.ContainsKey(f))) File.Delete(f);
@@ -207,6 +207,17 @@ public static class NovaBuild
         var r = BuildPipeline.BuildPlayer(new[] { "Assets/Game/Scenes/Main.unity" }, "Builds/Win/NovaBlade.exe", BuildTarget.StandaloneWindows64, BuildOptions.None);
         Debug.Log($"[NovaBuild] win build {r.summary.result} {r.summary.totalSize / 1e6:0} MB");
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
+        SkinBundles(BuildTarget.StandaloneWindows64, "Builds/Win/NovaBlade_Data/StreamingAssets/skins");
+    }
+    // the classic skins, one AssetBundle each (SkinPacks loads them when worn), built for the player just made
+    static void SkinBundles(BuildTarget target, string outDir)
+    {
+        var builds = Directory.GetFiles(NovaSetup.SkinPackDir, "Hero_*.prefab").Select(p => new AssetBundleBuild { assetBundleName = "hero_" + Path.GetFileNameWithoutExtension(p).Substring(5).ToLowerInvariant(), assetNames = new[] { p.Replace(Path.DirectorySeparatorChar, '/') } }).ToArray();
+        if (builds.Length == 0) { Debug.Log("[NovaBuild] no skin packs"); return; }
+        if (Directory.Exists(outDir)) Directory.Delete(outDir, true); Directory.CreateDirectory(outDir);
+        var m = BuildPipeline.BuildAssetBundles(outDir, builds, BuildAssetBundleOptions.ChunkBasedCompression, target);
+        long size = Directory.GetFiles(outDir, "hero_*").Where(f => !f.EndsWith(".manifest")).Sum(f => new FileInfo(f).Length);
+        Debug.Log($"[NovaBuild] skin packs {(m ? m.GetAllAssetBundles().Length : 0)} for {target}: {size / 1e6:0.0} MB in {outDir}");
     }
 
     // ======================= assets =======================

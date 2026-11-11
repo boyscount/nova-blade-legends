@@ -44,8 +44,9 @@ namespace NovaBlade
             if (model) Destroy(model);
             if (def.rig)
             {
-                modelKey = G.ModelKey(def, lobby); var mpf = Resources.Load<GameObject>("Heroes/Hero_" + modelKey); if (!mpf) { modelKey = def.id; mpf = Resources.Load<GameObject>("Heroes/Hero_" + def.id); }   // a model skin, or the hero's own
-                model = Instantiate(mpf, transform); SleeveHang.Attach(model); Grip.Attach(model);
+                modelKey = G.ModelKey(def, lobby); var mpf = SkinPacks.Get(modelKey);
+                if (!mpf) { if (SkinPacks.IsPack(modelKey)) { var want = modelKey; SkinPacks.Fetch(want, () => { if (this && G.ModelKey(def, G.mode == Main.Mode.Lobby) == want) { Equip(); if (G.mode == Main.Mode.Lobby) PlaceLobby(); } }); } modelKey = def.id; mpf = Resources.Load<GameObject>("Heroes/Hero_" + def.id); }   // a classic skin comes from its bundle: the hero's own model until it is here   // a model skin, or the hero's own
+                model = Instantiate(mpf, transform); SkinPacks.Animate(model, def.id); SleeveHang.Attach(model); Grip.Attach(model);
                 anim = model.GetComponentInChildren<Animator>();
                 animSet = Data.AnimSet(def.id); if (animSet != null) animSet += def.female ? "_f" : "_m";   // each class set comes in a women's and a men's walk, run and stance
                 if (anim && animSet != null && Resources.Load<RuntimeAnimatorController>("Anim/" + animSet) is RuntimeAnimatorController oc) anim.runtimeAnimatorController = oc;
@@ -315,7 +316,7 @@ namespace NovaBlade
         {
             dead = true; state = St.Dead; inAtk = false; if (skillCo != null) StopCoroutine(skillCo); skillCo = null;
             Play("death", .1f, 1.1f, 1.4f); Fx.Dust(Pos, .9f, 12);
-            if (G.lane) { G.HeroKilled(Pos, 0, def.name, true); G.respawnAt = Time.time + 6; Invoke(nameof(Respawn), 6f); } else Invoke(nameof(Lose), 2.6f);
+            if (G.lane) { G.HeroKilled(Pos, 0, def.name, true); float back = Lane.RespawnTime(Level); G.respawnAt = Time.time + back; Invoke(nameof(Respawn), back); } else Invoke(nameof(Lose), 2.6f);
         }
         void Lose() { if (G.mode != Main.Mode.Game) return; if (G.wilds || G.house || G.sky) G.FallInZone(); else G.Finish(false); }
         // lane mode: back at our base after a short wait

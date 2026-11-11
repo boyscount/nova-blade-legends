@@ -258,6 +258,7 @@ namespace NovaBlade
             int akt = System.Array.IndexOf(args, "-aikittest"); if (akt >= 0 && akt + 1 < args.Length) StartCoroutine(AiKitTest(args[akt + 1]));
             int ktt = System.Array.IndexOf(args, "-kittest"); if (ktt >= 0 && ktt + 1 < args.Length) StartCoroutine(KitTest(args[ktt + 1]));
             int stt = System.Array.IndexOf(args, "-skytimes"); if (stt >= 0 && stt + 1 < args.Length) StartCoroutine(SkyTimes(args[stt + 1]));
+            int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
             int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
             int dlt = System.Array.IndexOf(args, "-duelstest"); if (dlt >= 0 && dlt + 1 < args.Length) StartCoroutine(DuelsTest(args[dlt + 1]));
             int wlt = System.Array.IndexOf(args, "-wildstest"); if (wlt >= 0 && wlt + 1 < args.Length) StartCoroutine(WildsTest(args[wlt + 1]));
@@ -1134,6 +1135,23 @@ namespace NovaBlade
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "skytimes.txt"), log.ToString()); Application.Quit();
         }
+        // Test mode (-matchlen <dir> [rounds]): whole Sky Lanes matches with AI on both sides (the player stands aside, out of the fight), time sped up;
+        // how long each lasts in game minutes, who won, towers left. To tune the match length (owner: about 10 minutes).
+        System.Collections.IEnumerator MatchLenTest(string dir, int rounds)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); const float Speed = 6, Cap = 30 * 60;
+            for (int r = 0; r < rounds; r++)
+            {
+                StartLane(3, 2); yield return null;
+                var mate = Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).First(); var u = SpawnUnit(Lane.Champ(mate), Lane.SpawnOf(0), 0); if (u) u.laneIdx = 0;   // the player's place goes to an AI
+                hero.dead = true; hero.max = hero.hp = 1e9f; hero.inv = 1e9f; hero.transform.position = Lane.SpawnOf(0) + new Vector3(0, -40, 0); foreach (var rr in hero.GetComponentsInChildren<Renderer>()) rr.enabled = false;
+                TestSpeed = Speed; float t0 = time; int lastMin = -1;
+                float real0 = Time.realtimeSinceStartup; while (mode == Mode.Game && time - t0 < Cap && Time.realtimeSinceStartup - real0 < Cap / Speed + 60) { if ((int)((time - t0) / 60) != lastMin || Time.frameCount % 600 == 0) { lastMin = (int)((time - t0) / 60); System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "matchlen.txt"), log.ToString() + $"now: game {time - t0:0} s real {Time.realtimeSinceStartup - real0:0} s mode {mode} scale {Time.timeScale} paused {paused}"); log.AppendLine($"  round {r + 1} min {lastMin}: towers ours {TowersLeft(0)} theirs {TowersLeft(1)} · kills {teamKills[0]}:{teamKills[1]} · Lv {Data.Level(teamXp[0])}:{Data.Level(teamXp[1])}"); } yield return null; }
+                TestSpeed = 1; float m = (time - t0) / 60; log.AppendLine($"round {r + 1}: {m:0.0} min · winner {(TowersLeft(1) == 0 || !foes.Any(f => f && f.alive && f.team == 1 && f.d.id == "core") ? "blue" : TowersLeft(0) == 0 || !foes.Any(f => f && f.alive && f.team == 0 && f.d.id == "core") ? "red" : "none (cap)")} · towers ours {TowersLeft(0)} theirs {TowersLeft(1)} · kills {teamKills[0]}:{teamKills[1]}");
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "matchlen.txt"), log.ToString()); hero.dead = false; foreach (var rr in hero.GetComponentsInChildren<Renderer>()) rr.enabled = true; yield return new WaitForSecondsRealtime(2.5f);
+            }
+            Application.Quit();
+        }
         System.Collections.IEnumerator SkyLanesTest(string dir)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); save.wings = ""; save.hero = "warrior"; hero.Equip();
@@ -1726,12 +1744,13 @@ namespace NovaBlade
         public readonly int[] teamXp = new int[2];
         public void TeamXp(int side, int n) { if (!SkyMatch || side is not (0 or 1)) return; teamXp[side] += n; foreach (var f in foes) if (f && f.alive && f.team == side && f.d.kind == "champ") GrowAi(f); }
         // an AI hero grows with its side's level the way the player grows with theirs: +4% health and +3% damage (skills too) a level
+        public const float LaneLevelHeal = .1f;   // owner, 2026-11-10: a level-up in a lane battle no longer fills the health bar
         public void GrowAi(Foe f)
         {
             if (!SkyMatch || !f || f.d.kind != "champ") return; int lv = Data.Level(teamXp[f.team]); if (lv == f.aiLv) return;
             float hk = (1 + (lv - 1) * Data.LevelHp) / (1 + (f.aiLv - 1) * Data.LevelHp), dk = (1 + (lv - 1) * Data.LevelAtk) / (1 + (f.aiLv - 1) * Data.LevelAtk);
             f.maxHp *= hk; f.hp *= hk; f.d.dmg *= dk; bool up = lv > f.aiLv; f.aiLv = lv;
-            if (up && f.alive) Fx.Burst(f.Pos + Vector3.up, 18, new Color(1, .85f, .35f), 3, .6f, 1, .12f, true);   // a gold flash: level up
+            if (up && f.alive) { f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * LaneLevelHeal); Fx.Burst(f.Pos + Vector3.up, 18, new Color(1, .85f, .35f), 3, .6f, 1, .12f, true); }   // a gold flash: level up, and the same tenth of health the player gets
         }
         public int LevelOf(HeroStat s) => s.me && hero ? hero.Level : SkyMatch ? Data.Level(teamXp[s.team]) : 0;   // 0: no match level outside Sky Lanes
         public HeroStat Stat(string name, int team, bool me = false) { var s = stats.Find(x => x.name == name && x.team == team); if (s == null) stats.Add(s = new HeroStat { name = name, team = team, me = me }); return s; }
@@ -1765,7 +1784,8 @@ namespace NovaBlade
         {
             if (n <= 0 || !hero) return; int before = hero.Level; save.AddHeroXp(hero.def.id, n); runXp += n; if (SkyMatch) matchXp += n; if (hero.Level <= before) return;
             if (!SkyMatch) foreach (var q in Quests.All) if (q.kind == "level" && q.goal == hero.Level && !Quests.Claimed(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
-            hero.RefreshGear(); hero.hp = hero.max; Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5);
+            hero.RefreshGear(); hero.hp = lane ? Mathf.Min(hero.max, hero.hp + hero.max * LaneLevelHeal) : hero.max;   // lane battles (MOBA): the health share is kept, plus a tenth; elsewhere a full heal
+            Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5);
             ui.Banner(Loc.S($"เลเวล {hero.Level}!", $"LEVEL {hero.Level}!"), Loc.S("พลังชีวิตและพลังโจมตีเพิ่มขึ้น", "More health and attack")); Persist();
         }
         // leaving a stage early keeps the gold picked up so far
@@ -1869,7 +1889,7 @@ namespace NovaBlade
             if (hitStop > 0) hitStop -= dt;
             Time.timeScale = (hitStop > 0 ? .06f : 1) * TestSpeed;
             if (skyPetals && lane && Lane.Lanes == 2 && hero) skyPetals.position = hero.Pos + new Vector3(0, 6, -7);
-            if (mode == Mode.Game) { time += dt; if (lane) UpdLane(dt); else if (!city && !wilds && !house && !sky) UpdWaves(dt); UpdDrops(dt); }
+            if (mode == Mode.Game) { float gdt = dt * TestSpeed; time += gdt; if (lane) UpdLane(gdt); else if (!city && !wilds && !house && !sky) UpdWaves(gdt); UpdDrops(dt); }   // the match clock and waves follow a test's speed-up too
             for (int i = foes.Count - 1; i >= 0; i--) if (!foes[i]) foes.RemoveAt(i);
         }
 
@@ -1931,7 +1951,7 @@ namespace NovaBlade
             float aggro = f.d.kind == "tower" ? f.d.range : 10; ITarget best = null; float bd = aggro;
             if (f.d.kind == "tower")
             {   // a tower shoots the soldiers in its range first, and a hero only when no soldier is there to take the shots
-                foreach (var o in Opponents(f.team)) { if (o is not Foe m || m.d.id != "minion") continue; float d = Flat(o.Pos - f.Pos).magnitude - o.Rad; if (d < bd) { bd = d; best = o; } }
+                foreach (var o in Opponents(f.team)) { if (o is not Foe m || !Lane.Soldier(m.d)) continue; float d = Flat(o.Pos - f.Pos).magnitude - o.Rad; if (d < bd) { bd = d; best = o; } }
                 if (best != null) return best;
             }
             foreach (var o in Opponents(f.team)) { if (o is Foe sf && sf.Shielded) continue; float d = Flat(o.Pos - f.Pos).magnitude - o.Rad; if (d < bd) { bd = d; best = o; } }   // a shielded tower is not worth a swing
@@ -2008,8 +2028,8 @@ namespace NovaBlade
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
             for (int t = 0; t < 2; t++)
             {
-                for (int l = 0; l < 2; l++) for (int k = 0; k < 2; k++) { var u = SpawnUnit(Lane.Tower, SkyLanes.Tower(t, l, k), t); if (u) { u.laneIdx = l; u.towerTier = k; } }
-                SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t).towerTier = 2;
+                for (int l = 0; l < 2; l++) for (int k = 0; k < SkyLanes.Towers; k++) { var u = SpawnUnit(Lane.Tower, SkyLanes.Tower(t, l, k), t); if (u) { u.laneIdx = l; u.towerTier = k; } }
+                SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t).towerTier = SkyLanes.Towers;
             }
             var others = TakeAllies() is { Count: > 0 } pa ? pa : Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();   // the VS screen's team when there was one
             for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), Lane.SpawnOf(0) + new Vector3(i == 0 ? -1.5f : 1.5f, 0, 0), 0); if (u) u.laneIdx = SkyLaneOf[i]; }
@@ -2048,6 +2068,8 @@ namespace NovaBlade
                     for (int l = 0; l < 2; l++)
                     {
                         var s0 = SkyLanes.LaneStart(t, l); for (int i = 0; i < 3; i++) { var u = SpawnUnit(Lane.Minion, s0 + new Vector3((i - 1) * 1.6f, 0, 0), t); if (u) u.laneIdx = l; }
+                        for (int i = 0; i < 2; i++) { var u = SpawnUnit(Lane.Archer, s0 + new Vector3(i == 0 ? -.8f : .8f, 0, Lane.Side(t) * 1.6f), t); if (u) u.laneIdx = l; }   // archers behind the front line
+                        if (wave % Lane.SiegeEvery == 0) { var u = SpawnUnit(Lane.Siege, s0 + new Vector3(0, 0, Lane.Side(t) * 3.2f), t); if (u) u.laneIdx = l; }
                         if (brutes) { var b = SpawnUnit(Lane.Brute, s0 + new Vector3(0, 0, Lane.Side(t) * 2.4f), t); if (b) b.laneIdx = l; }   // behind the soldiers
                     }
                 }
@@ -2074,7 +2096,7 @@ namespace NovaBlade
             if (!lane || mode != Mode.Game) return;
             if (f.d.id == "core") { ui.Banner(f.team == 1 ? Loc.S("ชัยชนะ!", "Victory!") : Loc.S("พ่ายแพ้", "Defeat"), f.team == 1 ? Loc.S("คริสตัลฝ่ายศัตรูถูกทำลาย", "The enemy crystal was destroyed") : Loc.S("คริสตัลของเราถูกทำลาย", "Our crystal was destroyed")); StartCoroutine(After(2.2f, () => Finish(f.team == 1))); }
             else if (f.d.id == "tower") ui.Banner(f.team == 1 ? Loc.S("ทำลายป้อมศัตรู!", "Enemy tower destroyed!") : Loc.S("ป้อมของเราถูกทำลาย", "Our tower was destroyed"), "");
-            else if (f.d.kind == "champ") { var def = f.baseDef ?? f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(10, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, Lane.SpawnOf(team) + new Vector3(Random.Range(-1.5f, 1.5f), 0, 0), team); if (u) u.laneIdx = li; } })); }
+            else if (f.d.kind == "champ") { var def = f.baseDef ?? f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(Lane.RespawnTime(SkyMatch ? Data.Level(teamXp[team]) : 1) + 4, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, Lane.SpawnOf(team) + new Vector3(Random.Range(-1.5f, 1.5f), 0, 0), team); if (u) u.laneIdx = li; } })); }
         }
         System.Collections.IEnumerator After(float s, System.Action a) { yield return new WaitForSeconds(s); a(); }
     }

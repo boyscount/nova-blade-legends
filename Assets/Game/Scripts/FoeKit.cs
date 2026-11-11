@@ -157,6 +157,7 @@ namespace NovaBlade
         int aiShots, aiStacks; float aiLastFight = -99, aiFocusReady;
         public float AiHunt(ITarget o, bool skill = false)
         {
+            if (G.lane && d.kind == "champ" && o is Foe tw && tw.towerTier >= 0) return Lane.HeroVsTower(tw, team);   // heroes against structures (see Lane)
             if (!G.lane || AiKit == null) return 1;
             float k = 1; bool hero = o is Hero || o is Foe fc && fc.d.kind == "champ";
             bool low = o is Foe f && f.hp < f.maxHp * .35f || o is Hero h && h.hp < h.max * .35f;

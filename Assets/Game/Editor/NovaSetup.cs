@@ -20,6 +20,9 @@ public static class NovaSetup
     const string Anim = "Assets/Game/Animations";
     const string Heroes = "Assets/Game/Models/Heroes";
     const string Prefabs = "Assets/Game/Resources/Heroes";
+    // the classic skins live outside Resources, so they are not in the game's main data: each goes out as an AssetBundle (NovaBuild.SkinBundles, SkinPacks)
+    public const string SkinPackDir = "Assets/Game/SkinPacks";
+    static string PrefabPath(string id) => id.EndsWith("_classic") ? $"{SkinPackDir}/Hero_{id}.prefab" : $"{Prefabs}/Hero_{id}.prefab";
     const string ControllerPath = "Assets/Game/Animations/Hero.controller";
 
     // state name -> (Mixamo file, loops)
@@ -272,7 +275,7 @@ public static class NovaSetup
         int n = 0;
         foreach (var id in ClassHeroes.Concat(Npcs).Concat(Monsters).Distinct())
         {
-            var path = $"{Prefabs}/Hero_{id}.prefab"; if (!File.Exists(path)) continue;
+            var path = PrefabPath(id); if (!File.Exists(path)) continue;
             var root = PrefabUtility.LoadPrefabContents(path); if (MendMesh(id, root) > 0) { PrefabUtility.SaveAsPrefabAsset(root, path); n++; } PrefabUtility.UnloadPrefabContents(root);
         }
         AssetDatabase.SaveAssets(); Debug.Log($"[NovaSetup] mended prefabs: {n}");
@@ -296,6 +299,20 @@ public static class NovaSetup
             Debug.Log($"[LegReport] {id} mesh {m.name} hip {hip:0.00} legPts {legPts} opposite by cm: {string.Join(",", hist)} bones: {string.Join(" ", who.OrderByDescending(k => k.Value).Take(6).Select(k => k.Key + ":" + k.Value))} thighs {string.Join(" ", bones.Where(b => b && (b.name.StartsWith("thigh") || b.name.StartsWith("shin"))).Select(b => b.name + "@" + X(System.Array.IndexOf(bones, b)).ToString("0.00")))}");
         }
     }
+    // once: the classic skin prefabs already built under Resources move out to SkinPackDir (same GUIDs), without their controller
+    public static void MoveSkinPacks()
+    {
+        Directory.CreateDirectory(SkinPackDir); AssetDatabase.Refresh(); int n = 0;
+        foreach (var id in ClassHeroes.Where(i => i.EndsWith("_classic")))
+        {
+            string from = $"{Prefabs}/Hero_{id}.prefab", to = PrefabPath(id);
+            if (File.Exists(from)) { var err = AssetDatabase.MoveAsset(from, to); if (!string.IsNullOrEmpty(err)) { Debug.LogError($"[NovaSetup] move {id}: {err}"); continue; } }
+            if (!File.Exists(to)) continue;
+            var root = PrefabUtility.LoadPrefabContents(to); var an = root.GetComponentInChildren<Animator>(); if (an) an.runtimeAnimatorController = null; PrefabUtility.SaveAsPrefabAsset(root, to); PrefabUtility.UnloadPrefabContents(root); n++;
+        }
+        AssetDatabase.SaveAssets(); Debug.Log($"[NovaSetup] skin packs: {n}");
+    }
+    public static void MoveSkinPacksAndWin() { MoveSkinPacks(); NovaBuild.BuildWin(); }
     public static void NewHeroesAndWin() { NewHeroes(); NovaBuild.BuildWin(); }
     public static void MendAndWin() { MendHeroMeshes(); NovaBuild.BuildWin(); }
     static void BuildHero(string id, AnimatorController ctrl)
@@ -338,10 +355,10 @@ public static class NovaSetup
         var holder = new GameObject("Hero_" + id);
         inst.transform.SetParent(holder.transform, false);
         var anim = inst.AddComponent<Animator>();
-        anim.avatar = avatar; anim.runtimeAnimatorController = ctrl; anim.applyRootMotion = false;
+        anim.avatar = avatar; anim.runtimeAnimatorController = id.EndsWith("_classic") ? null : ctrl; anim.applyRootMotion = false;   // a skin bundle would carry the controller and every clip: the game gives it the hero's (SkinPacks.Animate)
         anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-        Directory.CreateDirectory(Prefabs); MendMesh(id, inst);
-        PrefabUtility.SaveAsPrefabAsset(holder, $"{Prefabs}/Hero_{id}.prefab");
+        Directory.CreateDirectory(Prefabs); Directory.CreateDirectory(SkinPackDir); MendMesh(id, inst);
+        PrefabUtility.SaveAsPrefabAsset(holder, PrefabPath(id));
         Object.DestroyImmediate(holder);
         Debug.Log($"[NovaSetup] hero {id} avatar ok, left side {(leftIsNegX ? "-X" : "+X")}");
     }
@@ -358,7 +375,7 @@ public static class NovaSetup
         const int W = 360, H = 460;
         foreach (var id in RiggedHeroes)
         {
-            var pf = Resources.Load<GameObject>("Heroes/Hero_" + id) ?? AssetDatabase.LoadAssetAtPath<GameObject>($"{Prefabs}/Hero_{id}.prefab");
+            var pf = Resources.Load<GameObject>("Heroes/Hero_" + id) ?? AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath(id)); if (!pf) continue;
             var hero = (GameObject)Object.Instantiate(pf);
             var animr = hero.GetComponentInChildren<Animator>();
             var sheet = new Texture2D(W * states.Length, H, TextureFormat.RGB24, false);

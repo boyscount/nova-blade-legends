@@ -19,7 +19,7 @@ namespace NovaBlade
         public float Rad => rad; public bool Down => !alive || spawning; public int Team => team;
         public int laneIdx = 1;   // which lane this unit walks (three-lane mode)
         public int aiLv = 1;   // Sky Lanes: an AI hero's level this match (its side's XP), its health and damage grown to it like the player's
-        public int towerTier = -1;   // lane maps: 0 outer tower, 1 inner tower, 2 core (-1: not a tower)
+        public int towerTier = -1;   // lane maps: 0 the outermost tower, then 1, 2 ... inward; the core is one above its lane's last tower (-1: not a tower)
         // towers fall in order: an inner tower takes no damage while its lane's outer tower stands, the core none while every lane still has a tower
         public bool Shielded
         {
@@ -27,8 +27,9 @@ namespace NovaBlade
             {
                 if (towerTier < 1 || !G.lane) return false;
                 bool Stands(int lane, int tier) { foreach (var f in G.foes) if (f && f.alive && f.team == team && f.towerTier == tier && (lane < 0 || f.laneIdx == lane)) return true; return false; }
-                if (towerTier == 1) return Stands(laneIdx, 0);
-                int lanes = Lane.Lanes == 2 ? 2 : Lane.Lanes; for (int l = 0; l < lanes; l++) if (!Stands(l, 0) && !Stands(l, 1)) return false;   // a lane cleared: the core is open
+                if (d.id != "core") return Stands(laneIdx, towerTier - 1);   // the tower in front of it still stands
+                bool AnyTower(int lane) { foreach (var f in G.foes) if (f && f.alive && f.team == team && f.d.id == "tower" && f.laneIdx == lane) return true; return false; }
+                int lanes = Lane.Lanes == 2 ? 2 : Lane.Lanes; for (int l = 0; l < lanes; l++) if (!AnyTower(l)) return false;   // a lane cleared: the core is open
                 return true;
             }
         }
@@ -116,9 +117,10 @@ namespace NovaBlade
         {
             aggro = true;
             if (!alive) return; o ??= new Main.Hit(); var hero = G.hero; OnDamage?.Invoke(this, dmg, from, o);
+            if (towerTier >= 0 && G.lane && !o.byFoe) dmg *= Lane.HeroVsTower(this, 0);   // the player's hits on a structure (AI heroes: FoeKit.AiHunt)
             if (towerTier >= 1 && Shielded)
             {   // no shortcuts: the towers before it must fall first
-                if (Time.time > shieldNoteT) { shieldNoteT = Time.time + .8f; G.Number(Pos + Vector3.up * (h + .6f), towerTier == 2 ? Loc.S("ทำลายป้อมให้หมดหนึ่งเลนก่อน", "Clear a lane's towers first") : Loc.S("ทำลายป้อมด้านหน้าก่อน", "Break the outer tower first"), ""); Fx.Ring(Pos, rad + .8f, Lane.TeamColor(team) * .4f, .5f, .15f); }
+                if (Time.time > shieldNoteT) { shieldNoteT = Time.time + .8f; G.Number(Pos + Vector3.up * (h + .6f), d.id == "core" ? Loc.S("ทำลายป้อมให้หมดหนึ่งเลนก่อน", "Clear a lane's towers first") : Loc.S("ทำลายป้อมด้านหน้าก่อน", "Break the outer tower first"), ""); Fx.Ring(Pos, rad + .8f, Lane.TeamColor(team) * .4f, .5f, .15f); }
                 return;
             } var sw = o.byFoe ? new SwordDef { color = o.col ?? Color.white } : hero.sword;
             bool kitHit = !o.byFoe && G.lane && hero && hero.KitOn; if (kitHit) dmg *= hero.KitOut(this, o); dmg = AiDamageTaken(dmg, from);   // the hero's passive
@@ -275,10 +277,11 @@ namespace NovaBlade
                 if (tower && G.lane)
                 {   // a hero under a tower with none of its own soldiers there takes heavy, growing shots (no diving towers alone)
                     bool heroTgt = tgt is Hero || tgt is Foe tf && tf.d.kind == "champ";
-                    bool covered = G.foes.Any(m => m && m.alive && m.team == tgt.Team && m.d.id == "minion" && Main.Flat(m.Pos - Pos).magnitude < d.range + 1);
+                    bool covered = G.foes.Any(m => m && m.alive && m.team == tgt.Team && Lane.Soldier(m.d) && Main.Flat(m.Pos - Pos).magnitude < d.range + 1);
                     if (heroTgt && !covered) { streak = tgt == streakOn ? streak + 1 : 0; streakOn = tgt; dmg *= TowerAlone * Mathf.Min(TowerRampMax, 1 + streak * TowerRamp); }
                     else { streak = 0; streakOn = null; if (heroTgt) dmg *= TowerVsHero; }   // heroes take heavier shots than soldiers even with soldiers about
                 }
+                if (d.id == "siege" && tgt is Foe ttw && ttw.d.kind == "tower") dmg *= Lane.SiegeVsTower;
                 var from = Pos + (tower ? Vector3.up * Lane.TopY : Vector3.up + Main.Dir(face) * .5f);
                 var dir = (tgt.Pos + Vector3.up - from).normalized;
                 Shot.Fire(from, dir * (tower ? 16 : 9), dmg, tower ? Lane.TeamColor(team) / 2.2f : new Color(1, .42f, .12f), tower ? "big" : "orb", 2.5f, enemy: team == 1, trail: true, byFoe: true);
@@ -295,7 +298,7 @@ namespace NovaBlade
             foreach (var f in G.foes) if (f && f.alive && f.team != team && f.d.kind == "tower" && Main.Flat(f.Pos - p).magnitude < f.d.range + pad) return f;
             return null;
         }
-        int OwnSoldiersNear(Vector3 p, float r) { int n = 0; foreach (var f in G.foes) if (f && f.alive && f.team == team && f.d.id == "minion" && Main.Flat(f.Pos - p).magnitude < r) n++; return n; }
+        int OwnSoldiersNear(Vector3 p, float r) { int n = 0; foreach (var f in G.foes) if (f && f.alive && f.team == team && Lane.Soldier(f.d) && Main.Flat(f.Pos - p).magnitude < r) n++; return n; }
         bool SafeToReach(ITarget t) { var tw = EnemyTowerOver(t.Pos, .5f); return !tw || OwnSoldiersNear(tw.Pos, tw.d.range + 1) >= 2 || (t is Foe ft && ft.hp < ft.maxHp * DiveHp) || (t is Hero th && th.hp < th.max * DiveHp); }
         bool OpponentFocusing(ITarget target) => G.foes.Any(o => o && o.alive && o.team != team && o.d.kind == "champ" && o.tgt == target);
         public ITarget ChampTarget()

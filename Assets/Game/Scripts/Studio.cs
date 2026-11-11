@@ -44,7 +44,7 @@ namespace NovaBlade
                 var pf = h.rig ? Resources.Load<GameObject>("Heroes/Hero_" + h.id) : Catalog.I.Model(h.id);
                 tex["hero_" + h.id] = h.rig ? Portrait(pf) : Shoot(pf, .5f, 1.1f, .35f, true);
                 tex["herofull_" + h.id] = FullBody(pf, h.rig, h.female);
-                foreach (var (_, m) in Data.ModelSkins(h.id)) if (Resources.Load<GameObject>("Heroes/Hero_" + m) is GameObject spf) { tex["hero_" + m] = Portrait(spf); tex["herofull_" + m] = FullBody(spf, true, h.female); }   // model skins' cards
+                foreach (var (_, m) in Data.ModelSkins(h.id)) if (SkinPacks.Get(m) is GameObject spf) { tex["hero_" + m] = Portrait(spf); tex["herofull_" + m] = FullBody(spf, true, h.female); }   // model skins' cards
             }
             float tHeroes = Lap();
             if (!baked) foreach (var p in Data.Pets) tex["pet_" + p.id] = Shoot(Catalog.I.Model(p.id), .48f, 1.15f, .45f);
@@ -192,9 +192,9 @@ namespace NovaBlade
         // a hero in a fighting stance (the heavy swing's wind-up, or a guard / a cast), turned toward the other side by 'yaw' degrees
         static Texture2D Pose(Camera c, HeroDef h, float yaw, string forceSt = null, float forceAt = 0, string model = null)
         {
-            if (h == null || !h.rig) return null; var pf = Resources.Load<GameObject>("Heroes/Hero_" + (model ?? h.id)) ?? Resources.Load<GameObject>("Heroes/Hero_" + h.id); if (!pf) return null;
+            if (h == null || !h.rig) return null; var pf = SkinPacks.Get(model ?? h.id) ?? Resources.Load<GameObject>("Heroes/Hero_" + h.id); if (!pf) return null;
             int W = Main.IsPhone || PhoneLook ? 540 : 720, H = Main.IsPhone || PhoneLook ? 720 : 960;   // the VS shows them up to ~750 px tall: 432 x 576 looked soft when stretched
-            var inst = Object.Instantiate(pf, Spot, Quaternion.identity);
+            var inst = Object.Instantiate(pf, Spot, Quaternion.identity); SkinPacks.Animate(inst, h.id);
             foreach (var t in inst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
             var an = inst.GetComponentInChildren<Animator>(); var hang = SleeveHang.Attach(inst); var grip = Grip.Attach(inst);
             string set = Data.AnimSet(h.id); if (set != null) set += h.female ? "_f" : "_m";
