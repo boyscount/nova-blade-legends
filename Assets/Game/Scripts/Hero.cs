@@ -151,12 +151,17 @@ namespace NovaBlade
         // Every Sky Lanes match starts at level 1 and levels with the XP of that match (G.matchXp); campaign XP is still saved for other modes.
         public int Level => G.SkyMatch ? Data.Level(G.matchXp) : Data.Level(G.save.HeroXp(def.id));
         float BaseHp => def.hp * (1 + (Level - 1) * Data.LevelHp);
-        public void RefreshGear() { float share = max > 0 ? hp / max : 1; max = BaseHp + Items.Bonus(G.save).hp; if (!dead) hp = Mathf.Clamp(max * share, 1, max); }
+        // MOBA fairness (owner, 2026-11-11): in lane battles everyone starts equal: the lobby's weapon stats, mastery, gear, shield block
+        // and the story stage do not count (looks only); the hero grows by its match level, jungle buffs and later its level-up picks
+        bool Fair => G && G.lane;
+        GearBonus Gear => Fair ? default : Items.Bonus(G.save);
+        float WDmg => Fair ? 1 : sword.dmg; float WSpd => Fair ? 1 : sword.spd;
+        public void RefreshGear() { float share = max > 0 ? hp / max : 1; max = BaseHp + Gear.hp; if (!dead) hp = Mathf.Clamp(max * share, 1, max); }
         public void ResetForGame()
         {
             KitBegin();
             StopWalk(); mp = mpMax; offActive = false; swapCD = 0; G.runLoot.Clear(); G.runXp = 0;
-            transform.position = G.lane ? Lane.SpawnOf(0) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Items.Bonus(G.save).hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
+            transform.position = G.lane ? Lane.SpawnOf(0) : new Vector3(0, 0, 6); face = Mathf.PI; max = hp = BaseHp + Gear.hp; potCD = 0; dead = false; state = St.Idle; inv = 1;
             buffT = shieldT = dodgeCD = orbAtkT = mightT = hasteT = 0; for (int i = 0; i < 3; i++) cds[i] = 0; spin = 0; kbx = kbz = 0; buf = 0;
             if (skillCo != null) StopCoroutine(skillCo); skillCo = null; if (bubble) bubble.SetActive(false);
             Play("idle", .05f);
@@ -256,9 +261,9 @@ namespace NovaBlade
 
         // ---------- helpers ----------
         public float mightT, hasteT;   // Sky Lanes jungle buffs (Jungle): more damage, faster skills
-        public float AtkPow => (mightT > 0 ? Jungle.MightK : 1) * 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * sword.dmg * (1 + Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier] + Items.Bonus(G.save).atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
+        public float AtkPow => (mightT > 0 ? Jungle.MightK : 1) * 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * WDmg * (1 + (Fair ? 0 : Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier]) + Gear.atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
         public int MasteryTier => Data.Tier(G.save.Mastery(sword.id));
-        public float CritBonus => Data.MasteryCrit[MasteryTier] + Items.Bonus(G.save).crit;
+        public float CritBonus => (Fair ? 0 : Data.MasteryCrit[MasteryTier]) + Gear.crit;
         // a healing potion from the bag: 35% of health, 3 s apart
         public float potCD;
         public void UsePotion()
@@ -325,7 +330,7 @@ namespace NovaBlade
         {
             if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
             if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
-            float d = CombatRules.Current.ModifyDamage(dmg) * (G.ZoneNight ? OpenWorld.NightFoePower : 1) * (1 + (G.stage - 1) * .15f) * (ShieldOn != null ? 1 - ShieldOn.block : 1) * (1 - Items.Bonus(G.save).def); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
+            float d = CombatRules.Current.ModifyDamage(dmg) * (G.ZoneNight ? OpenWorld.NightFoePower : 1) * (Fair ? 1 : 1 + (G.stage - 1) * .15f) * (ShieldOn != null && !Fair ? 1 - ShieldOn.block : 1) * (1 - Gear.def); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
             if (KitOn) { d = KitIn(d, from); if (d <= 0) return; }
             d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
             look.Flash(.5f); flashT = .12f; G.Number(Pos + Vector3.up * 2.1f, "-" + d, "hurt");
@@ -364,11 +369,11 @@ namespace NovaBlade
         {
             if (def.ranged)
             {   // archers draw and loose, casters alternate one- and two-hand casts; the shot leaves at ht
-                AimAuto(11); float rd = (i == 2 ? .8f : .55f) / sword.spd;
+                AimAuto(11); float rd = (i == 2 ? .8f : .55f) / WSpd;
                 atk = (i, 0, rd, rd * .5f, false); inAtk = true; state = St.Atk; buf = 0;
-                Play(def.cls == "archer" ? (i == 2 ? "bowdraw" : "bowshot") : i == 2 ? "cast2" : "cast1", .06f, 1.25f * sword.spd); return;
+                Play(def.cls == "archer" ? (i == 2 ? "bowdraw" : "bowshot") : i == 2 ? "cast2" : "cast1", .06f, 1.25f * WSpd); return;
             }
-            AimAuto(5); float ts = 1.3f * sword.spd;
+            AimAuto(5); float ts = 1.3f * WSpd;
             float d, ht, from = 0;
             if (def.rig)
             {
@@ -376,7 +381,7 @@ namespace NovaBlade
                 from = Mathf.Max(0, c.hit - .4f); float end = Mathf.Min(c.length, c.hit + .3f);
                 d = (end - from) / ts; ht = (c.hit - from) / ts;
             }
-            else { d = new[] { .42f, .42f, .56f }[i] / sword.spd; ht = d * .45f; }
+            else { d = new[] { .42f, .42f, .56f }[i] / WSpd; ht = d * .45f; }
             atk = (i, 0, d, ht, false); inAtk = true; state = St.Atk; buf = 0;
             Play("atk" + i, .06f, ts, from);
         }
@@ -464,7 +469,7 @@ namespace NovaBlade
                 if (buf > 0) StartAtk(chain > 0 ? (lastI + 1) % 3 : 0);
                 else if (mv.magnitude > .08f)
                 {
-                    float sp = (def.spd + Items.Bonus(G.save).spd) * KitSpeed * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
+                    float sp = (def.spd + Gear.spd) * KitSpeed * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.WaterY + .05f, Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);

@@ -11,7 +11,7 @@ namespace NovaBlade
         public static Main G;
         public bool duelOnly;
         // AI difficulty: health and basic damage of AI heroes, their skill power and cooldowns, the pause between skills, and (hard) ganging up on the weakest
-        public static readonly (float hp, float dmg, float skill, float cd, float gap, bool focus)[] AiLevels = { (.8f, .75f, .75f, 1.45f, 2.2f, false), (1, 1, 1, 1, 1, false), (1.15f, 1.15f, 1.15f, .85f, .7f, true) };
+        public static readonly (float hp, float dmg, float skill, float cd, float gap, bool focus)[] AiLevels = { (.9f, .85f, .85f, 1.3f, 1.8f, false), (1.15f, 1.12f, 1.12f, .9f, .8f, false), (1.4f, 1.3f, 1.3f, .75f, .55f, true) };   // owner, 2026-11-11: "wins too easily": every level stronger (and lobby gear no longer counts in lane battles)
         public (float hp, float dmg, float skill, float cd, float gap, bool focus) AiLv => duelOnly ? AiLevels[1] : AiLevels[Mathf.Clamp(save.aiLevel, 0, 2)];
         // the teams for the next lane battle, rolled for the VS screen (two helpers and the enemy side); used once by StartLane / StartSkyLanes
         public List<HeroDef> nextAllies, nextEnemies;
@@ -1159,13 +1159,18 @@ namespace NovaBlade
         }
         // Test mode (-matchlen <dir> [rounds]): whole Sky Lanes matches with AI on both sides (the player stands aside, out of the fight), time sped up;
         // how long each lasts in game minutes, who won, towers left. To tune the match length (owner: about 10 minutes).
+        List<HeroDef> pairA, pairB;
         System.Collections.IEnumerator MatchLenTest(string dir, int rounds)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3); const float Speed = 6, Cap = 30 * 60;
             for (int r = 0; r < rounds; r++)
             {
+                // rounds in pairs: the same six heroes, sides swapped in the second round (to tell a side's edge from the heroes' luck)
+                if (r % 2 == 0) { var pool = Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).Take(6).ToList(); pairA = pool.Take(3).ToList(); pairB = pool.Skip(3).ToList(); }
+                var ours = r % 2 == 0 ? pairA : pairB; var theirs = r % 2 == 0 ? pairB : pairA; nextAllies = ours.Take(2).ToList(); nextEnemies = theirs.ToList();
                 StartLane(3, 2); yield return null;
-                var mate = Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).First(); var u = SpawnUnit(Lane.Champ(mate), Lane.SpawnOf(0), 0); if (u) u.laneIdx = 0;   // the player's place goes to an AI
+                var mate = ours[2]; var u = SpawnUnit(Lane.Champ(mate), Lane.SpawnOf(0), 0); if (u) u.laneIdx = 0;
+                log.AppendLine($"round {r + 1} blue: {string.Join(",", ours.Select(h => h.name))} · red: {string.Join(",", theirs.Select(h => h.name))}");   // the player's place goes to an AI
                 hero.dead = true; hero.max = hero.hp = 1e9f; hero.inv = 1e9f; hero.transform.position = Lane.SpawnOf(0) + new Vector3(0, -40, 0); foreach (var rr in hero.GetComponentsInChildren<Renderer>()) rr.enabled = false;
                 TestSpeed = Speed; float t0 = time; int lastMin = -1;
                 float real0 = Time.realtimeSinceStartup; while (mode == Mode.Game && time - t0 < Cap && Time.realtimeSinceStartup - real0 < Cap / Speed + 60) { if ((int)((time - t0) / 60) != lastMin || Time.frameCount % 600 == 0) { lastMin = (int)((time - t0) / 60); System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "matchlen.txt"), log.ToString() + $"now: game {time - t0:0} s real {Time.realtimeSinceStartup - real0:0} s mode {mode} scale {Time.timeScale} paused {paused}"); log.AppendLine($"  round {r + 1} min {lastMin}: towers ours {TowersLeft(0)} theirs {TowersLeft(1)} · kills {teamKills[0]}:{teamKills[1]} · Lv {Data.Level(teamXp[0])}:{Data.Level(teamXp[1])}"); } yield return null; }
