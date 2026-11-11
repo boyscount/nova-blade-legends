@@ -277,15 +277,18 @@ namespace NovaBlade
             cards = sv.contentContainer; cards.style.flexDirection = FlexDirection.Row; cards.style.flexWrap = Wrap.Wrap;
             detail = L("", touchUi ? 25 : 21, new Color(.86f, .88f, .86f)); detail.style.whiteSpace = WhiteSpace.Normal; detail.style.minHeight = touchUi ? 40 : 60; detail.style.flexShrink = 0; detail.style.marginTop = 8; panel.Add(detail);
             buyBtn = Btn("", () => AskBuy()); buyBtn.style.fontSize = (22) * TextK; buyBtn.style.paddingTop = buyBtn.style.paddingBottom = 8; buyBtn.style.marginTop = 4; buyBtn.style.display = DisplayStyle.None; panel.Add(buyBtn);
-            VisualElement Pill(string text) { var p = Box(new Color(1, .78f, .35f, .16f), 20); Border(p, new Color(1, .8f, .45f, .7f), 2); p.style.paddingLeft = p.style.paddingRight = 14; p.style.paddingTop = p.style.paddingBottom = touchUi ? 12 : 6; p.style.marginRight = 10; p.Add(L(text, touchUi ? 26 : 21, Gold, true)); return p; }
-            Button Sec(string text, System.Action act) { var b = Btn(text, act, false); Frame(b, "btn_mode_frame", 70, 50, touchUi ? .4f : .3f); b.style.fontSize = (touchUi ? 30 : 22) * TextK; b.style.paddingTop = b.style.paddingBottom = touchUi ? 18 : 9; Round(b, touchUi ? 28 : 22); return b; }
-            var soulRow = Box(); soulRow.style.flexShrink = 0; soulRow.style.flexDirection = FlexDirection.Row; soulRow.style.alignItems = Align.Center; soulRow.style.marginTop = 10; panel.Add(soulRow);
-            soulRow.Add(Pill(Loc.S("โหมด Soulslike", "Soulslike Mode"))); var sb = Sec(Loc.S("ดวลบอส (มุมกล้องบุคคลที่สาม) ▶", "Boss Duel (third-person) ▶"), () => G.StartSoul()); sb.style.flexGrow = 1; soulRow.Add(sb);
             var laneRow = Box(); laneRow.style.flexShrink = 0; laneRow.style.flexDirection = FlexDirection.Row; laneRow.style.alignItems = Align.Center; laneRow.style.marginTop = 8; panel.Add(laneRow);
-            laneRow.Add(Pill(touchUi ? Loc.S("สนามรบ", "Battle") : Loc.S("สนามรบเลนเดียว", "Lane Battle")));
-            {   // one button starts the battle chosen in the settings (mode and AI difficulty, shown on it); the gear opens the settings
-                battleBtn = Sec("", () => ShowHeroPick());   // pick a hero, then the VS screen, then the battle battleBtn.style.flexGrow = 1; battleBtn.style.marginLeft = 6; laneRow.Add(battleBtn);
-                var gear = Sec(Loc.S("ตั้งค่า", "Settings"), () => ShowBattleSettings()); gear.style.marginLeft = 6; laneRow.Add(gear);
+            {   // the battle banner (owner's pick, design B): "MOBA ARENA" over the mode and AI level chosen; a tap opens the battle settings, whose "Choose Hero" leads on to the VS screen
+                var ink = new Color(.69f, .66f, .93f); var ban = Box(new Color(.15f, .13f, .36f, .94f), 14); Border(ban, ink, 2); ban.style.flexGrow = 1; ban.style.flexShrink = 0; ban.style.minHeight = touchUi ? 100 : 74; ban.style.flexDirection = FlexDirection.Row; ban.style.alignItems = Align.Center;
+                ban.style.paddingLeft = ban.style.paddingRight = touchUi ? 16 : 12; ban.style.paddingTop = ban.style.paddingBottom = touchUi ? 10 : 6; ban.pickingMode = PickingMode.Position; laneRow.Add(ban);
+                var ic = Box(); ic.style.width = ic.style.height = touchUi ? 64 : 46; ic.style.flexShrink = 0; ic.pickingMode = PickingMode.Ignore; ic.generateVisualContent += ctx => DrawCastle(ctx, new Color(.81f, .8f, .96f), new Color(.15f, .13f, .36f)); ban.Add(ic);
+                var tx = Box(); tx.style.flexGrow = 1; tx.style.flexShrink = 1; tx.style.marginLeft = 10; tx.pickingMode = PickingMode.Ignore; ban.Add(tx);
+                var top = L(Loc.S("สมรภูมิ MOBA", "MOBA ARENA"), touchUi ? 20 : 15, ink, true); top.style.letterSpacing = 1; top.pickingMode = PickingMode.Ignore; tx.Add(top);
+                battleTxt = L("", touchUi ? 30 : 22, Color.white, true); battleTxt.pickingMode = PickingMode.Ignore; tx.Add(battleTxt);
+                var ch = L(Loc.S("เปลี่ยน ▶", "Change ▶"), touchUi ? 22 : 16, new Color(.81f, .8f, .96f), true); ch.style.flexShrink = 0; ch.pickingMode = PickingMode.Ignore; ban.Add(ch);
+                ban.RegisterCallback<PointerDownEvent>(e => ban.style.scale = new Scale(Vector3.one * .97f));
+                ban.RegisterCallback<PointerLeaveEvent>(e => ban.style.scale = new Scale(Vector3.one));
+                ban.RegisterCallback<PointerUpEvent>(e => { ban.style.scale = new Scale(Vector3.one); ShowBattleSettings(); });
                 BattleLabel();
             }
             var bottom = Box(); bottom.style.flexShrink = 0; bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
@@ -387,11 +390,12 @@ namespace NovaBlade
             }
             else if (tab == "skin")
             {
-                int cur = G.SkinOf(h); int shown = G.pvSkin >= 0 ? G.pvSkin : cur;
+                int cur = G.SkinOf(h); int shown = G.pvSkin >= 0 && Data.SkinOffered(h, G.pvSkin) ? G.pvSkin : cur;
                 for (int i = 0; i < Data.SkinCount(h); i++)
                 {
-                    int k = i; string id = $"{h.id}:{i}"; bool look = Data.IsModelSkin(h, i);   // a whole other look: its own card picture instead of a colour swatch
-                    Card(Data.SkinName(h, i), look ? Studio.HeroFull(Data.ModelOf(h, i)) ?? Studio.Hero(Data.ModelOf(h, i)) : null, look ? null : h.skins[i], shown == i, () => { if (Shop.Owns(ItemKind.HeroSkin, id)) { G.ClearPreview(); G.SetSkin(h.id, k); } else G.pvSkin = k; Pick(); }, false, Badge(ItemKind.HeroSkin, id, i == cur));
+                    if (!Data.SkinOffered(h, i)) continue;   // the colour tints are retired: the hero's own look and its model skins only
+                    int k = i; string id = $"{h.id}:{i}"; bool look = Data.SkinOffered(h, i);   // a whole other look: its own card picture instead of a colour swatch
+                    Card(Data.SkinName(h, i), look ? Studio.HeroFull(Data.ModelOf(h, i)) ?? Studio.Hero(Data.ModelOf(h, i)) : null, look ? null : h.skins[i], shown == i, () => { if (Shop.Owns(ItemKind.HeroSkin, id)) { G.ClearPreview(); G.SetSkin(h.id, k); } else G.pvSkin = k; Pick(); }, false, Badge(ItemKind.HeroSkin, id, i == cur), null, Data.Class(h.cls).c);   // a tall card with the whole hero in it (it was cropped to the chest); the plain name below it (the hero tab's big name over the art ran into the next card)
                 }
                 Offer(ItemKind.HeroSkin, $"{h.id}:{shown}", Data.SkinName(h, shown), Loc.S($"สกินของ {h.name} · {Data.SkinName(h, shown)} · เปลี่ยนแค่รูปลักษณ์ ไม่เพิ่มพลัง", $"{h.name} skin · {Data.SkinName(h, shown)} · Looks only, no stat change"));
             }
@@ -1306,7 +1310,7 @@ namespace NovaBlade
             // thumb cluster: big attack button in the corner, the three skills on an arc around it, dodge further left
             // (panel units are 1/1080 of the screen height: on a 6.5" phone held sideways 330 is about 2.1 cm and 215 about 1.4 cm)
             var btns = Box(); Abs(btns, null, null, 0, 0); btns.style.width = 980; btns.style.height = 820; hud.Add(btns); hudBtns = btns;
-            float mainS = touchUi ? 290 : 220, skS = touchUi ? 215 : 140, dgS = touchUi ? 185 : 124, arc = mainS / 2 + skS / 2 + (touchUi ? 30 : 26);
+            float mainS = touchUi ? 290 : 220, skS = touchUi ? 215 : 140, dgS = touchUi ? 185 : 124, arc = Mathf.Max(mainS / 2 + skS / 2 + (touchUi ? 30 : 26), (skS + (touchUi ? 26 : 16)) / (2 * Mathf.Sin(20 * Mathf.Deg2Rad)));   // 40 degrees apart: the arc is wide enough that neighbouring skills keep a gap (on phones they overlapped)
             var mc = new Vector2(44 + mainS / 2, 40 + mainS / 2);   // attack centre, measured from the bottom-right corner
             var at = new (Vector2 c, float s)[5];
             at[0] = (mc, mainS);
@@ -1336,18 +1340,7 @@ namespace NovaBlade
                 float fs = touchUi ? 124 : 84; float fa = -24 * Mathf.Deg2Rad; var c = mc + new Vector2(Mathf.Cos(fa), Mathf.Sin(fa)) * (mainS / 2 + fs / 2 + 6);
                 farmBtn = Box(new Color(.08f, .1f, .14f, .88f)); Abs(farmBtn, null, null, c.x - fs / 2, c.y - fs / 2); farmBtn.style.width = farmBtn.style.height = fs; Round(farmBtn, fs / 2); Border(farmBtn, new Color(1f, .78f, .38f), 3);
                 farmBtn.pickingMode = PickingMode.Position;
-                farmBtn.generateVisualContent += ctx =>
-                {   // a castle: three towers with battlements, a gate
-                    var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height; Vector2 P(float x, float y) => new(w * x, h * y);
-                    p.fillColor = new Color(1f, .9f, .7f);
-                    void Rect(float x0, float y0, float x1, float y1) { p.BeginPath(); p.MoveTo(P(x0, y0)); p.LineTo(P(x1, y0)); p.LineTo(P(x1, y1)); p.LineTo(P(x0, y1)); p.ClosePath(); p.Fill(); }
-                    Rect(.24f, .46f, .76f, .74f);                                   // the wall
-                    Rect(.2f, .3f, .36f, .74f); Rect(.64f, .3f, .8f, .74f);         // side towers
-                    Rect(.42f, .22f, .58f, .5f);                                    // the keep
-                    foreach (var x in new[] { .2f, .3f, .64f, .74f }) Rect(x, .25f, x + .06f, .31f);   // battlements
-                    foreach (var x in new[] { .42f, .52f }) Rect(x, .17f, x + .06f, .23f);
-                    p.fillColor = new Color(.08f, .1f, .14f); p.BeginPath(); p.MoveTo(P(.44f, .74f)); p.LineTo(P(.44f, .6f)); p.Arc(P(.5f, .6f), w * .06f, 180, 360); p.LineTo(P(.56f, .74f)); p.ClosePath(); p.Fill();   // the gate
-                };
+                farmBtn.generateVisualContent += ctx => DrawCastle(ctx, new Color(1f, .9f, .7f), new Color(.08f, .1f, .14f));
                 var fk = L(WebPc ? "F" : "H", 15, Gold, true); Abs(fk, null, -2, -4); fk.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; farmBtn.Add(fk);
                 farmBtn.RegisterCallback<PointerDownEvent>(e => { farmP = true; farmBtn.style.scale = new Scale(Vector3.one * .9f); });
                 farmBtn.RegisterCallback<PointerUpEvent>(e => farmBtn.style.scale = new Scale(Vector3.one)); farmBtn.style.display = DisplayStyle.None; btns.Add(farmBtn);
@@ -1369,6 +1362,7 @@ namespace NovaBlade
                 potBtn.RegisterCallback<PointerDownEvent>(e => { potP = true; e.StopPropagation(); }); hud.Add(potBtn);
             }
             sk[0].Q<Label>("lb").style.display = DisplayStyle.None;   // the sword icon is enough for the big button
+            if (touchUi) for (int i = 1; i < 5; i++) sk[i].Q<Label>("lb").style.display = DisplayStyle.None;   // phones: no names under the skill buttons, the icons are enough (owner)
             bool pcBarOn = !touchUi && PcArt("hud_bar_frame"); if (pcBarOn) { BuildPcBar(); btns.style.display = DisplayStyle.None; }
             hint = L(WebPc ? Loc.S("คลิกขวา เดิน/โจมตีเป้า · คลิกซ้าย/A ฟัน · Q W E สกิล · R/Space หลบ", "Right-click move/attack · Left-click/A attack · Q W E skills · R/Space dodge") : Loc.S("WASD เดิน · J/คลิก ฟัน · U I O สกิล · Space หลบ", "WASD move · J/click attack · U I O skills · Space dodge"), 18, Muted); Abs(hint, 30, null, null, 14); hint.style.display = touchUi ? DisplayStyle.None : DisplayStyle.Flex; hud.Add(hint); if (pcBarOn) hint.style.display = DisplayStyle.None;
             banner = Box(); Abs(banner, 0, null, 0); banner.style.top = Length.Percent(17); banner.style.alignItems = Align.Center; hud.Add(banner);
@@ -1461,7 +1455,7 @@ namespace NovaBlade
                 if (tex != null && pcIcon[i].style.backgroundImage.value.texture != tex) pcIcon[i].style.backgroundImage = new StyleBackground(tex);
                 float cdK = 0, left = 0;
                 if (i >= 1 && i <= 3 && !G.soul && Data.Skill(((SkBtn)sk[i].userData).id) != null) { var info = (SkBtn)sk[i].userData; float cdMax = h.SkillCdMax(i - 1); left = Mathf.Max(0, h.cds[i - 1]); cdK = left / cdMax; if (!G.soul && h.mp < Hero.SkillCost(cdMax)) cdK = Mathf.Max(cdK, .001f); }
-                else if (i == 4) { left = Mathf.Max(0, h.dodgeCD); cdK = left / 1.1f; }
+                else if (i == 4) { left = Mathf.Max(0, h.dodgeCD); cdK = left / Hero.DodgeCd; }
                 pcShade[i].style.height = Length.Percent(cdK * 100); pcCd[i].text = left > .05f ? Mathf.CeilToInt(left).ToString() : "";
                 pcIcon[i].style.unityBackgroundImageTintColor = cdK > 0 && left <= .05f ? new Color(.55f, .6f, 1) : Color.white;   // not enough power: bluish
                 float ready = i < 5 && cdK <= 0 ? .45f + .25f * Mathf.Sin(Time.unscaledTime * 2.4f + i) : 0; pcGlow[i].style.opacity = Mathf.Max(ready, pcFlash[i] > 0 ? 1 : 0);
@@ -1597,10 +1591,26 @@ namespace NovaBlade
         float bannerT;
         public void Banner(string a, string b = "") { bannerA.text = a; bannerB.text = b; bannerT = 2.4f; }
         // ---------- battle settings (lobby): which lane battle and how hard the AI heroes are ----------
-        Button battleBtn; VisualElement battleOv;
+        Label battleTxt; VisualElement battleOv;
+        // a castle: three towers with battlements, a gate (the tower button in lane battles, the battle banner in the lobby)
+        static void DrawCastle(MeshGenerationContext ctx, Color fill, Color gate)
+        {
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height; Vector2 P(float x, float y) => new(w * x, h * y);
+            p.fillColor = fill;
+            void Rect(float x0, float y0, float x1, float y1) { p.BeginPath(); p.MoveTo(P(x0, y0)); p.LineTo(P(x1, y0)); p.LineTo(P(x1, y1)); p.LineTo(P(x0, y1)); p.ClosePath(); p.Fill(); }
+            Rect(.24f, .46f, .76f, .74f);                                   // the wall
+            Rect(.2f, .3f, .36f, .74f); Rect(.64f, .3f, .8f, .74f);         // side towers
+            Rect(.42f, .22f, .58f, .5f);                                    // the keep
+            foreach (var x in new[] { .2f, .3f, .64f, .74f }) Rect(x, .25f, x + .06f, .31f);   // battlements
+            foreach (var x in new[] { .42f, .52f }) Rect(x, .17f, x + .06f, .23f);
+            p.fillColor = gate; p.BeginPath(); p.MoveTo(P(.44f, .74f)); p.LineTo(P(.44f, .6f)); p.Arc(P(.5f, .6f), w * .06f, 180, 360); p.LineTo(P(.56f, .74f)); p.ClosePath(); p.Fill();   // the gate
+        }
         static string ModeName(int m) => m switch { 0 => Loc.S("1 เลน 1v1", "1 Lane 1v1"), 1 => Loc.S("1 เลน 3v3", "1 Lane 3v3"), 2 => Loc.S("3 เลน 3v3", "3 Lanes 3v3"), _ => Loc.S("ลอยฟ้า 3v3", "Sky Lanes 3v3") };
         static string LevelName(int l) => l switch { 0 => Loc.S("ง่าย", "Easy"), 1 => Loc.S("ปกติ", "Normal"), _ => Loc.S("ยาก", "Hard") };
-        void BattleLabel() { if (battleBtn != null) battleBtn.text = $"▶ {ModeName(G.save.laneMode)} · AI {LevelName(G.save.aiLevel)}"; }
+        void BattleLabel() { if (battleTxt != null) battleTxt.text = $"{ModeName(G.save.laneMode)} · AI {LevelName(G.save.aiLevel)}"; }
+        // Battle Settings (owner's reference, 2026-11-11): a violet panel in a double gold frame with a blue gem over the title, the four modes as
+        // picture cards (a shot of each map, made by -modethumbs; Sky Lanes marked Recommended), the AI levels as cards with a face each
+        // (a slime, a knight's helm, a horned demon), a gold Choose Hero and a violet Close
         public void ShowBattleSettings()
         {
             if (battleOv == null)
@@ -1608,40 +1618,180 @@ namespace NovaBlade
                 battleOv = Box(new Color(0, 0, 0, .6f)); Abs(battleOv, 0, 0, 0, 0); battleOv.style.alignItems = Align.Center; battleOv.style.justifyContent = Justify.Center; battleOv.pickingMode = PickingMode.Position; root.Add(battleOv);
                 battleOv.RegisterCallback<PointerDownEvent>(e => { if (e.target == battleOv) battleOv.style.display = DisplayStyle.None; });
             }
-            battleOv.Clear(); float big = touchUi ? 1.3f : 1;
-            var pb = Box(); GoldPanel(pb); pb.style.width = 820 * big; Pad(pb, 26); pb.pickingMode = PickingMode.Position; battleOv.Add(pb);
-            pb.Add(L(Loc.S("ตั้งค่าสนามรบ", "Battle Settings"), 40 * big, Ink, true));
-            void Group(string title, string[] names, string[] notes, int cur, System.Action<int> pick)
-            {
-                var tl = L(title, 24 * big, Gold, true); tl.style.marginTop = 16; pb.Add(tl);
-                var row = Box(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.marginTop = 6; pb.Add(row);
-                for (int i = 0; i < names.Length; i++)
-                {
-                    int k = i; bool on = i == cur;
-                    var c = Box(on ? new Color(1, .78f, .35f, .28f) : new Color(1, 1, 1, .05f), 14); Border(c, on ? new Color(1, .85f, .45f) : new Color(1, .84f, .55f, .3f), on ? 3 : 1.5f); Pad(c, 10);
-                    c.style.width = Length.Percent(names.Length > 3 ? 23.5f : 31.5f); c.style.marginRight = 8; c.style.marginBottom = 8; c.pickingMode = PickingMode.Position;
-                    c.RegisterCallback<PointerDownEvent>(e => { pick(k); G.Persist(); BattleLabel(); ShowBattleSettings(); });
-                    var n = L(names[i], 22 * big, on ? Gold : Ink, true); n.pickingMode = PickingMode.Ignore; c.Add(n);
-                    var t = L(notes[i], 16 * big, Muted); t.style.whiteSpace = WhiteSpace.Normal; t.pickingMode = PickingMode.Ignore; c.Add(t); row.Add(c);
+            battleOv.Clear(); float big = touchUi ? 1.25f : 1;
+            var violet = new Color(.12f, .08f, .25f, .98f); var gold = new Color(1f, .82f, .42f); var lilac = new Color(.78f, .74f, .98f);
+            // the owner's painted pieces (Resources/UI/Battle, cut from their sheet): frame, crest, cards, buttons, icons, map pictures, ribbon;
+            // each falls back to the drawn look when its picture is missing
+            Texture2D Art(string n) => Resources.Load<Texture2D>("UI/Battle/" + n);
+            void Slice(VisualElement e, Texture2D t, int l, int r, int tp, int b)
+            {   // a nine-slice picture: the corners keep their size, the edges and middle stretch
+                e.style.backgroundImage = new StyleBackground(t); e.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; e.style.backgroundColor = Color.clear;
+                e.style.unitySliceLeft = l; e.style.unitySliceRight = r; e.style.unitySliceTop = tp; e.style.unitySliceBottom = b;
+                e.style.borderTopWidth = e.style.borderBottomWidth = e.style.borderLeftWidth = e.style.borderRightWidth = 0;
+            }
+            var frameArt = Art("frame"); var crestArt = Art("crest");
+            var pb = Box(violet, 22); pb.style.width = (frameArt ? 1120 : 900) * big; pb.style.maxWidth = Length.Percent(96); pb.style.maxHeight = Length.Percent(98); pb.pickingMode = PickingMode.Position; battleOv.Add(pb);
+            if (frameArt)
+            {   // the painted frame: wings and a plate on the top edge, gold filigree all round, smoky violet inside
+                Slice(pb, frameArt, 72, 72, 128, 70); pb.style.paddingLeft = pb.style.paddingRight = 62 * big; pb.style.paddingTop = 112; pb.style.paddingBottom = 54;
+                if (crestArt)
+                {   // the blue crystal with gold and violet wings, over the plate on the top edge
+                    float cw = 420 * big, ch = cw * crestArt.height / crestArt.width; var cr = Box(); cr.style.position = Position.Absolute; cr.style.width = cw; cr.style.height = ch; cr.style.top = -ch * .42f; cr.style.left = Length.Percent(50); cr.style.marginLeft = -cw / 2;
+                    cr.style.backgroundImage = new StyleBackground(crestArt); cr.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit; cr.pickingMode = PickingMode.Ignore; pb.Add(cr);
                 }
             }
-            bool sky = G.Stage("Stage_skylanes");
-            var modes = sky ? new[] { 0, 1, 2, 3 } : new[] { 0, 1, 2 };
-            Group(Loc.S("โหมด", "Mode"), modes.Select(ModeName).ToArray(), modes.Select(m => m switch
+            else { Border(pb, gold, 3); Pad(pb, 24 * big); pb.style.paddingTop = 30 * big; var inner = Box(); Abs(inner, 7, 7, 7, 7); Border(inner, new Color(gold.r, gold.g, gold.b, .4f), 1.2f); Round(inner, 16); inner.pickingMode = PickingMode.Ignore; pb.Add(inner); }
+            if (!frameArt) foreach (var (x, y) in new[] { (0f, 0f), (1f, 0f), (0f, 1f), (1f, 1f) })
+            {   // a small gold-set gem on each corner
+                float gs = 22 * big; var cg = Box(); cg.style.position = Position.Absolute; cg.style.width = cg.style.height = gs; cg.pickingMode = PickingMode.Ignore;
+                if (x == 0) cg.style.left = -gs / 2 + 2; else cg.style.right = -gs / 2 + 2;
+                if (y == 0) cg.style.top = -gs / 2 + 2; else cg.style.bottom = -gs / 2 + 2;
+                cg.generateVisualContent += ctx => Gem(ctx, new Color(.45f, .8f, 1f), gold); pb.Add(cg);
+            }
+            if (!frameArt)
+            {   // the big blue gem on the top edge, over the title
+                float gs = 58 * big; var tg = Box(); tg.style.position = Position.Absolute; tg.style.width = gs; tg.style.height = gs * 1.15f; tg.style.top = -gs * .62f; tg.style.left = Length.Percent(50); tg.style.marginLeft = -gs / 2; tg.pickingMode = PickingMode.Ignore;
+                tg.generateVisualContent += ctx => Gem(ctx, new Color(.35f, .72f, 1f), gold); pb.Add(tg);
+            }
+            var title = L(Loc.S("ตั้งค่าสนามรบ", "Battle Settings"), 44 * big, gold, true); title.style.alignSelf = Align.Center; title.style.unityTextOutlineWidth = .15f; title.style.unityTextOutlineColor = new Color(.25f, .12f, .02f); pb.Add(title);
+            {   // a thin gold rule with a little diamond under the title
+                var rule = Box(); rule.style.alignSelf = Align.Center; rule.style.width = 320 * big; rule.style.height = 12 * big; rule.pickingMode = PickingMode.Ignore;
+                rule.generateVisualContent += ctx =>
+                {
+                    var r = ctx.visualElement.contentRect; var p = ctx.painter2D; p.strokeColor = new Color(gold.r, gold.g, gold.b, .8f); p.lineWidth = 1.5f;
+                    p.BeginPath(); p.MoveTo(new Vector2(0, r.height / 2)); p.LineTo(new Vector2(r.width / 2 - 10, r.height / 2)); p.MoveTo(new Vector2(r.width / 2 + 10, r.height / 2)); p.LineTo(new Vector2(r.width, r.height / 2)); p.Stroke();
+                    p.fillColor = gold; p.BeginPath(); p.MoveTo(new Vector2(r.width / 2, 0)); p.LineTo(new Vector2(r.width / 2 + 6, r.height / 2)); p.LineTo(new Vector2(r.width / 2, r.height)); p.LineTo(new Vector2(r.width / 2 - 6, r.height / 2)); p.ClosePath(); p.Fill();
+                };
+                pb.Add(rule);
+            }
+            void Head(string text, System.Action<MeshGenerationContext> icon, Texture2D art)
             {
-                0 => Loc.S("ตัวต่อตัว เลนเดียว", "One on one, one lane"), 1 => Loc.S("ทีมละ 3 เลนเดียว", "Three a side, one lane"),
-                2 => Loc.S("3 เลน มีป่ากับแม่น้ำ", "Three lanes, jungle and river"), _ => Loc.S("2 เลนรอบป่า บนเกาะลอยฟ้า", "Two lanes round a jungle, on floating islands"),
-            }).ToArray(), System.Array.IndexOf(modes, G.save.laneMode), i => G.save.laneMode = modes[i]);
-            Group(Loc.S("ความเก่งของ AI", "AI Difficulty"), new[] { LevelName(0), LevelName(1), LevelName(2) }, new[]
+                var h = Box(); h.style.flexDirection = FlexDirection.Row; h.style.alignItems = Align.Center; h.style.marginTop = 12 * big; h.style.marginBottom = 6;
+                var ic = Box(); ic.style.width = ic.style.height = (art ? 38 : 30) * big; ic.style.marginRight = 8;
+                if (art) { ic.style.backgroundImage = new StyleBackground(art); ic.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit; } else ic.generateVisualContent += icon;
+                h.Add(ic); h.Add(L(text, 26 * big, gold, true)); pb.Add(h);
+            }
+            var cardArt = Art("card"); var cardOnArt = Art("card_on");
+            VisualElement CardBox(bool on)
             {
-                Loc.S("AI อ่อนลง ใช้สกิลช้า ตีเบา", "Weaker AI, slower skills, lighter hits"),
-                Loc.S("สมดุลตามการทดสอบ", "Balanced, as tested"),
-                Loc.S("AI ถึกและแรงขึ้น ใช้สกิลถี่ รุมตัวที่เลือดน้อย", "Tougher, harder-hitting AI, skills more often, ganging up on the weakest"),
-            }, Mathf.Clamp(G.save.aiLevel, 0, 2), i => G.save.aiLevel = i);
-            var row2 = Box(); row2.style.flexDirection = FlexDirection.Row; row2.style.justifyContent = Justify.Center; row2.style.marginTop = 18; pb.Add(row2);
-            var go = Btn(Loc.S("เลือกฮีโร่ ▶", "Choose Hero ▶"), () => { battleOv.style.display = DisplayStyle.None; ShowHeroPick(); }); StyleGold(go, true); row2.Add(go);
-            var cl = Btn(Loc.S("ปิด", "Close"), () => battleOv.style.display = DisplayStyle.None, false); StyleGold(cl, false); cl.style.marginLeft = 14; row2.Add(cl);
+                var c = Box(on ? new Color(.42f, .3f, .1f, .92f) : new Color(.2f, .16f, .38f, .9f), 14);
+                var art = on ? cardOnArt : cardArt;
+                if (art) Slice(c, art, 40, 40, 40, 40); else Border(c, on ? gold : new Color(lilac.r, lilac.g, lilac.b, .45f), on ? 3 : 1.5f);
+                if (art) { c.style.paddingLeft = c.style.paddingRight = 12; c.style.paddingBottom = 22; c.style.paddingTop = 6; }   // keep the words off the painted gold edge
+                c.pickingMode = PickingMode.Position; c.style.overflow = Overflow.Visible; return c;
+            }
+            // ---- mode: picture cards ----
+            Head(Loc.S("โหมด", "Mode"), ctx => Swords(ctx, gold), Art("ico_swords"));
+            bool sky = G.Stage("Stage_skylanes"); var modes = sky ? new[] { 0, 1, 2, 3 } : new[] { 0, 1, 2 };
+            var mrow = Box(); mrow.style.flexDirection = FlexDirection.Row; mrow.style.justifyContent = Justify.SpaceBetween; pb.Add(mrow);
+            foreach (int m in modes)
+            {
+                int mm = m; bool on = G.save.laneMode == m; var c = CardBox(on); c.style.width = Length.Percent(modes.Length > 3 ? 23.8f : 32); c.style.marginTop = 10;
+                c.RegisterCallback<PointerDownEvent>(e => { G.save.laneMode = mm; G.Persist(); BattleLabel(); ShowBattleSettings(); });
+                var pic = Box(new Color(.08f, .06f, .16f), 0); pic.style.height = 104 * big; pic.style.borderTopLeftRadius = pic.style.borderTopRightRadius = 12; pic.style.overflow = Overflow.Hidden; pic.pickingMode = PickingMode.Ignore;
+                var painted = Art("mode_" + m); var tex = painted ? painted : Resources.Load<Texture2D>("UI/Modes/mode_" + m);   // the owner's painted map first, else the shot from -modethumbs
+                if (tex) { pic.style.backgroundImage = new StyleBackground(tex); pic.style.unityBackgroundScaleMode = painted ? ScaleMode.ScaleToFit : ScaleMode.ScaleAndCrop; }   // the painted maps keep their shape (stretched they looked squashed)
+                if (painted) { pic.style.backgroundColor = Color.clear; pic.style.marginLeft = pic.style.marginRight = -3; pic.style.marginTop = 3; pic.style.borderTopLeftRadius = pic.style.borderTopRightRadius = 0; }
+                c.Add(pic);
+                var n = L(ModeName(m), 20 * big, Color.white, true); n.style.unityTextOutlineWidth = .25f; n.style.unityTextOutlineColor = new Color(.12f, .05f, .2f); n.style.alignSelf = Align.Center; n.style.marginTop = 4; n.style.marginBottom = 6; n.style.unityTextAlign = TextAnchor.MiddleCenter; n.pickingMode = PickingMode.Ignore; c.Add(n);   // the name only: the one-line description ran past the painted edge (owner: cut what overflows)
+                if (m == 3)
+                {   // the mode the game is built round: a gold "Recommended" tag over the card's corner
+                    var rib = Art("ribbon");
+                    if (rib)
+                    {   // the painted ribbon with the thumbs-up; the word sits on the ribbon part, right of the hand
+                        float rw = 210 * big, rh = rw * rib.height / rib.width; var tag = Box(); tag.style.position = Position.Absolute; tag.style.width = rw; tag.style.height = rh; tag.style.top = -rh * .55f; tag.style.right = -6;
+                        tag.style.backgroundImage = new StyleBackground(rib); tag.style.unityBackgroundScaleMode = ScaleMode.StretchToFill; tag.pickingMode = PickingMode.Ignore; tag.style.justifyContent = Justify.Center; tag.style.paddingLeft = rw * .3f; tag.style.paddingBottom = rh * .08f;
+                        var tl = L(Loc.S("แนะนำ", "Best"), 14 * big, new Color(.32f, .18f, .02f), true); tl.style.unityTextAlign = TextAnchor.MiddleCenter; tag.Add(tl); c.Add(tag);
+                    }
+                    else
+                    {
+                        var tag = Box(new Color(.55f, .36f, .06f, .98f), 12); Border(tag, gold, 1.5f); tag.style.position = Position.Absolute; tag.style.top = -13 * big; tag.style.right = 8; tag.style.paddingLeft = tag.style.paddingRight = 10; tag.style.paddingTop = 1; tag.style.paddingBottom = 2; tag.pickingMode = PickingMode.Ignore;
+                        tag.Add(L(Loc.S("★ แนะนำ", "★ Recommended"), 14 * big, new Color(1f, .93f, .7f), true)); c.Add(tag);
+                    }
+                }
+                mrow.Add(c);
+            }
+            // ---- AI difficulty: a face, the name, a line ----
+            Head(Loc.S("ความเก่งของ AI", "AI Difficulty"), ctx => Sparkle(ctx, gold), Art("ico_star"));
+            var arow = Box(); arow.style.flexDirection = FlexDirection.Row; arow.style.justifyContent = Justify.SpaceBetween; pb.Add(arow);
+            for (int i = 0; i < 3; i++)
+            {
+                int k = i; bool on = Mathf.Clamp(G.save.aiLevel, 0, 2) == i; var c = CardBox(on); c.style.width = Length.Percent(32.3f); c.style.flexDirection = FlexDirection.Row; c.style.alignItems = Align.Center; c.style.minHeight = 128 * big; c.style.justifyContent = Justify.Center; if (!cardArt) Pad(c, 10); else { c.style.paddingLeft = c.style.paddingRight = 18; c.style.paddingTop = c.style.paddingBottom = 14; }
+                c.RegisterCallback<PointerDownEvent>(e => { G.save.aiLevel = k; G.Persist(); BattleLabel(); ShowBattleSettings(); });
+                var face = Box(); face.style.width = face.style.height = 70 * big; face.style.flexShrink = 0; face.pickingMode = PickingMode.Ignore;
+                var faceArt = Art("ai_" + k);   // the painted slime / knight's helm / demon helm, else the drawn ones
+                if (faceArt) { face.style.backgroundImage = new StyleBackground(faceArt); face.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit; }
+                else face.generateVisualContent += ctx => { if (k == 0) Slime(ctx); else if (k == 1) Helm(ctx, gold); else Demon(ctx); };
+                c.Add(face);
+                var col = Box(); col.style.flexShrink = 1; col.style.marginLeft = 8; col.pickingMode = PickingMode.Ignore; c.Add(col);
+                var n = L(LevelName(i), 26 * big, Color.white, true); n.style.unityTextOutlineWidth = .25f; n.style.unityTextOutlineColor = new Color(.12f, .05f, .2f); n.pickingMode = PickingMode.Ignore; col.Add(n);   // the name only: the description line overflowed the card
+                arow.Add(c);
+            }
+            // ---- buttons ----
+            var row2 = Box(); row2.style.flexDirection = FlexDirection.Row; row2.style.justifyContent = Justify.Center; row2.style.alignItems = Align.Center; row2.style.marginTop = 20 * big; pb.Add(row2);
+            var go = Btn(Loc.S("เลือกฮีโร่ ▶", "Choose Hero ▶"), () => { battleOv.style.display = DisplayStyle.None; ShowHeroPick(); }); StyleGold(go, true); go.style.minWidth = 300 * big; row2.Add(go);
+            var cl = Btn(Loc.S("ปิด", "Close"), () => battleOv.style.display = DisplayStyle.None, false);
+            cl.style.backgroundImage = StyleKeyword.None; cl.style.backgroundColor = new Color(.32f, .22f, .62f); Border(cl, gold, 2); Round(cl, 30 * big);
+            cl.style.color = Color.white; cl.style.fontSize = 24 * big * TextK; cl.style.unityFontStyleAndWeight = FontStyle.Bold; cl.style.minWidth = 160 * big; cl.style.paddingTop = cl.style.paddingBottom = 10 * big; cl.style.marginLeft = 18; row2.Add(cl);
+            var goArt = Art("btn_gold"); var clArt = Art("btn_violet");
+            if (goArt) { Slice(go, goArt, 60, 60, 30, 30); go.style.color = new Color(.3f, .15f, .02f); go.style.textShadow = new TextShadow(); go.style.minWidth = 320 * big; go.style.height = 68 * big; go.style.paddingTop = go.style.paddingBottom = 0; }
+            if (clArt) { Slice(cl, clArt, 60, 60, 30, 30); Round(cl, 0); cl.style.minWidth = 200 * big; cl.style.height = 62 * big; cl.style.paddingTop = cl.style.paddingBottom = 0; }
             battleOv.style.display = DisplayStyle.Flex;
+        }
+        // ---- little painted icons for the Battle Settings ----
+        static void Gem(MeshGenerationContext ctx, Color c, Color rim)
+        {   // a cut gem: a diamond with a light upper facet, set in gold
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height;
+            p.fillColor = rim; p.BeginPath(); p.MoveTo(new Vector2(w / 2, 0)); p.LineTo(new Vector2(w, h / 2)); p.LineTo(new Vector2(w / 2, h)); p.LineTo(new Vector2(0, h / 2)); p.ClosePath(); p.Fill();
+            float k = .16f; p.fillColor = c; p.BeginPath(); p.MoveTo(new Vector2(w / 2, h * k)); p.LineTo(new Vector2(w * (1 - k), h / 2)); p.LineTo(new Vector2(w / 2, h * (1 - k))); p.LineTo(new Vector2(w * k, h / 2)); p.ClosePath(); p.Fill();
+            p.fillColor = Color.Lerp(c, Color.white, .55f); p.BeginPath(); p.MoveTo(new Vector2(w / 2, h * k)); p.LineTo(new Vector2(w * (1 - k) - w * .1f, h / 2 - h * .02f)); p.LineTo(new Vector2(w / 2, h * .45f)); p.LineTo(new Vector2(w * k + w * .1f, h / 2 - h * .02f)); p.ClosePath(); p.Fill();
+        }
+        static void Swords(MeshGenerationContext ctx, Color c)
+        {   // two crossed swords
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height; p.strokeColor = c; p.lineCap = LineCap.Round;
+            p.lineWidth = w * .1f; p.BeginPath(); p.MoveTo(new Vector2(w * .15f, h * .15f)); p.LineTo(new Vector2(w * .8f, h * .8f)); p.MoveTo(new Vector2(w * .85f, h * .15f)); p.LineTo(new Vector2(w * .2f, h * .8f)); p.Stroke();
+            p.lineWidth = w * .08f; p.BeginPath(); p.MoveTo(new Vector2(w * .58f, h * .8f)); p.LineTo(new Vector2(w * .8f, h * .58f)); p.MoveTo(new Vector2(w * .42f, h * .8f)); p.LineTo(new Vector2(w * .2f, h * .58f)); p.Stroke();
+        }
+        static void Sparkle(MeshGenerationContext ctx, Color c)
+        {   // a four-pointed star
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height; var m = new Vector2(w / 2, h / 2); p.fillColor = c; p.BeginPath();
+            for (int i = 0; i < 8; i++) { float a = i * Mathf.PI / 4 - Mathf.PI / 2, rr = (i % 2 == 0 ? .5f : .14f) * w; var q = m + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * rr; if (i == 0) p.MoveTo(q); else p.LineTo(q); }
+            p.ClosePath(); p.Fill();
+        }
+        static void Eye(Painter2D p, Vector2 at, float s, Color white, Color pupil)
+        {
+            p.fillColor = white; p.BeginPath(); p.Arc(at, s, 0, 360); p.Fill();
+            p.fillColor = pupil; p.BeginPath(); p.Arc(at + new Vector2(0, s * .15f), s * .5f, 0, 360); p.Fill();
+        }
+        static void Slime(MeshGenerationContext ctx)
+        {   // a round blue slime with big eyes: easy
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height;
+            p.fillColor = new Color(.35f, .7f, 1f); p.BeginPath(); p.MoveTo(new Vector2(w * .08f, h * .85f)); p.BezierCurveTo(new Vector2(w * .02f, h * .3f), new Vector2(w * .3f, h * .12f), new Vector2(w * .5f, h * .12f));
+            p.BezierCurveTo(new Vector2(w * .7f, h * .12f), new Vector2(w * .98f, h * .3f), new Vector2(w * .92f, h * .85f)); p.ClosePath(); p.Fill();
+            p.fillColor = new Color(.75f, .92f, 1f, .8f); p.BeginPath(); p.Arc(new Vector2(w * .32f, h * .32f), w * .07f, 0, 360); p.Fill();
+            Eye(p, new Vector2(w * .38f, h * .55f), w * .09f, Color.white, new Color(.1f, .15f, .3f)); Eye(p, new Vector2(w * .62f, h * .55f), w * .09f, Color.white, new Color(.1f, .15f, .3f));
+        }
+        static void Helm(MeshGenerationContext ctx, Color gold)
+        {   // a steel knight's helm with a gold crest: normal
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height;
+            p.fillColor = gold; p.BeginPath(); p.MoveTo(new Vector2(w * .44f, h * .2f)); p.LineTo(new Vector2(w * .5f, h * .02f)); p.LineTo(new Vector2(w * .56f, h * .2f)); p.ClosePath(); p.Fill();
+            p.fillColor = new Color(.72f, .76f, .84f); p.BeginPath(); p.MoveTo(new Vector2(w * .16f, h * .9f)); p.LineTo(new Vector2(w * .16f, h * .5f)); p.BezierCurveTo(new Vector2(w * .16f, h * .12f), new Vector2(w * .84f, h * .12f), new Vector2(w * .84f, h * .5f)); p.LineTo(new Vector2(w * .84f, h * .9f)); p.LineTo(new Vector2(w * .5f, h * .98f)); p.ClosePath(); p.Fill();
+            p.fillColor = new Color(.9f, .92f, .97f); p.BeginPath(); p.MoveTo(new Vector2(w * .3f, h * .3f)); p.BezierCurveTo(new Vector2(w * .38f, h * .2f), new Vector2(w * .5f, h * .2f), new Vector2(w * .5f, h * .2f)); p.LineTo(new Vector2(w * .5f, h * .3f)); p.ClosePath(); p.Fill();
+            p.fillColor = new Color(.12f, .1f, .2f); p.BeginPath(); p.MoveTo(new Vector2(w * .24f, h * .5f)); p.LineTo(new Vector2(w * .76f, h * .5f)); p.LineTo(new Vector2(w * .72f, h * .58f)); p.LineTo(new Vector2(w * .28f, h * .58f)); p.ClosePath(); p.Fill();
+            p.strokeColor = gold; p.lineWidth = w * .04f; p.BeginPath(); p.MoveTo(new Vector2(w * .5f, h * .58f)); p.LineTo(new Vector2(w * .5f, h * .92f)); p.Stroke();
+        }
+        static void Demon(MeshGenerationContext ctx)
+        {   // a horned red demon face with burning eyes: hard
+            var r = ctx.visualElement.contentRect; var p = ctx.painter2D; float w = r.width, h = r.height;
+            p.fillColor = new Color(.92f, .88f, .8f);
+            p.BeginPath(); p.MoveTo(new Vector2(w * .22f, h * .4f)); p.BezierCurveTo(new Vector2(w * .05f, h * .25f), new Vector2(w * .08f, h * .08f), new Vector2(w * .12f, h * .02f)); p.LineTo(new Vector2(w * .36f, h * .32f)); p.ClosePath(); p.Fill();
+            p.BeginPath(); p.MoveTo(new Vector2(w * .78f, h * .4f)); p.BezierCurveTo(new Vector2(w * .95f, h * .25f), new Vector2(w * .92f, h * .08f), new Vector2(w * .88f, h * .02f)); p.LineTo(new Vector2(w * .64f, h * .32f)); p.ClosePath(); p.Fill();
+            p.fillColor = new Color(.7f, .1f, .12f); p.BeginPath(); p.MoveTo(new Vector2(w * .2f, h * .45f)); p.BezierCurveTo(new Vector2(w * .2f, h * .2f), new Vector2(w * .8f, h * .2f), new Vector2(w * .8f, h * .45f));
+            p.BezierCurveTo(new Vector2(w * .8f, h * .75f), new Vector2(w * .62f, h * .98f), new Vector2(w * .5f, h * .98f)); p.BezierCurveTo(new Vector2(w * .38f, h * .98f), new Vector2(w * .2f, h * .75f), new Vector2(w * .2f, h * .45f)); p.Fill();
+            p.fillColor = new Color(1f, .82f, .2f);
+            p.BeginPath(); p.MoveTo(new Vector2(w * .3f, h * .5f)); p.LineTo(new Vector2(w * .46f, h * .58f)); p.LineTo(new Vector2(w * .32f, h * .6f)); p.ClosePath(); p.Fill();
+            p.BeginPath(); p.MoveTo(new Vector2(w * .7f, h * .5f)); p.LineTo(new Vector2(w * .54f, h * .58f)); p.LineTo(new Vector2(w * .68f, h * .6f)); p.ClosePath(); p.Fill();
+            p.fillColor = new Color(.25f, .02f, .04f); p.BeginPath(); p.MoveTo(new Vector2(w * .38f, h * .78f)); p.LineTo(new Vector2(w * .62f, h * .78f)); p.LineTo(new Vector2(w * .5f, h * .86f)); p.ClosePath(); p.Fill();
         }
         // lane battles (1v1 .. 3v3): a MOBA score bar in place of the stage plate, and a kill call under it
         VisualElement plateBox, score, killBox, board; Label scoreBlue, scoreRed, scoreTime, scoreSub, killA, killB, respawnL; float killT; bool boardOn; string boardKey;
@@ -1818,6 +1968,7 @@ namespace NovaBlade
             if (fpsT >= 0) CountFps(); UpdVs(Time.unscaledDeltaTime);
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
             if (bagOv != null && G && G.mode != Main.Mode.Lobby && !G.city && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
+            if (potBtn != null && G) { var pd = G.lane ? DisplayStyle.None : DisplayStyle.Flex; if (potBtn.style.display != pd) potBtn.style.display = pd; }   // no potion button in lane battles (MOBA)
             if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }
             if (G == null || G.hero == null) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) { if (FieldBagOpen) CloseFieldBag(); else TogglePause(); }
@@ -1872,7 +2023,7 @@ namespace NovaBlade
                 if (Mathf.Abs(n - info.cd) > .002f) { info.cd = n; sk[i + 1].MarkDirtyRepaint(); }
                 sk[i + 1].Q<Label>("cd").text = v > 0 ? Mathf.CeilToInt(v).ToString() : "";
             }
-            var dinfo = (SkBtn)sk[4].userData; float dn = Mathf.Max(0, h.dodgeCD) / 1.1f; if (Mathf.Abs(dn - dinfo.cd) > .002f) { dinfo.cd = dn; sk[4].MarkDirtyRepaint(); }
+            var dinfo = (SkBtn)sk[4].userData; float dn = Mathf.Max(0, h.dodgeCD) / Hero.DodgeCd; if (Mathf.Abs(dn - dinfo.cd) > .002f) { dinfo.cd = dn; sk[4].MarkDirtyRepaint(); }
             mini.MarkDirtyRepaint(); UpdPcBar(h); UpdScore(dt);
             if (bannerT > 0) { bannerT -= dt; float k = 1 - bannerT / 2.4f; banner.style.opacity = k < .12f ? k / .12f : k > .78f ? (1 - k) / .22f : 1; banner.style.scale = new Scale(Vector3.one * (k < .12f ? 1.25f - k / .12f * .25f : 1)); }
             // damage numbers

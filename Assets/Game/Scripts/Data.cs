@@ -37,6 +37,8 @@ namespace NovaBlade
         public static IEnumerable<string> AllSkinModels => Heroes.SelectMany(h => ModelSkins(h.id).Select(m => m.model));
         public static int SkinCount(HeroDef h) => h.skins.Length + ModelSkins(h.id).Length;
         public static bool IsModelSkin(HeroDef h, int i) => i >= h.skins.Length;
+        // the colour-tint skins (index 1 .. skins.Length-1) are retired (owner, 2026-11-11): only the hero's own look (0) and its model skins are offered and worn
+        public static bool SkinOffered(HeroDef h, int i) => i == 0 || IsModelSkin(h, i);
         public static string ModelOf(HeroDef h, int i) => IsModelSkin(h, i) && i - h.skins.Length < ModelSkins(h.id).Length ? ModelSkins(h.id)[i - h.skins.Length].model : h.id;
         public static string SkinName(HeroDef h, int i) => IsModelSkin(h, i) ? ModelSkins(h.id)[i - h.skins.Length].n : h.skins[i].n;
         public static string AnimSet(string heroId) => heroId switch { "sorceress" or "mage" or "darkmage" or "sunpriest" or "lyra" or "flamepriest" => "mage", "elf" or "hood" or "harpy" or "rowan" => "bow", "ninja" => "ninja", "monk" or "tenzin" or "tiger" => "monk", "warrior" => "warrior", "spartan" => "shield", "samurai" => "samurai", _ => null };

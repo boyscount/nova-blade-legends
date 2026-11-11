@@ -1,0 +1,4 @@
+mode 0: 6 towers, bounds (6.00, 0.00, 86.00), cam at (-47.16, 75.48, 0.00)
+mode 1: 6 towers, bounds (6.00, 0.00, 86.00), cam at (-47.16, 75.48, 0.00)
+mode 2: 14 towers, bounds (50.00, 0.00, 86.00), cam at (-47.16, 75.48, 0.00)
+mode 3: 14 towers, bounds (39.36, 1.60, 86.00), cam at (-30.48, 76.28, 0.00)

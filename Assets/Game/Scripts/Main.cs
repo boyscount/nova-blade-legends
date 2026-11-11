@@ -185,7 +185,7 @@ namespace NovaBlade
         public Save save;
         public int Skin(string id) { int i = save.skinKeys.IndexOf(id); return i < 0 ? 0 : save.skinVals[i]; }
         // the model a hero shows for the player: its chosen (owned) skin, or the one being previewed in the lobby
-        public int SkinOf(HeroDef h, bool preview = false) { int i = Mathf.Clamp(Skin(h.id), 0, Data.SkinCount(h) - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{h.id}:{i}")) i = 0; if (preview && pvSkin >= 0) i = Mathf.Clamp(pvSkin, 0, Data.SkinCount(h) - 1); return i; }
+        public int SkinOf(HeroDef h, bool preview = false) { int i = Mathf.Clamp(Skin(h.id), 0, Data.SkinCount(h) - 1); if (!Shop.Owns(ItemKind.HeroSkin, $"{h.id}:{i}")) i = 0; if (preview && pvSkin >= 0) i = Mathf.Clamp(pvSkin, 0, Data.SkinCount(h) - 1); if (!Data.SkinOffered(h, i)) i = 0; return i; }
         public string ModelKey(HeroDef h, bool preview = false) => Data.ModelOf(h, SkinOf(h, preview));
         public void SetSkin(string id, int v) { int i = save.skinKeys.IndexOf(id); if (i < 0) { save.skinKeys.Add(id); save.skinVals.Add(v); } else save.skinVals[i] = v; Persist(); }
         public void Persist() { PlayerPrefs.SetString("novaBlade", JsonUtility.ToJson(save)); PlayerPrefs.Save(); }
@@ -249,6 +249,7 @@ namespace NovaBlade
             int cw = System.Array.IndexOf(args, "-crowdtest"); if (cw >= 0 && cw + 1 < args.Length) StartCoroutine(CrowdTest(args[cw + 1]));
             int gw = System.Array.IndexOf(args, "-gatewalk"); if (gw >= 0 && gw + 1 < args.Length) StartCoroutine(GateWalk(args[gw + 1]));
             int cvt = System.Array.IndexOf(args, "-cavetest"); if (cvt >= 0 && cvt + 1 < args.Length) StartCoroutine(CaveTest(args[cvt + 1]));
+            int mth = System.Array.IndexOf(args, "-modethumbs"); if (mth >= 0 && mth + 1 < args.Length) StartCoroutine(ModeThumbs.Run(this, args[mth + 1]));
             int bst = System.Array.IndexOf(args, "-battlesettings"); if (bst >= 0 && bst + 1 < args.Length) StartCoroutine(BattleSettingsTest(args[bst + 1]));
             int tbl = System.Array.IndexOf(args, "-teambalance"); if (tbl >= 0 && tbl + 1 < args.Length) StartCoroutine(TeamBalance(args[tbl + 1], tbl + 2 < args.Length && int.TryParse(args[tbl + 2], out int tf) ? tf : 120));
             int skt = System.Array.IndexOf(args, "-skintest"); if (skt >= 0 && skt + 1 < args.Length) StartCoroutine(SkinTest(args[skt + 1]));
@@ -1013,7 +1014,7 @@ namespace NovaBlade
         {
             System.IO.Directory.CreateDirectory(dir); yield return new WaitForSecondsRealtime(3); var log = new System.Text.StringBuilder(); int keepM = save.laneMode, keepA = save.aiLevel;
             void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
-            ui.ShowLobby(); yield return new WaitForSecondsRealtime(1); Snap("lobby_battle"); ui.ShowBattleSettings(); yield return new WaitForSecondsRealtime(.6f); Snap("battle_settings");
+            ui.ShowLobby(); yield return new WaitForSecondsRealtime(1); Snap("lobby_battle"); yield return new WaitForSecondsRealtime(.6f); Snap("lobby_only"); yield return new WaitForSecondsRealtime(.6f); ui.ShowBattleSettings(); yield return new WaitForSecondsRealtime(.6f); Snap("battle_settings");
             save.hero = "spartan"; hero.Equip();
             for (int lv = 0; lv < 3; lv++)
             {
@@ -1115,7 +1116,7 @@ namespace NovaBlade
             void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{tag}_{n}.png"));
             save.laneMode = 3; ui.ShowLobby(); yield return new WaitForSecondsRealtime(1);
             ui.ShowHeroPick(); yield return new WaitForSecondsRealtime(.8f); Snap("pick");
-            ui.TestPick("knight", "warrior"); yield return new WaitForSecondsRealtime(.8f); Snap("pick_warrior");
+            ui.TestPick("knight", "warrior"); yield return new WaitForSecondsRealtime(.8f); Snap("pick_warrior"); ui.TestPickScrolled(); yield return new WaitForSecondsRealtime(1.2f); log.AppendLine("pick after scroll: " + ui.PickScrollInfo); Snap("pick_scrolled"); yield return new WaitForSecondsRealtime(.8f);
             ui.TestConfirm(); yield return new WaitForSecondsRealtime(.3f); Snap("vs_start"); yield return new WaitForSecondsRealtime(4.3f); Snap("vs_full");   // the bar is full at 4.4 s
             var allies = nextAllies?.Select(h => h.id).ToList() ?? new List<string>(); var enemies = nextEnemies?.Select(h => h.id).ToList() ?? new List<string>();
             yield return new WaitForSecondsRealtime(2.2f);   // the match starts at 5.5 s
@@ -1436,7 +1437,6 @@ namespace NovaBlade
             ui.lobbyZoom = 0; ui.heroYaw = 0; ui.TestFilter("mage"); for (int i = 0; i < 30; i++) yield return null; ui.TestFilter("all");
             foreach (var (st, h) in new[] { (3, "spartan"), (4, "elf"), (1, "ninja") }) { save.hero = h; save.best = 5; StartGame(st); yield return ClipFight(st == 1 ? 6 : 7.5f); }
 
-            save.hero = "warrior"; StartSoul(); yield return ClipFight(7);
             clipOn = false; yield return null; Time.captureFramerate = 0; Application.Quit();
         }
         // -storyclip <dir>: the 30 s story clip at twice the window size, so a tall crop stays sharp: pick Ming, pick Fire Wings,
@@ -1548,19 +1548,6 @@ namespace NovaBlade
                 if (ls == 1 && lt > 22) { ls = 2; ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "lane1.png")); }
                 yield return null;
             }
-            // Soulslike duel on autopilot: lock on, light/heavy attacks, block and dodge
-            save.hero = "warrior"; save.stage = 2; StartSoul(); yield return new WaitForSecondsRealtime(1.5f);
-            ui.lockP = true; int ss = 0;
-            for (float st2 = 0; st2 < 24; st2 += Time.unscaledDeltaTime)
-            {
-                float r = Random.value; ui.Joy = new Vector2(Mathf.Sin(st2 * .7f) * .5f, -.4f);
-                if (r < .05f) ui.atkP = true; else if (r < .065f) ui.heavyP = true; else if (r < .075f) ui.dodgeP = true;
-                ui.blockHold = Mathf.Repeat(st2, 6) > 5;
-                hero.hp = Mathf.Max(hero.hp, hero.max * .5f);
-                if (ss < 3 && st2 > 5 + ss * 7) { ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"soul{ss}.png")); ss++; }
-                yield return null;
-            }
-            Debug.Log($"[Check] soul mode: boss hp {(boss ? boss.hp : 0):0}/{(boss ? boss.maxHp : 0):0} poise {(boss ? boss.poise : 0):0} stamina {(hero.soul ? hero.soul.stamina : -1):0}");
             Application.Quit();
         }
 
@@ -1985,18 +1972,6 @@ namespace NovaBlade
             return Obstacles.Push(p);
         }
 
-        // Soulslike duel (Phase 1 of the Hybrid World plan): third-person fight with the stage boss and two of its minions
-        public void StartSoul()
-        {
-            var hd = Data.Heroes.FirstOrDefault(x => x.id == save.hero); if (hd == null || !hd.rig) save.hero = "warrior";   // needs a rigged hero
-            ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = true; ClearPreview();
-            stage = Mathf.Clamp(save.stage, 1, MaxStage); SetTheme(Data.ThemeOf(stage));
-            kills = 0; gold = 0; time = 0; banked = 0; between = 0; wave = Theme.waves.Length;   // no waves: straight to the boss
-            hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame();
-            camPos = hero.Pos + new Vector3(0, 3, 6);
-            ui.ShowHud(); ui.Banner(Loc.S("ดวลบอส · Soulslike", "Boss Duel · Soulslike"), IsPhone ? Loc.S("ลากจอขวาหมุนกล้อง · ปุ่มเป้าล็อกศัตรู", "Drag the right side to turn the camera · Target button locks on") : Loc.S("Tab ล็อกเป้า · คลิกซ้าย/ขวา โจมตี · Q ป้องกัน · Space หลบ", "Tab lock-on · Left/Right click attack · Q block · Space dodge"));
-            SpawnBoss(); foreach (var p in new[] { new Vector3(-5, 0, -8), new Vector3(5, 0, -8) }) SpawnFoe(Theme.waves[0][0].foe, p);
-        }
 
         public int laneCount = 1;
         // lanes: 1 or 3 on the ground maps, 2 = Sky Lanes (the floating 3v3 map, SKY-LANES-3V3.md)

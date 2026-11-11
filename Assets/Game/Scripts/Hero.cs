@@ -262,7 +262,7 @@ namespace NovaBlade
         public float potCD;
         public void UsePotion()
         {
-            if (dead || potCD > 0 || G.save.potions <= 0 || G.mode != Main.Mode.Game) return;
+            if (dead || potCD > 0 || G.save.potions <= 0 || G.mode != Main.Mode.Game || G.lane) return;   // no potions in lane battles (MOBA): health comes back at the base and on level-ups
             if (G.sky) { if (G.duelPotions <= 0) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("ยาในศึกหมดแล้ว", "No potions left this duel"), "hurt"); return; } G.duelPotions--; G.Number(Pos + Vector3.up * 2.6f, Loc.S($"ยาเหลือ {G.duelPotions}", $"{G.duelPotions} left"), "heal"); }   // a duel allows a few
             G.save.potions--; potCD = 3; Heal(max * .35f); Fx.Burst(Pos + Vector3.up, 26, new Color(1, .35f, .4f), 4); Fx.Spawn("mx_heal_circle", Pos + Vector3.up * .05f, .8f, 1.2f); G.Persist();
         }
@@ -533,10 +533,11 @@ namespace NovaBlade
 
         public void TestDodge(Vector2 mv) => StartDodge(mv);   // tests
         public string modelKey;   // which model is worn: the hero id, or a model skin's   // tests
+        public const float DodgeCd = 15;   // the roll (R / Space / the arrow button): once every 15 s (owner: it came back too fast)
         void StartDodge(Vector2 mv)
         {
             float a = mv.magnitude > .2f ? Mathf.Atan2(mv.x, mv.y) : face; face = a; dodgeDir = new Vector2(Mathf.Sin(a), Mathf.Cos(a)); dodgeT = 0;
-            dodgeCD = 1.1f; inv = Mathf.Max(inv, DodgeTime + .03f); inAtk = false; state = St.Dodge;
+            dodgeCD = DodgeCd; inv = Mathf.Max(inv, DodgeTime + .03f); inAtk = false; state = St.Dodge;
             Play("roll", .04f, 2.2f, .93f); Fx.Burst(Pos + Vector3.up * .5f, 14, new Color(.62f, .9f, 1), 3, .5f, 1, .14f, true);
         }
 

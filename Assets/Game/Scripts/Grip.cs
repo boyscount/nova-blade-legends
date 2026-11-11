@@ -18,14 +18,19 @@ namespace NovaBlade
             var all = model.GetComponentsInChildren<Transform>(true);
             var marks = System.Array.FindAll(all, t => t.name.EndsWith("_curl") && t.parent && (t.parent.name.StartsWith("fingers.") || t.parent.name.StartsWith("thumb.")));
             if (marks.Length == 0) return null;
+            bool turn = TurnHinge(model.name);
             var g = model.AddComponent<Grip>(); int n = marks.Length; g.bones = new Transform[n]; g.rest = new Quaternion[n]; g.hinge = new Vector3[n];
             for (int i = 0; i < n; i++)
             {
                 var b = marks[i].parent; g.bones[i] = b; g.rest[i] = b.localRotation;
                 g.hinge[i] = b.InverseTransformDirection(marks[i].up).normalized;   // the marker's +Y, kept in the bone's space
+                if (turn && b.parent) { var f = b.InverseTransformDirection(b.position - b.parent.position).normalized; var h = Vector3.Cross(f, g.hinge[i]); if (h.sqrMagnitude > 1e-4f) g.hinge[i] = h.normalized; }
             }
             return g;
         }
+        // models whose "_curl" marker came out pointing out of the palm instead of across the knuckles (the fingers swung sideways and the
+        // hand stayed open on the weapon): the hinge is turned a quarter round the finger, so it lies across the knuckles
+        static bool TurnHinge(string model) => model.StartsWith("Hero_spartan") && !model.Contains("_classic");
         public void Set(float closed) => k = Mathf.Clamp01(closed);
         public void Apply()
         {

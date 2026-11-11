@@ -20,12 +20,16 @@ namespace NovaBlade
         string ClassName(string cls) => Data.Classes.FirstOrDefault(c => c.id == cls).th;
 
         // ---------- hero pick ----------
+        ScrollView pickSv; string pickSvCls; float pickScrollX;
+        public string PickScrollInfo => pickSv == null ? "none" : $"picked {pickId}, row at {pickSv.scrollOffset.x:0} (was 900)";   // tests
+        public void TestPickScrolled() { pickCls = "all"; ShowHeroPick(); pickSv.scrollOffset = new Vector2(900, 0); pickSv.schedule.Execute(() => { pickSv.scrollOffset = new Vector2(900, 0); pickId = "monk"; ShowHeroPick(); }).ExecuteLater(200); }   // tests: a pick after scrolling keeps the row in place
         public void ShowHeroPick()
         {
             if (pickOv == null)
             {
                 pickOv = Box(new Color(.015f, .025f, .045f, 1)); Abs(pickOv, 0, 0, 0, 0); pickOv.pickingMode = PickingMode.Position; pickOv.style.alignItems = Align.Center; root.Add(pickOv);
             }
+            if (pickSv != null && pickSvCls == pickCls) pickScrollX = pickSv.scrollOffset.x; else pickScrollX = 0;   // picking a hero redraws the screen: keep the row where it was (it jumped back to the start, so the picked card was off-screen)
             pickId ??= G.save.hero; pickOv.Clear(); float big = touchUi ? 1.15f : 1;
             var head = L(Loc.S("เลือกฮีโร่ของคุณ", "Choose Your Hero"), 40 * big, Gold, true); head.style.marginTop = 14; Shadow(head); pickOv.Add(head);
             pickOv.Add(L(Loc.S($"{ModeName(G.save.laneMode)} · AI {LevelName(G.save.aiLevel)}", $"{ModeName(G.save.laneMode)} · AI {LevelName(G.save.aiLevel)}"), 20 * big, Muted));
@@ -43,13 +47,21 @@ namespace NovaBlade
             var sv = new ScrollView(ScrollViewMode.Horizontal); sv.style.flexGrow = 1; sv.style.flexShrink = 1; sv.verticalScrollerVisibility = ScrollerVisibility.Hidden; sv.touchScrollBehavior = ScrollView.TouchScrollBehavior.Elastic; body.Add(sv);
             sv.RegisterCallback<WheelEvent>(e => { sv.scrollOffset += new Vector2(e.delta.y * 60, 0); e.StopPropagation(); });   // the mouse wheel scrolls the long row of heroes sideways
             sv.contentContainer.style.flexDirection = FlexDirection.Row; sv.contentContainer.style.alignItems = Align.Center;
+            pickSv = sv; pickSvCls = pickCls; float keepX = pickScrollX; sv.schedule.Execute(() => sv.scrollOffset = new Vector2(keepX, 0)).ExecuteLater(1);
+            Vector2 downAt = default; bool downOn = false;   // a card is picked by a tap: press and lift without sliding; a slide only scrolls the row
+            sv.RegisterCallback<PointerDownEvent>(e => { downAt = e.position; downOn = true; }, TrickleDown.TrickleDown);
+            sv.RegisterCallback<PointerUpEvent>(e =>
+            {
+                if (!downOn) return; downOn = false; if (((Vector2)e.position - downAt).magnitude > 18) return;
+                for (var el = sv.panel?.Pick(e.position); el != null && el != sv; el = el.parent) if (el.userData is string hid) { pickId = hid; sv.schedule.Execute(() => ShowHeroPick()); return; }
+            }, TrickleDown.TrickleDown);
             foreach (var h in Data.Heroes.Where(h => h.rig && Kits.For(h.id) != null && (pickCls == "all" || h.cls == pickCls)))
             {
                 var hh = h; bool on = h.id == pickId; var cc = ClassCol(h.cls);
                 var card = Box(new Color(.05f, .06f, .09f, .95f), 12); card.style.width = 270 * big; card.style.height = Length.Percent(92); card.style.marginRight = 12; card.style.flexShrink = 0; card.style.overflow = Overflow.Hidden;
                 Border(card, on ? Gold : new Color(cc.r, cc.g, cc.b, .7f), on ? 4 : 2); card.pickingMode = PickingMode.Position;
                 if (on) { card.style.scale = new Scale(new Vector3(1.04f, 1.04f, 1)); }
-                card.RegisterCallback<PointerDownEvent>(e => { pickId = hh.id; ShowHeroPick(); });
+                card.userData = hh.id;
                 var art = Box(); art.style.flexGrow = 1; var mk = G.ModelKey(h); art.style.backgroundImage = new StyleBackground(Studio.HeroFull(mk) ?? Studio.HeroFull(h.id) ?? Studio.Hero(h.id)); art.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;   // the skin the player wears for this hero, filling the card without stretching (the scale mode used to sit inside this comment, so the art was stretched)
                 art.style.backgroundColor = new Color(cc.r * .25f, cc.g * .25f, cc.b * .25f); card.Add(art);
                 var plate = Box(new Color(0, 0, 0, .65f)); plate.style.paddingTop = plate.style.paddingBottom = 6; plate.style.alignItems = Align.Center; card.Add(plate);
