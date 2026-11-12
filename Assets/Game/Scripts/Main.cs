@@ -1194,6 +1194,9 @@ namespace NovaBlade
             MoveTo(g.Pos + new Vector3(0, 0, 2.5f)); yield return null; float atk0 = hero.AtkPow; g.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(1);
             log.AppendLine($"giant down: player might {hero.mightT:0} s · attack {atk0:0} -> {hero.AtkPow:0} · camp back at {Jungle.camps.First(c => c.id == "might").nextAt:0} s · events {string.Join(" | ", Jungle.Events)}");
             Snap("buff_might");
+            time = 241; yield return new WaitForSecondsRealtime(1.5f); var bc = Jungle.camps.First(c => c.id == "boss");
+            var bm = bc.members.FirstOrDefault(m => m && m.alive); log.AppendLine($"guardian at 4:01: {(bm ? $"up, hp {bm.hp:0}, at {bm.Pos}" : "missing")}");
+            if (bm) { MoveTo(bm.Pos + new Vector3(0, 0, 6)); yield return new WaitForSecondsRealtime(1); Snap("guardian"); MoveTo(Lane.SpawnOf(0)); yield return new WaitForSecondsRealtime(.5f); }
             time = 300; TestSpeed = 4; float r0 = Time.realtimeSinceStartup, nextLog = 0;
             while (Time.realtimeSinceStartup - r0 < 45 && mode == Mode.Game)
             {   // where each side's jungler is and what it is doing
@@ -1207,6 +1210,8 @@ namespace NovaBlade
             TestSpeed = 1;
             log.AppendLine($"after ~3 min of AI play: {Jungle.Events.Count} clears · {string.Join(" | ", Jungle.Events)}");
             log.AppendLine($"AI buffs now: {string.Join(", ", foes.Where(f => f && f.alive && f.d.kind == "champ").Select(f => $"{f.d.name} T{f.team} might {f.mightT:0} haste {f.hasteT:0}"))}");
+            bm = bc.members.FirstOrDefault(m => m && m.alive); log.AppendLine($"guardian after the AI play: {(bm ? $"up, hp {bm.hp / bm.maxHp:0.00}" : "down")} · blessed blue {Jungle.Blessed(0)} red {Jungle.Blessed(1)}");
+            if (bm) { MoveTo(bm.Pos + new Vector3(0, 0, 4)); yield return null; float a0 = hero.AtkPow; bm.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(1); log.AppendLine($"player fells the guardian: blessed blue {Jungle.Blessed(0)} ({Jungle.BlessLeft(0):0} s) · attack {a0:0} -> {hero.AtkPow:0}"); Snap("guardian_down"); }
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "jungle.txt"), log.ToString()); Application.Quit();
         }
         System.Collections.IEnumerator SkyLanesTest(string dir)
@@ -1696,6 +1701,7 @@ namespace NovaBlade
             if (scale) { var k = AiLevels[Mathf.Clamp(save.aiLevel, 0, 2)]; f.maxHp *= k.hp; f.hp = f.maxHp; f.d.dmg *= k.dmg; }   // AI heroes sized to the chosen difficulty
             if (lane && def.kind == "champ") Stat(def.name, team);
             if (lane && def.kind == "champ") GrowAi(f);   // a hero coming back joins at its side's level
+            if (lane && Lane.Soldier(def) && Jungle.Blessed(team)) { f.d = f.d.Copy(); f.d.dmg *= Jungle.BossSoldierK; f.maxHp *= Jungle.BossSoldierK; f.hp = f.maxHp; }   // the Guardian's Blessing
             return f;
         }
         void SpawnBoss()
@@ -1819,8 +1825,7 @@ namespace NovaBlade
                 : killer == null ? Loc.S("ถูกประหาร!", "EXECUTED!") : victimIsPlayer ? Loc.S("คุณถูกสังหาร!", "YOU HAVE BEEN SLAIN!") : Loc.S("สังหาร!", "SLAIN!");
             static string Blue(string n) => $"<color=#7fcfff>{n}</color>"; static string Red(string n) => $"<color=#ff7a6e>{n}</color>";   // names in their side's colour
             string vic = victimTeam == 0 ? Blue(victimName) : Red(victimName), kil = killer == null ? null : side == 0 ? Blue(killer) : Red(killer);
-            string line = kil == null ? vic : $"{kil}  ⚔  {vic}";
-            ui.KillCall(head, line, Color.white);
+            ui.KillCall(head, kil, vic, Color.white);   // "killer [swords] victim", the swords drawn by the HUD
         }
         public int matchXp;   // Sky Lanes: XP of this match only, the hero's level in it (starts at level 1)
         public bool SkyMatch => lane && Lane.Lanes == 2;

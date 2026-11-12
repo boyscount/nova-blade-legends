@@ -155,7 +155,7 @@ namespace NovaBlade
         // the assassins' passive on AI heroes too: +30% on a target under 35% health
         // AI heroes' passives (as the player's, HeroKit.KitOut/KitIn), on basic hits and skills: the damage multiplier for a hit on o
         int aiShots, aiStacks; float aiLastFight = -99, aiFocusReady;
-        public float AiHunt(ITarget o, bool skill = false) => AiHuntBase(o, skill) * (mightT > 0 ? Jungle.MightK : 1);   // the Giant's Might buff (jungle)
+        public float AiHunt(ITarget o, bool skill = false) => AiHuntBase(o, skill) * (mightT > 0 ? Jungle.MightK : 1) * (Jungle.Blessed(team) ? Jungle.BossK : 1);   // the Giant's Might buff (jungle)
         float AiHuntBase(ITarget o, bool skill)
         {
             if (G.lane && d.kind == "champ" && o is Foe tw && tw.towerTier >= 0) return Lane.HeroVsTower(tw, team);   // heroes against structures (see Lane)

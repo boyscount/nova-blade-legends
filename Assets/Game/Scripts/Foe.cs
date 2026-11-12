@@ -310,12 +310,12 @@ namespace NovaBlade
         bool OpponentFocusing(ITarget target) => G.foes.Any(o => o && o.alive && o.team != team && o.d.kind == "champ" && o.tgt == target);
         public ITarget ChampTarget()
         {
-            ITarget best = null; float bs = 1e9f; var jc = Jungle.ForAi(this);   // a jungler with a camp up looks only at heroes on the way
+            ITarget best = null; float bs = 1e9f; var jc = Jungle.ForAi(this); const float JungleFightReach = 5;   // a jungler with a camp up looks only at heroes on the way
             foreach (var o in G.Opponents(team))
             {
                 float dist = Main.Flat(o.Pos - Pos).magnitude - o.Rad; if (dist > SeeRange * (G.AiLv.focus ? 1.25f : 1) || !SafeToReach(o) || o is Foe so && so.Shielded) continue;
                 float hpK = o is Foe of ? of.hp / of.maxHp : o is Hero oh ? oh.hp / oh.max : 1; bool isHero = o is Hero || o is Foe oc && oc.d.kind == "champ"; bool tower = o is Foe ot && ot.d.kind == "tower";
-                if (jc != null && !isHero) continue;
+                if (jc != null && (!isHero || dist > JungleFightReach)) continue;   // on its way to a camp: only an enemy hero right beside it is worth a fight (it used to stay in lane, always some hero in sight)
                 float score = dist - (isHero ? 2 + (1 - hpK) * (G.AiLv.focus ? 11 : 6) : 0)   // hard AI hunts the weakest hero
                     - (!isHero && !tower && hpK < .35f ? 2.5f : 0) + (tower ? 3 : 0);
                 if (isHero && OpponentFocusing(o)) score -= 3;   // join a teammate's fight instead of spreading damage

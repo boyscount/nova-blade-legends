@@ -1559,7 +1559,7 @@ namespace NovaBlade
             }
             else if (G.lane) { p.fillColor = new Color(.6f, .45f, .28f, .35f); p.BeginPath(); var a0 = M(new Vector3(Lane.HalfW, 0, -Lane.HalfL)); var a1 = M(new Vector3(-Lane.HalfW, 0, Lane.HalfL)); p.MoveTo(a0); p.LineTo(new Vector2(a1.x, a0.y)); p.LineTo(a1); p.LineTo(new Vector2(a0.x, a1.y)); p.ClosePath(); p.Fill(); }
             else if (!G.house && !G.sky) { p.strokeColor = new Color(.85f, .68f, .4f, .8f); p.lineWidth = S * 1.4f; p.BeginPath(); p.Arc(c, 11 * S, 0, 360); p.Stroke(); }
-            foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower"; Dot(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5.5f, f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : f.team == Jungle.Neutral ? new Color(1f, .78f, .3f) : Red); }   // jungle camps in gold
+            foreach (var f in G.foes) if (f && f.alive) { bool big = f.isBoss || f.d.kind == "tower" || f.camp != null && f.camp.buff == "boss"; Dot(M(f.Pos), big ? 10 : f.d.kind == "champ" ? 8 : 5.5f, f.isBoss ? new Color(.82f, .44f, 1) : f.team == 0 ? new Color(.35f, .7f, 1) : f.team == Jungle.Neutral ? new Color(1f, .78f, .3f) : Red); }   // jungle camps in gold
             if (G.wilds) Dot(M(OpenWorld.Gate), 6, new Color(1, .55f, .8f));   // the way back to the city
             Dot(M(G.pet.Pos), 4, new Color(1, .88f, .54f));
             var hp = M(G.hero.Pos); float a = G.hero.face; Vector2 R(float x, float y) => hp + new Vector2(-(x * Mathf.Cos(a) + y * Mathf.Sin(a)), -x * Mathf.Sin(a) + y * Mathf.Cos(a));
@@ -1855,10 +1855,15 @@ namespace NovaBlade
             p.fillColor = new Color(.25f, .02f, .04f); p.BeginPath(); p.MoveTo(new Vector2(w * .38f, h * .78f)); p.LineTo(new Vector2(w * .62f, h * .78f)); p.LineTo(new Vector2(w * .5f, h * .86f)); p.ClosePath(); p.Fill();
         }
         // lane battles (1v1 .. 3v3): a MOBA score bar in place of the stage plate, and a kill call under it
-        VisualElement plateBox, score, killBox, board; Label scoreBlue, scoreRed, scoreTime, scoreSub, killA, killB, respawnL; float killT; bool boardOn; string boardKey;
+        VisualElement plateBox, score, killBox, board; Label scoreBlue, scoreRed, scoreTime, scoreSub, killA, killB, killV, respawnL; VisualElement killIco; float killT; bool boardOn; string boardKey;
         const float KillShow = 3f;
         public void ShowBoard(bool on) => boardOn = on;   // tests
-        public void KillCall(string head, string line, Color headCol) { killA.text = head; killB.text = line; killB.style.color = headCol; killT = KillShow; killBox.style.display = DisplayStyle.Flex; }
+        // the kill call: the big word, then "killer [crossed swords] victim" (the swords are drawn: the font has no ⚔, it showed as a blank)
+        public void KillCall(string head, string killer, string victim, Color col)
+        {
+            killA.text = head; bool k = !string.IsNullOrEmpty(killer); killB.text = k ? killer : ""; killV.text = victim; killB.style.color = killV.style.color = col;
+            killB.style.display = killIco.style.display = k ? DisplayStyle.Flex : DisplayStyle.None; killT = KillShow; killBox.style.display = DisplayStyle.Flex;
+        }
         void BuildScore(VisualElement mid)
         {
             score = Box(); Pad(score, 8); score.style.paddingLeft = score.style.paddingRight = 44; score.style.minWidth = 330;
@@ -1891,8 +1896,11 @@ namespace NovaBlade
             respawnL = L("", 44, new Color(1, .85f, .6f), true); respawnL.style.position = Position.Absolute; respawnL.style.top = Length.Percent(38); respawnL.style.left = 0; respawnL.style.right = 0; respawnL.style.unityTextAlign = TextAnchor.MiddleCenter;
             respawnL.style.unityTextOutlineWidth = .25f; respawnL.style.unityTextOutlineColor = new Color(0, 0, 0, .9f); respawnL.pickingMode = PickingMode.Ignore; respawnL.style.display = DisplayStyle.None; hud.Add(respawnL);
             killBox = Box(); killBox.style.alignItems = Align.Center; killBox.style.marginTop = 10; killBox.style.display = DisplayStyle.None; mid.Add(killBox);
-            killA = L("", 46, new Color(1, .86f, .5f), true); killB = L("", 26, Ink, true); killA.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .12f, 0, .95f) };
-            foreach (var l in new[] { killA, killB }) { l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.unityTextOutlineWidth = .25f; l.style.unityTextOutlineColor = new Color(0, 0, 0, .85f); killBox.Add(l); }
+            killA = L("", 46, new Color(1, .86f, .5f), true); killB = L("", 26, Ink, true); killV = L("", 26, Ink, true); killA.style.textShadow = new TextShadow { offset = new Vector2(0, 3), blurRadius = 6, color = new Color(.35f, .12f, 0, .95f) };
+            foreach (var l in new[] { killA, killB, killV }) { l.style.unityTextAlign = TextAnchor.MiddleCenter; l.style.unityTextOutlineWidth = .25f; l.style.unityTextOutlineColor = new Color(0, 0, 0, .85f); }
+            killBox.Add(killA); var krow = Box(); krow.style.flexDirection = FlexDirection.Row; krow.style.alignItems = Align.Center; killBox.Add(krow);
+            killIco = Box(); killIco.style.width = killIco.style.height = 34 * TextK; killIco.style.marginLeft = killIco.style.marginRight = 12; killIco.generateVisualContent += ctx => Swords(ctx, new Color(1f, .82f, .42f));
+            krow.Add(killB); krow.Add(killIco); krow.Add(killV);
         }
         void FillBoard()
         {   // two columns, our side (blue) and theirs (red): hero, K / D / A; the player's row in gold

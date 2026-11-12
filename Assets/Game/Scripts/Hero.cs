@@ -261,7 +261,7 @@ namespace NovaBlade
 
         // ---------- helpers ----------
         public float mightT, hasteT;   // Sky Lanes jungle buffs (Jungle): more damage, faster skills
-        public float AtkPow => (mightT > 0 ? Jungle.MightK : 1) * 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * WDmg * (1 + (Fair ? 0 : Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier]) + Gear.atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
+        public float AtkPow => (mightT > 0 ? Jungle.MightK : 1) * (Jungle.Blessed(0) ? Jungle.BossK : 1) * 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * WDmg * (1 + (Fair ? 0 : Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier]) + Gear.atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
         public int MasteryTier => Data.Tier(G.save.Mastery(sword.id));
         public float CritBonus => (Fair ? 0 : Data.MasteryCrit[MasteryTier]) + Gear.crit;
         // a healing potion from the bag: 35% of health, 3 s apart
