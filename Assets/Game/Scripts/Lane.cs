@@ -197,6 +197,12 @@ namespace NovaBlade
         }
         // the land: each base court raised on its rock, the lanes ramping down from it, the jungle sunk below the lanes (the lanes stay level across it)
         public const float BaseH = 1.6f, Ramp = 7, JungleDrop = 1.3f;
+        // stage B step 3: a stream down the jungle's middle line (z = 0, so both sides meet it alike) from the west side, between the two buff
+        // camps, to a little pool at the Sky Guardian's feet. Wading slows (heroes 60%, others 70%, as the valley river): taking the other side's
+        // buff, or reaching the Guardian from the west, costs time
+        public const float StreamX0 = 4.2f, StreamX1 = 13.6f, StreamPoolR = 1.9f;
+        public static float StreamHalf(float x) => 1.05f + .28f * Mathf.Sin(x * 1.3f) * Mathf.Sin(x * .45f);
+        public static bool InStream(float x, float z) => x >= StreamX0 && x <= StreamX1 && Mathf.Abs(z) < StreamHalf(x) || Vector2.Distance(new Vector2(x, z), new Vector2(StreamX1 + .8f, 0)) < StreamPoolR;
         public static float Height(float x, float z)
         {
             var q = new Vector2(x, z); float h = 0;

@@ -39,7 +39,8 @@ namespace NovaBlade
             if (OnBridge(x, z)) return .2f;
             return Bed(x, z);
         }
-        public static bool InWater(float x, float z) => Valley || Wilds ? !BridgeDeck.Height(x, z, out _) && Ground(x, z) < WaterY - .1f
+        public static bool InWater(float x, float z) => Sky ? SkyLanes.InStream(x, z) : Valley || Wilds ? !BridgeDeck.Height(x, z, out _) && Ground(x, z) < WaterY - .1f
             : Active && !OnBridge(x, z) && Bed(x, z) < WaterY + .05f;
+        public static float SplashY(Vector3 at) => Sky ? at.y + .05f : WaterY + .05f;   // the water's surface where a wader stands
     }
 }

@@ -1095,6 +1095,11 @@ namespace NovaBlade
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
             void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
             save.hero = "knight"; hero.Equip(); StartLane(3, 2); yield return new WaitForSecondsRealtime(2);
+            {   // the jungle stream: wading in it, and its look from above
+                var sp = new Vector3(9, 0, 0); log.AppendLine($"stream: in water at (9,0) {River.InWater(9, 0)} · at (9,3) {River.InWater(9, 3)} · Guardian's pool (14.4,0) {River.InWater(14.4f, 0)} · lane (0,20) {River.InWater(0, 20)}");
+                MoveTo(sp); yield return new WaitForSecondsRealtime(1.2f); Snap("stream");
+                foreach (var r in Resources.FindObjectsOfTypeAll<MeshRenderer>()) if (r.name.Contains("JungleStream")) log.AppendLine($"stream renderer: active {r.gameObject.activeInHierarchy} enabled {r.enabled} bounds {r.bounds.center} {r.bounds.size} mat {(r.sharedMaterial ? r.sharedMaterial.name + "/" + r.sharedMaterial.shader.name + " q" + r.sharedMaterial.renderQueue : "none")} mesh {(r.GetComponent<MeshFilter>()?.sharedMesh ? r.GetComponent<MeshFilter>().sharedMesh.vertexCount : -1)} · hero y {hero.Pos.y:0.00}");
+            }
             hero.inv = 999; var p0 = hero.Pos; hero.TestDodge(new Vector2(1, 0)); yield return new WaitForSecondsRealtime(.6f); log.AppendLine($"dash: {Flat(hero.Pos - p0).magnitude:0.00} m");
             {   // a skill held and dragged far past its ring, then let go: called off, no cast, no cooldown
                 hero.mp = hero.mpMax; hero.cds[0] = 0; ui.aimDown[0] = true; yield return null; yield return null; ui.aimDrag = new Vector2(2.2f, 0); yield return new WaitForSecondsRealtime(.3f); Snap("aim_cancel_red");

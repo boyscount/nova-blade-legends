@@ -1690,7 +1690,8 @@ public static class NovaBuild
         }
         var jungle = Group("JungleDecor"); var violet = GlowMat("SkyCrystalViolet", new Color(.75f, .35f, 1f));
         var pines = new[] { PT + "Trees/PT_Pine_Tree_03_green.prefab", PT + "Trees/PT_Pine_Tree_03_green_cut.prefab" };
-        bool OnLane(Vector2 q, float pad) { for (int l = 0; l < SkyLanes.Paths.Length; l++) { float dd = SkyLanes.Nearest(l, q, out _, out float s); if (dd < SkyLanes.HalfAt(l, s) + pad) return true; } return false; }
+        bool OnLane(Vector2 q, float pad) { if (SkyLanes.InStream(q.x, q.y) || SkyLanes.InStream(q.x, q.y + Mathf.Sign(q.y) * .6f)) return true;   // nothing planted in the jungle stream
+            for (int l = 0; l < SkyLanes.Paths.Length; l++) { float dd = SkyLanes.Nearest(l, q, out _, out float s); if (dd < SkyLanes.HalfAt(l, s) + pad) return true; } return false; }
         for (int i = 0; i < 30; i++)
         {
             float a = i / 30f * Mathf.PI * 2 + R(-.08f, .08f), r = R(8, 12.5f); var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, 1.2f) || SkyLanes.OnGate(q, 1.2f)) continue; var at = new Vector3(q.x, 0, q.y);   // the ways in stay clear
@@ -1702,6 +1703,32 @@ public static class NovaBuild
         {
             float a = R(0, Mathf.PI * 2), r = Mathf.Sqrt(R(.1f, 1)) * 10.5f; var q = SkyLanes.Jungle + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r; if (OnLane(q, .5f)) continue; var at = new Vector3(q.x, 0, q.y); int kind = rnd.Next(10);
             if (kind < 4) Fit(Load(PT + "Flowers/PT_Poppy_02.prefab"), at, R(0, 360), R(.35f, .6f), jungle); else if (kind < 8) Fit(Load(PT + "Plants/PT_Grass_02.prefab"), at, R(0, 360), R(.4f, .7f), jungle); else Fit(Load(PT + "Mushrooms/PT_Caesars_Mushroom_01.prefab"), at, R(0, 360), R(.3f, .5f), jungle);
+        }
+        {   // stage B step 3: the jungle stream (SkyLanes.InStream) as shallow glossy water over the ground, a pool at the Guardian's feet, stones on its banks
+            var wpath = $"{Gen}/SkyStreamWater.mat"; var wm = AssetDatabase.LoadAssetAtPath<Material>(wpath); if (!wm) { wm = new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(wm, wpath); }
+            wm.shader = Shader.Find("Universal Render Pipeline/Lit"); wm.SetFloat("_Surface", 0); wm.SetFloat("_ZWrite", 1); wm.DisableKeyword("_SURFACE_TYPE_TRANSPARENT"); wm.SetOverrideTag("RenderType", "Opaque"); wm.renderQueue = -1;
+            wm.SetColor("_BaseColor", new Color(.07f, .24f, .27f)); wm.SetFloat("_Smoothness", .9f); wm.SetFloat("_Metallic", 0);
+            wm.EnableKeyword("_EMISSION"); wm.SetColor("_EmissionColor", new Color(.02f, .07f, .08f)); wm.SetFloat("_Cull", 0); wm.doubleSidedGI = true; EditorUtility.SetDirty(wm);   // the strip is wound facing down: both sides drawn
+            var sv = new List<Vector3>(); var st = new List<int>(); const float lift = .1f;
+            Vector3 W(float x, float z)
+            {   // the jungle floor is a coarse mesh (rings 1.5 m apart) over a bowl, so its flat faces sit above the true height: take the highest
+                // ground within a ring's step, then lift a little, so the water is never under the floor
+                float h = -99; for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) h = Mathf.Max(h, SkyLanes.Height(x + i * .8f, z + j * .8f));
+                return new(x, h - .04f + lift, z);
+            }
+            for (float x = SkyLanes.StreamX0 - .4f; x < SkyLanes.StreamX1 + .6f; x += .25f)
+            {   // the strip, its ends rounded off by the narrowing half-width
+                float x1 = x + .25f, h0 = SkyLanes.StreamHalf(x) + .12f, h1 = SkyLanes.StreamHalf(x1) + .12f; if (x < SkyLanes.StreamX0) { h0 *= .4f; } int k = sv.Count;
+                sv.Add(W(x, h0)); sv.Add(W(x1, h1)); sv.Add(W(x1, -h1)); sv.Add(W(x, -h0)); st.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
+            }
+            {   // the pool: a disc in rings, following the ground
+                var pc = new Vector2(SkyLanes.StreamX1 + .8f, 0); float pr = SkyLanes.StreamPoolR + .12f; int c0 = sv.Count; sv.Add(W(pc.x, pc.y)); const int seg = 28;
+                for (int i = 0; i <= seg; i++) { float an = i / (float)seg * Mathf.PI * 2; sv.Add(W(pc.x + Mathf.Cos(an) * pr, pc.y + Mathf.Sin(an) * pr)); }
+                for (int i = 0; i < seg; i++) { st.Add(c0); st.Add(c0 + 2 + i); st.Add(c0 + 1 + i); }
+            }
+            var mesh = new Mesh { name = "SkyStream" }; mesh.SetVertices(sv); mesh.SetTriangles(st, 0); mesh.SetUVs(0, sv.Select(p2 => new Vector2(p2.x * .3f, p2.z * .3f)).ToList()); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            var mp = $"{Gen}/SkyStream.asset"; if (File.Exists(mp)) AssetDatabase.DeleteAsset(mp); AssetDatabase.CreateAsset(mesh, mp);
+            var sgo = new GameObject("JungleStreamWater"); /* "water" in the name: OcclusionFader leaves it alone (it faded the stream half see-through) */ sgo.transform.SetParent(root, false); sgo.AddComponent<MeshFilter>().sharedMesh = mesh; var smr = sgo.AddComponent<MeshRenderer>(); smr.sharedMaterial = wm; smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
         {   // the cave on the jungle's far side: a ruined arch with violet crystals glowing inside it
             var cave = SkyLanes.Jungle + new Vector2(6.5f, -6.5f); var at = new Vector3(cave.x, 0, cave.y); var arch = Fit(Load(AR + "Arch_5.prefab"), at, 45, 5.2f, jungle);
@@ -1767,7 +1794,7 @@ public static class NovaBuild
     {
         rnd = new System.Random(47);
         var scene = EditorSceneManager.OpenScene("Assets/Game/Scenes/Main.unity"); var main = Object.FindAnyObjectByType<Main>();
-        foreach (var old in scene.GetRootGameObjects().Where(g => g.name == "Stage_skylanes")) Object.DestroyImmediate(old);
+        foreach (var old in scene.GetRootGameObjects().Where(g => g.name is "Stage_skylanes" or "JungleStream" or "JungleStreamWater")) Object.DestroyImmediate(old);   // (stray stream copies from a build that left them at the top)
         var active = main.stageRoots.FirstOrDefault(r => r && r.gameObject.activeSelf);
         var sl = SkyLanesStage(); NoCartoonFx(sl); sl.gameObject.SetActive(false);
         main.stageRoots = main.stageRoots.Where(r => r && r.name != "Stage_skylanes").Append(sl).ToArray();

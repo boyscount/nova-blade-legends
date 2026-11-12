@@ -44,7 +44,7 @@ namespace NovaBlade
                 {
                     float px = x + R(-step, step) * .45f, pz = z + R(-step, step) * .45f; float r = Mathf.Sqrt(px * px + pz * pz);
                     if (r > radius) continue;
-                    if (skyLanes && !SkyLanes.Grassy(new Vector2(px, pz))) continue;
+                    if (skyLanes && (!SkyLanes.Grassy(new Vector2(px, pz)) || SkyLanes.InStream(px, pz) || SkyLanes.InStream(px, pz + .35f) || SkyLanes.InStream(px, pz - .35f))) continue;   // no grass in the jungle stream
                     float d = skyLanes ? 9 : Path(px, pz) + Noise(px, pz) * .6f; if (d < pathClear) continue; if (clearRadius > 0 && Mathf.Sqrt(px * px + pz * pz) < clearRadius + Noise(px, pz) * 1.5f) continue; if (channel.w > 0 && Mathf.Abs(pz - (channel.x + Mathf.Sin(px * channel.z) * channel.y)) < channel.w) continue;
                     if (river && (River.Bed(px, pz) < -.08f || River.OnBridge(px, pz))) continue;
                     if (wilds && (!WildsMap.Dry(px, pz, -.6f) || Vector2.Distance(new Vector2(px, pz), WildsMap.House) < 8 || WildsMap.TrailDistance(px, pz) < 1.2f + Noise(px, pz) * .5f)) continue;
