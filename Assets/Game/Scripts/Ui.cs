@@ -1568,6 +1568,7 @@ namespace NovaBlade
         }
 
         Button resultBack, pauseBack;
+        public string TestHudName => hudName?.text;
         public void ShowHud()
         {
             HideLaneResult();
@@ -2062,7 +2063,7 @@ namespace NovaBlade
             if (G.mode != Main.Mode.Game && G.mode != Main.Mode.Result) return;
             var h = G.hero;
             hpFill.style.width = Length.Percent(Mathf.Clamp01(h.hp / h.max) * 100); hpT.text = $"{Mathf.CeilToInt(h.hp)} / {h.max:0}";
-            { int heroXp = G.SkyMatch ? G.matchXp : G.save.HeroXp(h.def.id); hudName.text = $"Lv.{Data.Level(heroXp)}  {h.def.name}"; xpFill.style.width = Length.Percent(Data.LevelProgress(heroXp) * 100); }
+            { int heroXp = G.SkyMatch ? G.matchXp : G.save.HeroXp(h.def.id); int hl = G.SkyMatch ? Data.MatchLevel(heroXp) : Data.Level(heroXp); hudName.text = $"Lv.{hl}{(G.SkyMatch && hl >= Data.MatchMaxLevel ? " MAX" : "")}  {h.def.name}"; xpFill.style.width = Length.Percent((G.SkyMatch ? Data.MatchProgress(heroXp) : Data.LevelProgress(heroXp)) * 100); }
             mpFill.style.width = Length.Percent(Mathf.Clamp01(h.mp / h.mpMax) * 100); mpT.text = $"{Mathf.FloorToInt(h.mp)} / {h.mpMax:0}"; goldH.text = G.gold.ToString();
             int left = G.foes.Count(f => f && f.alive);
             int nw = G.Theme.waves.Length;

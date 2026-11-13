@@ -159,6 +159,10 @@ namespace NovaBlade
         public const int MaxLevel = 50; public const float LevelHp = .04f, LevelAtk = .03f; public const int BossXp = 120;
         public static int XpFor(int level) { int total = 0; for (int l = 1; l < level; l++) total += 40 + 20 * (l - 1); return total; }   // total EXP to reach a level
         public static int Level(int xp) { int l = 1; while (l < MaxLevel && xp >= XpFor(l + 1)) l++; return l; }
+        // a lane match (Sky Lanes 3v3) counts its own levels from 1, up to 15 (owner, 2026-11-13); the hero's own level goes on to MaxLevel
+        public const int MatchMaxLevel = 15;
+        public static int MatchLevel(int xp) => Mathf.Min(Level(xp), MatchMaxLevel);
+        public static float MatchProgress(int xp) => MatchLevel(xp) >= MatchMaxLevel ? 1 : LevelProgress(xp);
         public static float LevelProgress(int xp) { int l = Level(xp); if (l >= MaxLevel) return 1; int a = XpFor(l), b = XpFor(l + 1); return (xp - a) / (float)(b - a); }
         public static string[] MasteryName => new[] { Loc.S("ฝึกหัด", "Novice"), Loc.S("ชำนาญ", "Adept"), Loc.S("เชี่ยวชาญ", "Expert"), Loc.S("ช่ำชอง", "Veteran"), Loc.S("ปรมาจารย์", "Master") };
         public static int Tier(int xp) { int t = 0; for (int i = 0; i < MasteryXp.Length; i++) if (xp >= MasteryXp[i]) t = i; return t; }

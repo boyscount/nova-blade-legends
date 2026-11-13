@@ -149,7 +149,7 @@ namespace NovaBlade
         public void PlaceLobby() { transform.position = new Vector3(0, def.rig ? 0 : .35f, 0); face = 0; transform.rotation = Quaternion.identity; }
         // gear changed in the pause bag: new max health at the same share of health (so swapping pieces can never heal)
         // Every Sky Lanes match starts at level 1 and levels with the XP of that match (G.matchXp); campaign XP is still saved for other modes.
-        public int Level => G.SkyMatch ? Data.Level(G.matchXp) : Data.Level(G.save.HeroXp(def.id));
+        public int Level => G.SkyMatch ? Data.MatchLevel(G.matchXp) : Data.Level(G.save.HeroXp(def.id));
         float BaseHp => def.hp * (1 + (Level - 1) * Data.LevelHp) * (Perk("vigor") ? Perks.VigorK : 1);
         public bool Perk(string id) => Perks.Has(Perks.Me, id);   // level-up picks (Perks, Sky Lanes)
         float wardT;

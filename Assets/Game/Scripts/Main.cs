@@ -269,6 +269,7 @@ namespace NovaBlade
             int stt = System.Array.IndexOf(args, "-skytimes"); if (stt >= 0 && stt + 1 < args.Length) StartCoroutine(SkyTimes(args[stt + 1]));
             int ent = System.Array.IndexOf(args, "-endtest"); if (ent >= 0 && ent + 1 < args.Length) StartCoroutine(EndTest(args[ent + 1]));
             int pkt = System.Array.IndexOf(args, "-perktest"); if (pkt >= 0 && pkt + 1 < args.Length) StartCoroutine(PerkTest(args[pkt + 1]));
+            if (System.Array.IndexOf(args, "-levelcaptest") is int lct and >= 0 && lct + 1 < args.Length) StartCoroutine(LevelCapTest(args[lct + 1]));
             int lgt = System.Array.IndexOf(args, "-legendtest"); if (lgt >= 0 && lgt + 1 < args.Length) StartCoroutine(LegendTest(args[lgt + 1]));
             int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1], jgt + 2 < args.Length && args[jgt + 2] == "lane3" ? 3 : 2));
             int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
@@ -1228,6 +1229,21 @@ namespace NovaBlade
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "perks.txt"), log.ToString()); Application.Quit();
         }
         // -jungletest <dir>: the camps come up on time, a camp fights back and leashes home, the player clears the Giant and gets its buff
+        // -levelcaptest <dir>: a Sky Lanes match stops levelling at Data.MatchMaxLevel, for the player and the AI
+        System.Collections.IEnumerator LevelCapTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            StartLane(3, 2); yield return new WaitForSecondsRealtime(1);
+            foreach (int lv in new[] { 9, 15, 16, 30 })
+            {
+                matchXp = Data.XpFor(lv); teamXp[0] = teamXp[1] = Data.XpFor(lv); foreach (var f in foes) if (f && f.alive && f.d.kind == "champ") GrowAi(f);
+                yield return new WaitForSecondsRealtime(.3f);
+                var ai = foes.FirstOrDefault(f => f && f.alive && f.d.kind == "champ" && f.team == 1);
+                log.AppendLine($"xp for level {lv}: player Lv {hero.Level} (hp {hero.max:0}) · enemy side Lv {Data.MatchLevel(teamXp[1])} · AI {(ai ? $"{ai.d.name} lv {ai.aiLv} hp {ai.maxHp:0}" : "-")} · hud \"{ui.TestHudName}\"");
+            }
+            AddXp(500); log.AppendLine($"more xp at the cap: player Lv {hero.Level}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "levelcap.txt"), log.ToString()); Application.Quit();
+        }
         // -jungletest <dir> lane3: the same on the flat 3-lane map (its camps in the woods, the River Guardian)
         System.Collections.IEnumerator JungleTest(string dir, int lanes = 2)
         {
@@ -1863,12 +1879,12 @@ namespace NovaBlade
         public const float LaneLevelHeal = .1f;   // owner, 2026-11-10: a level-up in a lane battle no longer fills the health bar
         public void GrowAi(Foe f)
         {
-            if (!SkyMatch || !f || f.d.kind != "champ") return; int lv = Data.Level(teamXp[f.team]); if (lv == f.aiLv) return;
+            if (!SkyMatch || !f || f.d.kind != "champ") return; int lv = Data.MatchLevel(teamXp[f.team]); if (lv == f.aiLv) return;
             float hk = (1 + (lv - 1) * Data.LevelHp) / (1 + (f.aiLv - 1) * Data.LevelHp), dk = (1 + (lv - 1) * Data.LevelAtk) / (1 + (f.aiLv - 1) * Data.LevelAtk);
             f.maxHp *= hk; f.hp *= hk; f.d.dmg *= dk; bool up = lv > f.aiLv; f.aiLv = lv; Perks.AiCatchUp(f, lv);
             if (up && f.alive) { f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * LaneLevelHeal); Fx.Burst(f.Pos + Vector3.up, 18, new Color(1, .85f, .35f), 3, .6f, 1, .12f, true); }   // a gold flash: level up, and the same tenth of health the player gets
         }
-        public int LevelOf(HeroStat s) => s.me && hero ? hero.Level : SkyMatch ? Data.Level(teamXp[s.team]) : 0;   // 0: no match level outside Sky Lanes
+        public int LevelOf(HeroStat s) => s.me && hero ? hero.Level : SkyMatch ? Data.MatchLevel(teamXp[s.team]) : 0;   // 0: no match level outside Sky Lanes
         public HeroStat Stat(string name, int team, bool me = false) { var s = stats.Find(x => x.name == name && x.team == team); if (s == null) stats.Add(s = new HeroStat { name = name, team = team, me = me }); return s; }
         // a hero is down (the player or an AI champion): the nearest living enemy hero takes the kill, the player nearby on that side an assist;
         // with no enemy hero near, a tower or soldiers did it (still a point for that side)
@@ -2216,7 +2232,7 @@ namespace NovaBlade
             if (!lane || mode != Mode.Game) return;
             if (f.d.id == "core") { ui.Banner(f.team == 1 ? Loc.S("ชัยชนะ!", "Victory!") : Loc.S("พ่ายแพ้", "Defeat"), f.team == 1 ? Loc.S("คริสตัลฝ่ายศัตรูถูกทำลาย", "The enemy crystal was destroyed") : Loc.S("คริสตัลของเราถูกทำลาย", "Our crystal was destroyed")); StartCoroutine(After(2.2f, () => Finish(f.team == 1))); }
             else if (f.d.id == "tower") ui.Banner(f.team == 1 ? Loc.S("ทำลายป้อมศัตรู!", "Enemy tower destroyed!") : Loc.S("ป้อมของเราถูกทำลาย", "Our tower was destroyed"), "");
-            else if (f.d.kind == "champ") { var def = f.baseDef ?? f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(Lane.RespawnTime(SkyMatch ? Data.Level(teamXp[team]) : 1) + 4, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, Lane.SpawnOf(team) + new Vector3(Random.Range(-1.5f, 1.5f), 0, 0), team); if (u) u.laneIdx = li; } })); }
+            else if (f.d.kind == "champ") { var def = f.baseDef ?? f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(Lane.RespawnTime(SkyMatch ? Data.MatchLevel(teamXp[team]) : 1) + 4, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, Lane.SpawnOf(team) + new Vector3(Random.Range(-1.5f, 1.5f), 0, 0), team); if (u) u.laneIdx = li; } })); }
         }
         System.Collections.IEnumerator After(float s, System.Action a) { yield return new WaitForSeconds(s); a(); }
     }
