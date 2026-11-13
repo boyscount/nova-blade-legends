@@ -52,6 +52,7 @@ namespace NovaBlade
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); hero.transform.position = OpenWorld.Start; pet.transform.position = OpenWorld.Start + new Vector3(1.2f, 0, 1); camPos = OpenWorld.Start + new Vector3(0, 9, 12);
             ui.ShowHud();
         }
+        static Transform TopOf(Transform t, Transform root) { while (t.parent && t.parent != root) t = t.parent; return t; }
         void MoveTo(Vector3 at) { hero.StopWalk(); hero.transform.position = at; pet.transform.position = at + new Vector3(1.2f, 0, 1); camPos = at + new Vector3(0, 9, 12); }
         static readonly string[] HouseFoes = { "orc", "orc", "goblin", "goblin", "goblin", "skeleton" };
         // the zone's house: a room of its own, with its monsters until the chest has been opened on this visit
@@ -267,7 +268,7 @@ namespace NovaBlade
             int stt = System.Array.IndexOf(args, "-skytimes"); if (stt >= 0 && stt + 1 < args.Length) StartCoroutine(SkyTimes(args[stt + 1]));
             int ent = System.Array.IndexOf(args, "-endtest"); if (ent >= 0 && ent + 1 < args.Length) StartCoroutine(EndTest(args[ent + 1]));
             int pkt = System.Array.IndexOf(args, "-perktest"); if (pkt >= 0 && pkt + 1 < args.Length) StartCoroutine(PerkTest(args[pkt + 1]));
-            int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1]));
+            int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1], jgt + 2 < args.Length && args[jgt + 2] == "lane3" ? 3 : 2));
             int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
             int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
             int dlt = System.Array.IndexOf(args, "-duelstest"); if (dlt >= 0 && dlt + 1 < args.Length) StartCoroutine(DuelsTest(args[dlt + 1]));
@@ -1225,21 +1226,29 @@ namespace NovaBlade
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "perks.txt"), log.ToString()); Application.Quit();
         }
         // -jungletest <dir>: the camps come up on time, a camp fights back and leashes home, the player clears the Giant and gets its buff
-        System.Collections.IEnumerator JungleTest(string dir)
+        // -jungletest <dir> lane3: the same on the flat 3-lane map (its camps in the woods, the River Guardian)
+        System.Collections.IEnumerator JungleTest(string dir, int lanes = 2)
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
             void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
-            StartLane(3, 2); yield return null; time = 49; yield return new WaitForSecondsRealtime(1.5f);
+            StartLane(3, lanes); yield return null; time = 49; yield return new WaitForSecondsRealtime(1.5f);
             log.AppendLine("camps up at 0:50: " + string.Join(", ", Jungle.camps.Select(c => $"{c.id} {(c.Alive ? "up" : "down")} x{c.members.Count(m => m && m.alive)} at {c.at}")));
-            var g = Jungle.camps.First(c => c.id == "might").members.First(m => m);
+            if (lanes == 3)
+            {   // the woods cleared round each camp, and a look at each glade
+                { var st = Stage("Stage_lane3"); log.AppendLine($"  woods root {(st ? st.name : "null")} children {(st ? st.childCount : 0)} hidden {Jungle.Cleared}");
+                  var mc0 = Jungle.camps.First(c => c.id == "might0").at; if (st) foreach (var r in st.GetComponentsInChildren<Renderer>().Where(r => Flat(r.bounds.center - mc0).magnitude < 7).Take(12)) log.AppendLine($"    near might0: {r.name} (top {TopOf(r.transform, st).name}) bounds {r.bounds.center} top pos {TopOf(r.transform, st).position}"); }
+                foreach (var c in Jungle.camps) log.AppendLine($"  {c.id}: obstacles within {Jungle.ClearR} m {Obstacles.Current.Count(o => Vector2.Distance(new Vector2(o.x, o.y), new Vector2(c.at.x, c.at.z)) < Jungle.ClearR)}");
+                foreach (var id in new[] { "haste0", "goblins0" }) { var hc = Jungle.camps.FirstOrDefault(c => c.id == id); if (hc == null) continue; MoveTo(hc.at + new Vector3(0, 0, 4)); yield return new WaitForSecondsRealtime(.8f); Snap("camp_" + id); }
+            }
+            var mc = Jungle.camps.First(c => c.buff == "might"); var g = mc.members.First(m => m);
             MoveTo(g.Pos + new Vector3(0, 0, 3.5f)); yield return new WaitForSecondsRealtime(.8f); Snap("camp_giant");
             float hp0 = hero.hp; g.Damage(10, hero.Pos); yield return new WaitForSecondsRealtime(3); log.AppendLine($"giant struck: targets player {g.lastHitBy == (ITarget)hero} · player hp {hp0:0} -> {hero.hp:0}");
             MoveTo(g.home + new Vector3(0, 0, 14)); yield return new WaitForSecondsRealtime(4); log.AppendLine($"player ran off: giant target {(g.lastHitBy == null ? "none" : "still")} · giant from home {Flat(g.Pos - g.home).magnitude:0.0} m · hp {g.hp:0}/{g.maxHp:0}");
             MoveTo(g.Pos + new Vector3(0, 0, 2.5f)); yield return null; float atk0 = hero.AtkPow; g.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(1);
-            log.AppendLine($"giant down: player might {hero.mightT:0} s · attack {atk0:0} -> {hero.AtkPow:0} · camp back at {Jungle.camps.First(c => c.id == "might").nextAt:0} s · events {string.Join(" | ", Jungle.Events)}");
+            log.AppendLine($"giant down: player might {hero.mightT:0} s · attack {atk0:0} -> {hero.AtkPow:0} · camp back at {mc.nextAt:0} s · events {string.Join(" | ", Jungle.Events)}");
             Snap("buff_might");
             time = 241; yield return new WaitForSecondsRealtime(1.5f); var bc = Jungle.camps.First(c => c.id == "boss");
-            var bm = bc.members.FirstOrDefault(m => m && m.alive); log.AppendLine($"guardian at 4:01: {(bm ? $"up, hp {bm.hp:0}, at {bm.Pos}" : "missing")}");
+            var bm = bc.members.FirstOrDefault(m => m && m.alive); log.AppendLine($"{Jungle.BossName} at 4:01: {(bm ? $"up, hp {bm.hp:0}, at {bm.Pos}" : "missing")}");
             if (bm) { MoveTo(bm.Pos + new Vector3(0, 0, 6)); yield return new WaitForSecondsRealtime(1); Snap("guardian"); MoveTo(Lane.SpawnOf(0)); yield return new WaitForSecondsRealtime(.5f); }
             time = 300; TestSpeed = 4; float r0 = Time.realtimeSinceStartup, nextLog = 0;
             while (Time.realtimeSinceStartup - r0 < 45 && mode == Mode.Game)
@@ -2108,6 +2117,7 @@ namespace NovaBlade
                 for (int l = 0; l < lanes; l++) foreach (var z in Lane.TowerZ) { var u = SpawnUnit(Lane.Tower, new Vector3(Lane.LaneX(lanes == 3 ? l : 1), 0, side * z), t); if (u) { u.laneIdx = l; u.towerTier = z == Lane.TowerZ[0] ? 0 : 1; } }
                 SpawnUnit(Lane.Core, new Vector3(0, 0, side * Lane.CoreZ), t).towerTier = 2;
             }
+            if (lanes == 3) Jungle.Begin(); else Jungle.Clear();   // stage B step 4: camps and the River Guardian in the 3-lane woods
             // AI heroes: in three lanes our two helpers take the side lanes (the player usually goes middle), the enemy has one per lane
             int[] ourLanes = lanes == 3 ? new[] { 0, 2 } : new[] { 1, 1 }, theirLanes = lanes == 3 ? new[] { 0, 1, 2 } : new[] { 1, 1, 1 };
             var others = TakeAllies() is { Count: > 0 } pa ? pa : Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();   // the VS screen's team when there was one
@@ -2161,7 +2171,7 @@ namespace NovaBlade
                 case 1: ui.Banner(Loc.S("พลบค่ำ", "Dusk"), Loc.S("ตะวันกำลังตกดิน", "The sun is going down")); break;
                 case 2: ui.Banner(Loc.S("รัตติกาล", "Night"), Loc.S("ความมืดปกคลุมเกาะลอยฟ้า", "Darkness falls over the islands")); break;
             }
-            if (Lane.Lanes == 2) Jungle.Tick(dt);
+            if (Jungle.On) Jungle.Tick(dt);
             if (Lane.Lanes == 2)
             {   // a wave of three soldiers down each lane, from each base
                 LetOutWave();

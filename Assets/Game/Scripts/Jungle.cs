@@ -21,11 +21,11 @@ namespace NovaBlade
         // whole side's AI goes to the Guardian for up to 40 s (the player's allies too; the player decides for themself), at most once in 2 min, not while the other side is blessed
         static readonly float[] rallyUntil = new float[2], rallyNext = new float[2]; static float rallyCheck;
         public static bool Rallying(int team) => team is 0 or 1 && G && G.time < rallyUntil[team];
-        public static bool Blessed(int team) => team is 0 or 1 && G && G.SkyMatch && G.time < blessUntil[team];
+        public static bool Blessed(int team) => team is 0 or 1 && On && G.time < blessUntil[team];
         public static float BlessLeft(int team) => team is 0 or 1 && G ? Mathf.Max(0, blessUntil[team] - G.time) : 0;
         public class Camp
         {
-            public string id, buff; public Vector3 at; public FoeDef[] defs; public Vector3[] offs; public float first, again;
+            public string id, buff; public Vector3 at, faceTo; public FoeDef[] defs; public Vector3[] offs; public float first, again;
             public readonly List<Foe> members = new(); public float nextAt; public bool up;
             public bool Alive => up && members.Any(m => m && m.alive);
         }
@@ -36,24 +36,67 @@ namespace NovaBlade
         {
             var b = Data.Foe(from); if (b == null) return null; var d = b.Copy(); d.hp = hp; d.dmg = dmg; d.gold = gold; d.scale = b.scale * scale; return d;
         }
-        // a new Sky Lanes match: the camps, none up yet
+        // the maps with camps: Sky Lanes (the middle jungle) and, stage B step 4, the flat 3-lane map (the woods between the lanes)
+        public static bool On => G && G.lane && (Lane.Lanes == 2 || Lane.Lanes == 3);
+        static bool Sky => Lane.Lanes == 2;
+        // the boss's name for the map: the Sky Guardian over the floating jungle, the River Guardian in the 3-lane map's river
+        public static string BossName => Sky ? Loc.S("ผู้พิทักษ์ป่าลอยฟ้า", "Sky Guardian") : Loc.S("ผู้พิทักษ์สายน้ำ", "River Guardian");
+        // the 3-lane map: lanes at x -22, 0, 22, the river along z = 0. The Guardian stands in the river in the west woods; each side has a Ghoul
+        // Giant (west) and a Spore King (east) in its own half, and two goblin camps sit on the east river bank. Mirror-symmetric in Z
+        public const float WoodsX = 11, BuffZ = 13, ClearR = 4.5f;
+        static readonly List<Vector3> cleared = new(); public static int Cleared => cleared.Count;   // where the 3-lane woods were cleared for camps (done once: the stage stays loaded)
+        // a new match on a map with camps: the camps, none up yet
         public static void Begin()
         {
             camps.Clear(); Events.Clear(); blessUntil[0] = blessUntil[1] = 0; rallyUntil[0] = rallyUntil[1] = rallyNext[0] = rallyNext[1] = 0; rallyCheck = 0; var J = new Vector3(SkyLanes.Jungle.x, 0, SkyLanes.Jungle.y);
-            var guard = new FoeDef { id = "skyguardian", model = "rig_b_treant", name = Loc.S("ผู้พิทักษ์ป่าลอยฟ้า", "Sky Guardian"), hp = 4500, spd = 2.2f, dmg = 45, range = 2.8f, kind = "slam", scale = 1.6f, rad = 1.1f, gold = 120 };
-            camps.Add(new Camp { id = "boss", buff = "boss", at = J, defs = new[] { guard }, offs = new[] { Vector3.zero }, first = 240, again = 180 });
+            var guard = new FoeDef { id = "skyguardian", model = "rig_b_treant", name = BossName, hp = 4500, spd = 2.2f, dmg = 45, range = 2.8f, kind = "slam", scale = 1.6f, rad = 1.1f, gold = 120 };
             var giant = Make("giant", 1500, 34, 45, 1.15f); var spore = Make("mushroom", 1400, 30, 45, 1.6f); var gob = Make("goblin", 380, 15, 14, 1.1f);   // one AI hero clears a buff camp at about two thirds of its health
-            if (giant != null) { giant.name = Loc.S("ยักษ์กูลแห่งป่า", "Jungle Ghoul Giant"); camps.Add(new Camp { id = "might", buff = "might", at = J + new Vector3(-4.5f, 0, 5.5f), defs = new[] { giant }, offs = new[] { Vector3.zero }, first = 50, again = 90 }); }
-            if (spore != null) { spore.name = Loc.S("ราชาเห็ดสปอร์", "Spore King"); camps.Add(new Camp { id = "haste", buff = "haste", at = J + new Vector3(-4.5f, 0, -5.5f), defs = new[] { spore }, offs = new[] { Vector3.zero }, first = 50, again = 90 }); }
-            if (gob != null) foreach (int s in new[] { 1, -1 })
-                camps.Add(new Camp { id = s > 0 ? "goblins0" : "goblins1", at = J + new Vector3(4, 0, 3.8f * s), defs = new[] { gob, gob }, offs = new[] { new Vector3(-.8f, 0, 0), new Vector3(.8f, 0, 0) }, first = 25, again = 60 });
+            if (giant != null) giant.name = Loc.S("ยักษ์กูลแห่งป่า", "Jungle Ghoul Giant"); if (spore != null) spore.name = Loc.S("ราชาเห็ดสปอร์", "Spore King");
+            var gobOffs = new[] { new Vector3(-.8f, 0, 0), new Vector3(.8f, 0, 0) };
+            if (Sky)
+            {
+                camps.Add(new Camp { id = "boss", buff = "boss", at = J, faceTo = J, defs = new[] { guard }, offs = new[] { Vector3.zero }, first = 240, again = 180 });
+                if (giant != null) camps.Add(new Camp { id = "might", buff = "might", at = J + new Vector3(-4.5f, 0, 5.5f), faceTo = J, defs = new[] { giant }, offs = new[] { Vector3.zero }, first = 50, again = 90 });
+                if (spore != null) camps.Add(new Camp { id = "haste", buff = "haste", at = J + new Vector3(-4.5f, 0, -5.5f), faceTo = J, defs = new[] { spore }, offs = new[] { Vector3.zero }, first = 50, again = 90 });
+                if (gob != null) foreach (int s in new[] { 1, -1 })
+                    camps.Add(new Camp { id = s > 0 ? "goblins0" : "goblins1", at = J + new Vector3(4, 0, 3.8f * s), faceTo = J, defs = new[] { gob, gob }, offs = gobOffs, first = 25, again = 60 });
+            }
+            else
+            {
+                var B = new Vector3(-WoodsX, 0, 0);
+                camps.Add(new Camp { id = "boss", buff = "boss", at = B, faceTo = Vector3.zero, defs = new[] { guard }, offs = new[] { Vector3.zero }, first = 240, again = 180 });
+                foreach (int s in new[] { 1, -1 })
+                {   // s = 1: team 0's half (+Z)
+                    string k = s > 0 ? "0" : "1";
+                    if (giant != null) camps.Add(new Camp { id = "might" + k, buff = "might", at = new Vector3(-WoodsX, 0, BuffZ * s), faceTo = new Vector3(-WoodsX, 0, 0), defs = new[] { giant }, offs = new[] { Vector3.zero }, first = 50, again = 90 });
+                    if (spore != null) camps.Add(new Camp { id = "haste" + k, buff = "haste", at = new Vector3(WoodsX, 0, BuffZ * s), faceTo = new Vector3(WoodsX, 0, 0), defs = new[] { spore }, offs = new[] { Vector3.zero }, first = 50, again = 90 });
+                    if (gob != null) camps.Add(new Camp { id = "goblins" + k, at = new Vector3(WoodsX, 0, 4.2f * s), faceTo = new Vector3(WoodsX, 0, 0), defs = new[] { gob, gob }, offs = gobOffs, first = 25, again = 60 });
+                }
+                ClearWoods();
+            }
             foreach (var c in camps) { c.nextAt = c.first; c.up = false; }
+        }
+        // the 3-lane map's woods were planted before there were camps: hide the trees, bushes and rocks on each camp's ground and drop
+        // their obstacle circles, so a camp stands in a glade the heroes can walk round
+        static void ClearWoods()
+        {
+            var spots = camps.Select(c => new Vector2(c.at.x, c.at.z)).ToList();
+            bool Near(float x, float z, float pad) => spots.Any(s => Vector2.Distance(s, new Vector2(x, z)) < ClearR + pad);
+            var root = G.Stage("Stage_lane3");
+            if (root && cleared.Count == 0)
+                foreach (Transform t in root)
+                {
+                    string n = t.name.ToLowerInvariant(); if (n.Contains("ground") || n.Contains("water") || n.Contains("bridge") || n.Contains("light") || n.Contains("sun")) continue;
+                    var rs = t.GetComponentsInChildren<Renderer>(); if (rs.Length == 0) continue; var bb = rs[0].bounds; foreach (var r in rs) bb.Encapsulate(r.bounds);   // by what is drawn (a prefab's pivot can sit far from it)
+                    if (Near(bb.center.x, bb.center.z, 1 + Mathf.Min(bb.extents.x, bb.extents.z) * .6f)) { t.gameObject.SetActive(false); cleared.Add(bb.center); }
+                }
+            Obstacles.Current = Obstacles.Current.Where(o => !Near(o.x, o.y, o.z + .5f)).ToList();
         }
         public static void Clear() => camps.Clear();
         static float auraT;
         public static void Tick(float dt)
         {
-            if (!G || !G.SkyMatch) return; float now = G.time;
+            if (!On) return; float now = G.time;
             foreach (var c in camps)
             {
                 if (!c.up && now >= c.nextAt) Spawn(c, c.nextAt <= c.first + .01f);
@@ -88,9 +131,9 @@ namespace NovaBlade
             for (int i = 0; i < c.defs.Length; i++)
             {
                 var p = c.at + c.offs[i]; var f = G.SpawnUnit(c.defs[i], p, Neutral); if (!f) continue;
-                f.camp = c; f.home = p; f.face = Main.Ang(new Vector3(SkyLanes.Jungle.x, 0, SkyLanes.Jungle.y) - p); c.members.Add(f);
+                f.camp = c; f.home = p; f.face = Main.Ang(c.faceTo - p); c.members.Add(f);
             }
-            if (c.buff == "boss") G.ui.Banner(Loc.S("ผู้พิทักษ์ป่าลอยฟ้าตื่นแล้ว!", "The Sky Guardian awakens!"), Loc.S("ทีมที่ล้มได้ ฮีโร่และทหารแรงขึ้น 2 นาที", "The side that fells it: stronger heroes and soldiers for 2 minutes"));
+            if (c.buff == "boss") G.ui.Banner(Loc.S($"{BossName}ตื่นแล้ว!", $"The {BossName} awakens!"), Loc.S("ทีมที่ล้มได้ ฮีโร่และทหารแรงขึ้น 2 นาที", "The side that fells it: stronger heroes and soldiers for 2 minutes"));
             else if (c.buff != null && first) G.ui.Banner(Loc.S("มอนสเตอร์บัฟปรากฏในป่า!", "Buff monsters in the jungle!"), Loc.S("ยักษ์กูล: ตีแรงขึ้น · ราชาเห็ด: สกิลเร็วขึ้น", "Ghoul Giant: more damage · Spore King: faster skills"));
         }
         // a camp monster was hit: it (and its camp mates) go after the one who struck
@@ -155,14 +198,14 @@ namespace NovaBlade
         // one AI hero a side goes to the camps: team 0's first AI ally (the player covers a lane), team 1's first hero on the straight lane
         public static bool IsJungler(Foe f)
         {
-            if (!G.SkyMatch || f.d.kind != "champ" || f.team > 1) return false;
+            if (!On || f.d.kind != "champ" || f.team > 1 || !Sky && G.laneSize < 3) return false;   // the 3-lane map: junglers only in 3 v 3
             foreach (var c in G.foes) if (c && c.alive && c.team == f.team && c.d.kind == "champ" && (f.team == 0 || c.laneIdx == 0)) return c == f;
             return false;
         }
         // where the jungler should go now: the best camp up (its own half first), or null for its lane
         public static Camp ForAi(Foe f)
         {
-            if (!G.SkyMatch || f.d.kind != "champ" || f.team > 1) return null;
+            if (!On || f.d.kind != "champ" || f.team > 1) return null;
             var boss = camps.FirstOrDefault(c => c.buff == "boss" && c.Alive);
             if (boss != null && f.hp > f.maxHp * .5f && Main.Flat(boss.at - f.Pos).magnitude < 26 && boss.members.Any(m => m && m.alive && m.lastHitBy != null && !m.lastHitBy.Down && m.lastHitBy.Team == f.team))
                 return boss;   // a fight at the Guardian: the side's heroes nearby join it
