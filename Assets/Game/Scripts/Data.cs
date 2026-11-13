@@ -32,6 +32,7 @@ namespace NovaBlade
         {
             ["ninja"] = Loc.S("ตำนาน · เงาจันทร์ดับ", "Legend · Moonless Shadow"), ["darkmage"] = Loc.S("ตำนาน · ผู้ถูกขับไล่แห่งนภา", "Legend · Outcast of the Spire"),
             ["flamepriest"] = Loc.S("ตำนาน · เพลิงพิพากษา", "Legend · Judgement Flame"), ["tiger"] = Loc.S("ตำนาน · เจ้าพยัคฆ์ขาว", "Legend · White Tiger Lord"),
+            ["monk"] = Loc.S("ตำนาน · ผู้สืบเพลิง", "Legend · Heir of the Flame"), ["spartan"] = Loc.S("ตำนาน · ผู้เฝ้าประตูนิรันดร์", "Legend · Warden of the Endless Gate"),
         };
         public static (string n, string model)[] ModelSkins(string hero)
         {

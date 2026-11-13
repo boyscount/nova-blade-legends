@@ -6,7 +6,7 @@ using UnityEngine.Playables;
 namespace NovaBlade
 {
     // Game flow: lobby -> stage (3 waves + boss) -> result. Owns enemies, shots, drops, camera and the save.
-    public class Main : MonoBehaviour
+    public partial class Main : MonoBehaviour
     {
         public static Main G;
         public bool duelOnly;
@@ -149,11 +149,12 @@ namespace NovaBlade
         public int ViewStyle => CamStyle >= 0 ? CamStyle : PlayerPrefs.GetInt("novaCam", ui && ui.touchUi ? 2 : 0);   // phones start low
         public void CycleView() { PlayerPrefs.SetInt("novaCam", (ViewStyle + 1) % 4); PlayerPrefs.Save(); CamStyle = -1; }
         public void ZoomBy(float d) => gameZoom = Mathf.Clamp(gameZoom + d, .6f, 1.8f);
-        public ThemeDef Theme => Data.Themes[Data.ThemeOf(stage)];
+        public ThemeDef Theme => legendTheme ?? Data.Themes[Data.ThemeOf(stage)];   // a hero legend brings its own (Legends.cs)
 
         [System.Serializable]
         public class Save
         {
+            public string legendProg = "";   // hero legends cleared (Legends.Cleared)
             public string caveDay = "";   // the local date the secret cave's chest was last opened
             public string legendDay = "";   // the local date the lurking legend of the zone was beaten (once per day)
             public string hero = "warrior", sword = "w_lava", pet = "candle"; public int gold, best, stage = 1; public List<string> skinKeys = new(); public List<int> skinVals = new();
@@ -268,6 +269,7 @@ namespace NovaBlade
             int stt = System.Array.IndexOf(args, "-skytimes"); if (stt >= 0 && stt + 1 < args.Length) StartCoroutine(SkyTimes(args[stt + 1]));
             int ent = System.Array.IndexOf(args, "-endtest"); if (ent >= 0 && ent + 1 < args.Length) StartCoroutine(EndTest(args[ent + 1]));
             int pkt = System.Array.IndexOf(args, "-perktest"); if (pkt >= 0 && pkt + 1 < args.Length) StartCoroutine(PerkTest(args[pkt + 1]));
+            int lgt = System.Array.IndexOf(args, "-legendtest"); if (lgt >= 0 && lgt + 1 < args.Length) StartCoroutine(LegendTest(args[lgt + 1]));
             int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1], jgt + 2 < args.Length && args[jgt + 2] == "lane3" ? 3 : 2));
             int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
             int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
@@ -1674,7 +1676,7 @@ namespace NovaBlade
 
         public void ShowLobby()
         {
-            cameFromCity = false;
+            cameFromCity = false; EndLegend();
             ClearWorld(); mode = Mode.Lobby; paused = false; Time.timeScale = 1; lane = false; soul = false; if (hero && hero.soul) hero.soul.End();
             stage = Mathf.Clamp(save.stage, 1, MaxStage);
             SetTheme(Data.ThemeOf(1)); LobbyNight.Set(true);   // lobby backdrop: the forest at night, whatever stage is picked
@@ -1685,7 +1687,7 @@ namespace NovaBlade
 
         public void StartGame(int st, bool carry = false)
         {
-            Crumb.Mark($"stage {st}: pressed"); ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
+            Crumb.Mark($"stage {st}: pressed"); EndLegend(); ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
             stage = st; save.stage = st; Persist(); SetTheme(Data.ThemeOf(st)); Crumb.Mark($"stage {st}: scene on");
             if (!carry) { kills = 0; gold = 0; time = 0; banked = 0; }
             between = 0; wave = 0;
@@ -1724,7 +1726,7 @@ namespace NovaBlade
             waveTotal = list.Count;
             foreach (var f in list.OrderBy(_ => Random.value)) queue.Enqueue(f);
             queueT = .6f;
-            ui.Banner(Loc.S($"คลื่นที่ {k + 1}", $"Wave {k + 1}"), Loc.S($"ด่าน {stage} · {Theme.name}", $"Stage {stage} · {Theme.name}"));
+            ui.Banner(Loc.S($"คลื่นที่ {k + 1}", $"Wave {k + 1}"), LegendRun ? Loc.S($"{legend.th} · บทที่ {legendStep + 1}", $"{legend.en} · Chapter {legendStep + 1}") : Loc.S($"ด่าน {stage} · {Theme.name}", $"Stage {stage} · {Theme.name}"));
         }
 
         void UpdWaves(float dt)
@@ -1741,6 +1743,7 @@ namespace NovaBlade
             {
                 between += dt; if (between < 1.8f) return; between = 0;
                 if (wave + 1 < Theme.waves.Length) StartWave(wave + 1);
+                else if (Theme.boss == null) { wave = Theme.waves.Length; Finish(true); }   // a legend step without a boss ends with its last wave
                 else { wave = Theme.waves.Length; ui.Banner(Theme.boss.name, Loc.S("บอสปรากฏตัว!", "The boss appears!")); SpawnBoss(); }
             }
         }
@@ -1759,8 +1762,9 @@ namespace NovaBlade
         }
         void SpawnBoss()
         {
-            var f = new GameObject("Boss").AddComponent<Foe>(); f.Init(null, new Vector3(0, 0, -14), Theme.boss); foes.Add(f); boss = f;
-            ui.ShowBoss(Loc.S($"{Theme.boss.name} · ด่าน {stage}", $"{Theme.boss.name} · Stage {stage}")); shake = .4f;
+            var f = new GameObject("Boss").AddComponent<Foe>(); f.Init(null, new Vector3(0, 0, LegendRun ? -8 : -14), Theme.boss); foes.Add(f); boss = f;
+            if (LegendRun) LegendBoss(f);
+            ui.ShowBoss(LegendRun ? Theme.boss.name : Loc.S($"{Theme.boss.name} · ด่าน {stage}", $"{Theme.boss.name} · Stage {stage}")); shake = .4f;
         }
 
         public void ClearWorld()
@@ -1776,10 +1780,11 @@ namespace NovaBlade
         {
             if (mode != Mode.Game) return;
             mode = Mode.Result; save.gold += gold - banked; banked = gold; if (hero.soul) hero.soul.End();
-            if (win) { save.best = Mathf.Max(save.best, stage); QuestBump("clear"); }
+            if (win && !LegendRun) { save.best = Mathf.Max(save.best, stage); QuestBump("clear"); }
             if (lane) Chron(win ? "victory" : "defeat", win ? 0 : 1);
             if (lane) { int was = save.rankPts; rankWas = was; save.rankPts = Mathf.Max(0, save.rankPts + (win ? 25 + (save.aiLevel - 1) * 10 : -15)); var (rn, _, _) = Ui.RankOf(save.rankPts); ui.Banner(win ? Loc.S("ชนะ!", "Victory!") : Loc.S("แพ้", "Defeat"), Loc.S($"แต้มอันดับ {save.rankPts - was:+0;-0} · {rn}", $"Rank points {save.rankPts - was:+0;-0} · {rn}")); }
             Persist();
+            if (LegendRun) { LegendFinish(win); return; }
             ui.ShowResult(win);
         }
 
@@ -2106,7 +2111,7 @@ namespace NovaBlade
         // lanes: 1 or 3 on the ground maps, 2 = Sky Lanes (the floating 3v3 map, SKY-LANES-3V3.md)
         public void StartLane(int size, int lanes = 1)
         {
-            if (lanes == 2) { StartSkyLanes(); return; }
+            EndLegend(); if (lanes == 2) { StartSkyLanes(); return; }
             ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = lanes; Lane.Lanes = lanes;
             kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0; ResetScore();
             SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == (lanes == 3 ? "Stage_lane3" : "Stage_lane")));   // by name: the zone, house and Sky Court come after the lane maps (the phone build leaves some out)

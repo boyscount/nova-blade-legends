@@ -215,7 +215,7 @@ namespace NovaBlade
         {
             var kb = Keyboard.current; var ui = G.ui;
             swapCD -= Time.deltaTime; if (ui.swapP) { ui.swapP = false; SwapWeapon(); }
-            potCD -= Time.deltaTime; if (ui.potP) { ui.potP = false; UsePotion(); }
+            potCD -= Time.deltaTime; if (ui.potP) { ui.potP = false; if (!G.legendHard) UsePotion(); }   // no potions on legend difficulty
             if (Keyboard.current != null && Keyboard.current.hKey.wasPressedThisFrame) UsePotion();
             if (ui.WebPc)
             {
@@ -446,7 +446,7 @@ namespace NovaBlade
             if (KitOn) { KitInput(); KitTick(Time.deltaTime); }
             else for (int i = 0; i < 3; i++) if (ui.skP[i])
             {
-                ui.skP[i] = false; if (cds[i] > 0 || state == St.Skill || state == St.Dodge) continue;
+                ui.skP[i] = false; if (i >= G.SkillsOpen || cds[i] > 0 || state == St.Skill || state == St.Dodge) continue;   // a legend opens the skills one stage at a time
                 float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); continue; }
                 mp -= cost; CastSkill(i);
             }

@@ -11,7 +11,7 @@ namespace NovaBlade
     // bring every clip with it): the hero's own controller is put on when the model is made.
     public static class SkinPacks
     {
-        public const uint Version = 1;   // raise when the bundles are rebuilt with new content, so browsers fetch them again
+        public const uint Version = 4;   // raise when the bundles are rebuilt with new content, so browsers fetch them again (2026-11-13: 2 the new Ming legend, 3 Leon legend without arm strands, 4 both legends with hands and cloth reweighted)
         static readonly Dictionary<string, GameObject> ready = new();
         static readonly Dictionary<string, List<System.Action>> waiting = new();
         public static bool IsPack(string model) => model != null && (model.EndsWith("_classic") || model.EndsWith("_legend"));

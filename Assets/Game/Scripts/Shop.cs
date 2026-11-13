@@ -28,13 +28,20 @@ namespace NovaBlade
             _ => (WeaponSkinGems, Currency.Gem),
         };
         static bool ModelSkinId(string id) { var p = id.Split(':'); var h = Data.Heroes.FirstOrDefault(x => x.id == p[0]); return h != null && int.TryParse(p[1], out int i) && Data.IsModelSkin(h, i); }
-        public static bool Owns(ItemKind k, string id) => Price(k, id).price == 0 || S.owned.Contains(Key(k, id));
+        public static bool Owns(ItemKind k, string id) => LegendLocked(k, id) ? S.owned.Contains(Key(k, id)) : Price(k, id).price == 0 || S.owned.Contains(Key(k, id));
+        // a legend skin of a hero that has a legend (Legends.cs) is earned by finishing it on Legend difficulty, not bought
+        public static bool LegendLocked(ItemKind k, string id)
+        {
+            if (k != ItemKind.HeroSkin) return false; var p = id.Split(':'); var h = Data.Heroes.FirstOrDefault(x => x.id == p[0]);
+            return h != null && p.Length > 1 && int.TryParse(p[1], out int i) && Data.ModelOf(h, i).EndsWith("_legend") && Legends.For(h.id) != null;
+        }
         public static int Balance(Currency c) => c == Currency.Gold ? S.gold : S.gems;
         public static string PriceText(ItemKind k, string id) { var (p, c) = Price(k, id); return c == Currency.Gold ? $"{p:N0} Gold" : $"{p:N0} Gem"; }
 
         public static bool Buy(ItemKind k, string id, out string msg)
         {
             if (Owns(k, id)) { msg = Loc.S("มีอยู่แล้ว", "Already owned"); return true; }   // idempotent: never charge twice
+            if (LegendLocked(k, id)) { msg = Loc.S("ได้จากการจบตำนานของฮีโร่ระดับตำนาน", "Earned by finishing the hero's legend on Legend difficulty"); return false; }
             var (p, c) = Price(k, id);
             if (Balance(c) < p) { msg = c == Currency.Gold ? Loc.S("Gold ไม่พอ", "Not enough Gold") : Loc.S("Gem ไม่พอ", "Not enough Gems"); return false; }
             if (c == Currency.Gold) S.gold -= p; else S.gems -= p;

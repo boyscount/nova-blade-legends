@@ -292,6 +292,7 @@ namespace NovaBlade
                 ban.RegisterCallback<PointerUpEvent>(e => { ban.style.scale = new Scale(Vector3.one); G.StartGame(Mathf.Clamp(G.save.stage, 1, G.MaxStage)); });
                 BattleLabel();
             }
+            LegendButton(laneRow);   // hero legends (UiLegend)
             var bottom = Box(); bottom.style.flexShrink = 0; bottom.style.flexDirection = FlexDirection.Row; bottom.style.alignItems = Align.Center; bottom.style.marginTop = 12; panel.Add(bottom);
             var cur = Box(new Color(0, 0, 0, .5f), 24); Border(cur, new Color(1, .82f, .5f, .5f), 2); cur.style.paddingLeft = cur.style.paddingRight = 16; cur.style.paddingTop = cur.style.paddingBottom = 10; cur.style.flexDirection = FlexDirection.Row; cur.style.alignItems = Align.Center;
             cur.Add(Coin(24)); goldL = L("0", 24, Ink, true); goldL.style.marginLeft = 8; cur.Add(goldL);
@@ -1577,6 +1578,7 @@ namespace NovaBlade
             porImg.style.backgroundImage = new StyleBackground(Studio.Hero(G.ModelKey(h)) ?? Studio.Hero(h.id)); petImg.style.backgroundImage = new StyleBackground(Studio.Pet(G.pet.def.id));
             var kit = G.lane ? Kits.For(h.id) : null;   // lane battles: the hero's MOBA kit, its own names and pictures
             for (int i = 0; i < 3; i++) { var d = Data.SkillLook(h.id, h.skills[i]); var info = (SkBtn)sk[i + 1].userData; info.id = h.skills[i]; info.c = d.c; sk[i + 1].Q<Label>("lb").text = kit != null ? kit.s[i].n : d.n; SetIcon(i + 1, kit != null ? Kits.IconOf(h.id, i) : $"skill_{h.id}_{h.skills[i]}"); }
+            for (int i = 0; i < 3; i++) sk[i + 1].style.display = i < G.SkillsOpen || G.soul ? DisplayStyle.Flex : DisplayStyle.None;   // a legend opens the skills one stage at a time
             SetIcon(0, G.soul ? "btn_souls_light" : "btn_attack_" + Data.AttackIcon(h)); SetIcon(4, "btn_dodge");
             if (G.soul)
             {
@@ -2002,6 +2004,7 @@ namespace NovaBlade
         }
         public void ShowResult(bool win)
         {
+            if (G.LegendRun) { ShowLegendResult(win); return; }   // a hero legend step (UiLegend)
             if (G.lane) { ShowLaneResult(win); return; }   // lane battles: the two-page end screen (UiMatchEnd)
             resultOv.style.display = DisplayStyle.Flex; resX.text = "+" + G.runXp; resH.text = win ? Loc.S("ชนะแล้ว!", "Victory!") : Loc.S("พ่ายแพ้…", "Defeated…"); resH.style.color = win ? Gold : Red;
             var T = G.Theme;
@@ -2039,7 +2042,7 @@ namespace NovaBlade
             if (fpsT >= 0) CountFps(); UpdVs(Time.unscaledDeltaTime); UpdPerks(Time.deltaTime); UpdTravel(); UpdEnd(Time.unscaledDeltaTime);
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
             if (bagOv != null && G && G.mode != Main.Mode.Lobby && !G.city && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
-            if (potBtn != null && G) { var pd = G.lane ? DisplayStyle.None : DisplayStyle.Flex; if (potBtn.style.display != pd) potBtn.style.display = pd; }   // no potion button in lane battles (MOBA)
+            if (potBtn != null && G) { var pd = G.lane || G.legendHard ? DisplayStyle.None : DisplayStyle.Flex; if (potBtn.style.display != pd) potBtn.style.display = pd; }   // no potion button in lane battles (MOBA)
             if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }
             if (G == null || G.hero == null) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) { if (FieldBagOpen) CloseFieldBag(); else TogglePause(); }
