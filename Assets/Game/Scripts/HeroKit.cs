@@ -222,7 +222,7 @@ namespace NovaBlade
             {
                 for (int i = 0; i < 3 && aimI < 0; i++)
                 {
-                    bool key = kb != null && (kb[KitKeys[i]].wasPressedThisFrame || kb[Key.Digit1 + i].wasPressedThisFrame);
+                    bool key = kb != null && (kb[KitKeys[i]].wasPressedThisFrame || !G.ui.PerksOpen && kb[Key.Digit1 + i].wasPressedThisFrame);
                     bool btn = ui.aimDown[i];
                     if (!key && !btn) continue;
                     ui.aimDown[i] = false;

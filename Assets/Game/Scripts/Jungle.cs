@@ -116,6 +116,7 @@ namespace NovaBlade
             var c = f.camp; var by = f.lastHitBy; int side = by is Hero ? 0 : by is Foe bf ? bf.team : -1;
             if (side is 0 or 1)
             {
+                if (c != null && !c.members.Any(m => m && m.alive && m != f)) { if (c.buff == "boss") { G.sideBosses[side]++; G.Chron("guardian", side); } else G.sideCamps[side]++; var st = by is Hero ? G.Stat(G.hero.def.name, 0, true) : by is Foe bs ? G.Stat(bs.d.name, bs.team) : null; if (st != null) { if (c.buff == "boss") st.bosses++; else st.camps++; } }
                 G.TeamXp(side, f.d.gold);
                 if (side == 0 && G.hero && !G.hero.dead) { G.AddXp(f.d.gold); G.DropLoot(f.Pos, false, f.d.gold); }
             }

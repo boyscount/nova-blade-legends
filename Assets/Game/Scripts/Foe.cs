@@ -15,7 +15,8 @@ namespace NovaBlade
         public float poise, poiseMax, brokenT;   // stagger meter: full -> broken (open to a finisher)
         public bool Broken => brokenT > 0;
         public int team = 1;   // 1 = enemies of the player, 0 = the player's side (lane mode)
-        public Jungle.Camp camp; public ITarget lastHitBy; public float mightT, hasteT; Jungle.Camp jungleCamp; public Jungle.Camp JungleCamp => jungleCamp; public ITarget Tgt => tgt;   // Sky Lanes jungle: a camp monster (team 2) and who struck it last; an AI hero's buffs and the camp it is clearing
+        public Jungle.Camp camp; public ITarget lastHitBy; public float mightT, hasteT; Jungle.Camp jungleCamp; public Jungle.Camp JungleCamp => jungleCamp; public ITarget Tgt => tgt;
+        public bool Perk(string id) => d != null && d.kind == "champ" && Perks.Has(Perks.Key(team, d.name), id); public bool vigorOn; float lastByMe = -99;   // an AI hero's level-up picks   // Sky Lanes jungle: a camp monster (team 2) and who struck it last; an AI hero's buffs and the camp it is clearing
         public Vector3 Pos => transform.position;
         public float Rad => rad; public bool Down => !alive || spawning; public int Team => team;
         public int laneIdx = 1;   // which lane this unit walks (three-lane mode)
@@ -120,7 +121,11 @@ namespace NovaBlade
             aggro = true;
             if (!alive) return; o ??= new Main.Hit(); var hero = G.hero; OnDamage?.Invoke(this, dmg, from, o);
             if (camp != null) Jungle.Struck(this, from, o);
-            if (towerTier >= 0 && G.lane && !o.byFoe) dmg *= Lane.HeroVsTower(this, 0);   // the player's hits on a structure (AI heroes: FoeKit.AiHunt)
+            if (!o.byFoe) { G.CreditMe(dmg); lastByMe = Time.time; }
+            if (d.kind == "champ") { aiRecallT = 0; aiWarpT = 0; }   // a hit stops an AI hero's recall or warp   // the end screen: the player's damage, and who felled a tower
+            if (Perk("armor")) dmg *= Perks.ArmorK;
+            if (!o.byFoe && G.hero && !G.hero.dead && G.hero.Perk("leech") && dmg > 0) G.hero.Heal(dmg * Perks.Leech, true);   // the player's Lifesteal
+            if (towerTier >= 0 && G.lane && !o.byFoe) dmg *= Lane.HeroVsTower(this, 0) * (G.hero && G.hero.Perk("siege") ? Perks.SiegeK : 1);   // the player's hits on a structure (AI heroes: FoeKit.AiHunt)
             if (towerTier >= 1 && Shielded)
             {   // no shortcuts: the towers before it must fall first
                 if (Time.time > shieldNoteT) { shieldNoteT = Time.time + .8f; G.Number(Pos + Vector3.up * (h + .6f), d.id == "core" ? Loc.S("ทำลายป้อมให้หมดหนึ่งเลนก่อน", "Clear a lane's towers first") : Loc.S("ทำลายป้อมด้านหน้าก่อน", "Break the outer tower first"), ""); Fx.Ring(Pos, rad + .8f, Lane.TeamColor(team) * .4f, .5f, .15f); }
@@ -162,6 +167,7 @@ namespace NovaBlade
         void Kill()
         {
             if (camp != null) Jungle.Down(this);
+            if (G.lane && d.kind == "tower" && team is 0 or 1) { G.sideTowers[1 - team]++; if (G.sideTowers[1 - team] == 1) G.Chron("tower", 1 - team); if (Time.time - lastByMe < 2 && G.hero) G.Stat(G.hero.def.name, 0, true).towers++; }
             alive = false; s = S.Dead; st = 0; if (d.kind == "champ") G.HeroKilled(Pos, team, d.name, false); G.TeamXp(1 - team, isBoss ? Data.BossXp : d.gold); if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
             Fx.Burst(Pos + Vector3.up * h * .5f, isBoss ? 140 : 26, isBoss ? bd.color : new Color(1, .48f, .29f), isBoss ? 10 : 6);
             Fx.Dust(Pos, isBoss ? 1.8f : .8f, isBoss ? 26 : 10); Fx.Burst(Pos + Vector3.up * h * .45f, isBoss ? 40 : 14, new Color(1, .55f, .25f), isBoss ? 6 : 4, .45f, 1.6f, .08f);
@@ -212,10 +218,10 @@ namespace NovaBlade
             var goal = plan ?? (has ? tgt.Pos : camp != null ? home : G.lane ? Lane.Goal(Pos, team, laneIdx) : leash > 0 ? home : Pos);
             if (camp != null && !has && Main.Flat(home - Pos).magnitude < 1.2f) { hp = Mathf.Min(maxHp, hp + maxHp * .35f * dt); goal = Pos; }
             if (d.kind == "champ" && G.SkyMatch) goal = Jungle.Route(Pos, goal);   // into and out of the jungle by its stone paths
-            mightT -= dt; hasteT -= dt;
+            mightT -= dt; hasteT -= dt; aiWarpCd -= dt;
             var to = Main.Flat(goal - Pos); float dd = has ? Mathf.Max(0, to.magnitude - tgt.Rad + .45f) : 99, want = Main.Ang(to);
             if (pull > 0) { pull -= dt; if (dd > 1.3f && d.kind != "tower") transform.position += to.normalized * 9 * dt; }
-            slow -= dt; float sp = d.spd * AiSpeedK * (slow > 0 ? .45f : 1) * (raged ? 1.3f : 1) * (!d.fly && River.InWater(Pos.x, Pos.z) ? .7f : 1);
+            slow -= dt; float sp = d.spd * AiSpeedK * (Perk("swift") ? Perks.SwiftK : 1) * (slow > 0 ? .45f : 1) * (raged ? 1.3f : 1) * (!d.fly && River.InWater(Pos.x, Pos.z) ? .7f : 1);
             transform.position += new Vector3(kx, 0, kz) * dt; kx *= Mathf.Exp(-dt * 8); kz *= Mathf.Exp(-dt * 8);
             bool moving = false; float lean = 0, squash = 1;
             if (stag > 0) { stag -= dt; lean = -.25f; }
@@ -328,11 +334,41 @@ namespace NovaBlade
             }
             return best;
         }
+        float aiRecallT, aiWarpT, aiWarpCd, aiChanFx;
+        bool EnemyHeroNear(float r) => G.Opponents(team).Any(o => (o is Hero || o is Foe oc && oc.d.kind == "champ") && Main.Flat(o.Pos - Pos).magnitude < r);
+        Vector3 WarpAt(Foe tw) => tw.Pos + new Vector3(0, 0, Lane.Side(team) * (tw.rad + 1.8f));
+        Foe ThreatenedTower()
+        {
+            foreach (var t in G.foes) if (t && t.alive && t.team == team && t.d.id == "tower")
+                foreach (var o in G.Opponents(team)) if ((o is Hero || o is Foe of && (of.d.kind == "champ" || Lane.Soldier(of.d))) && Main.Flat(o.Pos - t.Pos).magnitude < t.d.range + 1.5f) return t;
+            return null;
+        }
+        // an AI hero's recall or warp: standing on the turning rune; done when the time is up (a hit resets it, Damage)
+        bool AiChannel(Vector3 to, float need, Color col, ref float t, Foe tower)
+        {
+            t += Time.deltaTime; aiChanFx -= Time.deltaTime;
+            if (aiChanFx <= 0) { aiChanFx = .3f; float k = Mathf.Clamp01(t / need); Fx.Ring(Pos + Vector3.up * .05f, 1.4f, col, .35f, .08f); Fx.Burst(Pos + Vector3.up * (.2f + k * 1.6f), 5 + (int)(k * 8), col, 1.5f + k * 2, .5f, -1.2f, .1f, true); if (tower) Fx.Ring(to + Vector3.up * .05f, 1.8f, col, .35f, .1f); }
+            if (t < need) return false;
+            Fx.Burst(Pos + Vector3.up, 30, col, 6, .6f, -.8f, .14f, true); transform.position = G.Clamp(to); Fx.Ring(Pos, 3.5f, col, .6f, .25f); Fx.Burst(Pos + Vector3.up, 40, col, 7, .7f, -.6f, .16f, true);
+            t = 0; return true;
+        }
         Vector3? ChampPlan(ref bool has)
         {
             var homeCore = Lane.CoreOf(team); bool Lanes2 = Lane.Lanes == 2;
             if (hp < maxHp * RetreatAt) retreat = true; else if (retreat && hp > maxHp * BackAt) retreat = false;
-            if (retreat) { has = false; return Lanes2 ? Lane.HealAt(team) : homeCore + new Vector3(0, 0, -Lane.Side(team) * 3); }   // back to the fountain
+            if (retreat)
+            {   // back to the fountain: on foot when it is near, else a recall (6 s standing) where no enemy hero is close
+                has = false; aiWarpT = 0; var heal = Lanes2 ? Lane.HealAt(team) : homeCore + new Vector3(0, 0, -Lane.Side(team) * 3);
+                if (Main.Flat(heal - Pos).magnitude > 18 && !EnemyHeroNear(9)) { AiChannel(heal, Hero.RecallTime, new Color(.35f, .75f, 1f), ref aiRecallT, null); return Pos; }
+                aiRecallT = 0; return heal;
+            }
+            aiRecallT = 0;
+            if (Lanes2 && aiWarpCd <= 0 && hp > maxHp * .9f && Main.Flat(Lane.HealAt(team) - Pos).magnitude < 10)
+            {   // healed at the base with a tower of ours under attack far away: warp to it (4 s, the enemy sees the gold rune there)
+                var wt = ThreatenedTower();
+                if (wt && Main.Flat(wt.Pos - Pos).magnitude > 30) { has = false; if (AiChannel(WarpAt(wt), Hero.WarpTime, new Color(1f, .8f, .35f), ref aiWarpT, wt)) aiWarpCd = Hero.WarpEvery; return Pos; }
+            }
+            aiWarpT = 0;
             int foesNear = 0, friendsNear = 1;
             foreach (var o in G.Opponents(team)) if ((o is Hero || o is Foe oc && oc.d.kind == "champ") && Main.Flat(o.Pos - Pos).magnitude < SeeRange) foesNear++;
             foreach (var f in G.foes) if (f && f != this && f.alive && f.team == team && f.d.kind == "champ" && Main.Flat(f.Pos - Pos).magnitude < SeeRange) friendsNear++;

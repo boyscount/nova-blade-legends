@@ -150,7 +150,9 @@ namespace NovaBlade
         // gear changed in the pause bag: new max health at the same share of health (so swapping pieces can never heal)
         // Every Sky Lanes match starts at level 1 and levels with the XP of that match (G.matchXp); campaign XP is still saved for other modes.
         public int Level => G.SkyMatch ? Data.Level(G.matchXp) : Data.Level(G.save.HeroXp(def.id));
-        float BaseHp => def.hp * (1 + (Level - 1) * Data.LevelHp);
+        float BaseHp => def.hp * (1 + (Level - 1) * Data.LevelHp) * (Perk("vigor") ? Perks.VigorK : 1);
+        public bool Perk(string id) => Perks.Has(Perks.Me, id);   // level-up picks (Perks, Sky Lanes)
+        float wardT;
         // MOBA fairness (owner, 2026-11-11): in lane battles everyone starts equal: the lobby's weapon stats, mastery, gear, shield block
         // and the story stage do not count (looks only); the hero grows by its match level, jungle buffs and later its level-up picks
         bool Fair => G && G.lane;
@@ -219,9 +221,9 @@ namespace NovaBlade
             {
                 if (kb != null)
                 {
-                    if (kb.qKey.wasPressedThisFrame || kb.digit1Key.wasPressedThisFrame) ui.skP[0] = true;
-                    if (kb.wKey.wasPressedThisFrame || kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
-                    if (kb.eKey.wasPressedThisFrame || kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
+                    if (kb.qKey.wasPressedThisFrame || !ui.PerksOpen && kb.digit1Key.wasPressedThisFrame) ui.skP[0] = true;
+                    if (kb.wKey.wasPressedThisFrame || !ui.PerksOpen && kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
+                    if (kb.eKey.wasPressedThisFrame || !ui.PerksOpen && kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
                     if (kb.rKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame) ui.dodgeP = true;
                     if (kb.aKey.wasPressedThisFrame || kb.jKey.wasPressedThisFrame) ui.atkP = true;
                     if (kb.fKey.wasPressedThisFrame) ui.farmP = true;
@@ -248,9 +250,9 @@ namespace NovaBlade
             {
                 if (kb.jKey.wasPressedThisFrame) ui.atkP = true;
                 if (kb.hKey.wasPressedThisFrame) ui.farmP = true;
-                if (kb.uKey.wasPressedThisFrame || kb.digit1Key.wasPressedThisFrame) ui.skP[0] = true;
-                if (kb.iKey.wasPressedThisFrame || kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
-                if (kb.oKey.wasPressedThisFrame || kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
+                if (kb.uKey.wasPressedThisFrame || !ui.PerksOpen && kb.digit1Key.wasPressedThisFrame) ui.skP[0] = true;
+                if (kb.iKey.wasPressedThisFrame || !ui.PerksOpen && kb.digit2Key.wasPressedThisFrame) ui.skP[1] = true;
+                if (kb.oKey.wasPressedThisFrame || !ui.PerksOpen && kb.digit3Key.wasPressedThisFrame) ui.skP[2] = true;
                 if (kb.spaceKey.wasPressedThisFrame || kb.kKey.wasPressedThisFrame || kb.leftShiftKey.wasPressedThisFrame) ui.dodgeP = true;
                 if (kb.xKey.wasPressedThisFrame || kb.lKey.wasPressedThisFrame) ui.swapP = true;
             }
@@ -261,7 +263,7 @@ namespace NovaBlade
 
         // ---------- helpers ----------
         public float mightT, hasteT;   // Sky Lanes jungle buffs (Jungle): more damage, faster skills
-        public float AtkPow => (mightT > 0 ? Jungle.MightK : 1) * (Jungle.Blessed(0) ? Jungle.BossK : 1) * 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * WDmg * (1 + (Fair ? 0 : Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier]) + Gear.atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
+        public float AtkPow => (mightT > 0 ? Jungle.MightK : 1) * (Jungle.Blessed(0) ? Jungle.BossK : 1) * (Perk("might") ? Perks.MightK : 1) * 100 * def.atk * (1 + (Level - 1) * Data.LevelAtk) * WDmg * (1 + (Fair ? 0 : Data.AffinityBonus(def.cls, sword.type) + Data.MasteryDmg[MasteryTier]) + Gear.atk) * (buffT > 0 ? 1.5f : 1) * (orbAtkT > 0 ? 1.25f : 1);
         public int MasteryTier => Data.Tier(G.save.Mastery(sword.id));
         public float CritBonus => (Fair ? 0 : Data.MasteryCrit[MasteryTier]) + Gear.crit;
         // a healing potion from the bag: 35% of health, 3 s apart
@@ -320,9 +322,10 @@ namespace NovaBlade
             else FaceTo(G.Nearest(Pos, r));
         }
         void MoveBy(float dx, float dz) { var p = G.Clamp(Pos + new Vector3(dx, 0, dz)); if (G.lane && Lane.Lanes == 2) p = SkyLanes.KeepOut(p, 0); transform.position = p; }   // never into the enemy's spawn pool
+        public bool fountainHeal;
         public void Heal(float v, bool quiet = false)
         {
-            v = Mathf.Round(Mathf.Min(v, max - hp)); if (v <= 0) return; hp += v;
+            v = Mathf.Round(Mathf.Min(v, max - hp)); if (v <= 0) return; hp += v; if (G.lane && !fountainHeal) G.Stat(def.name, 0, true).heal += v;   // the end screen's healing: not the fountain's
             if (!quiet || v > 15) G.Number(Pos + Vector3.up * 2, "+" + v, "heal");
         }
 
@@ -330,9 +333,12 @@ namespace NovaBlade
         {
             if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
             if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
+            if (Perk("armor")) dmg *= Perks.ArmorK;
+            CancelChannel();   // a hit stops a recall or a warp
+            if (Perk("ward") && wardT <= 0 && hp < max * Perks.WardAt) { shieldT = Mathf.Max(shieldT, Perks.WardTime); wardT = Perks.WardEvery; Fx.Ring(Pos, 1.8f, new Color(1f, .85f, .4f), .5f, .2f); }   // Last Ward
             float d = CombatRules.Current.ModifyDamage(dmg) * (G.ZoneNight ? OpenWorld.NightFoePower : 1) * (Fair ? 1 : 1 + (G.stage - 1) * .15f) * (ShieldOn != null && !Fair ? 1 - ShieldOn.block : 1) * (1 - Gear.def); if (shieldT > 0) { d *= .2f; Zap(); } if (buffT > 0) d *= .85f;
             if (KitOn) { d = KitIn(d, from); if (d <= 0) return; }
-            d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
+            d = Mathf.Round(d * Random.Range(.9f, 1.1f)); hp -= d; if (G.lane) G.Stat(def.name, 0, true).taken += d; inv = .45f; G.shake = Mathf.Max(G.shake, .22f);
             look.Flash(.5f); flashT = .12f; G.Number(Pos + Vector3.up * 2.1f, "-" + d, "hurt");
             Fx.Spawn("hit_red", Pos + Vector3.up * 1.1f, .8f, 2); Fx.Puff(Pos + Vector3.up * 1.1f);
             if (hp <= 0) { hp = 0; Die(); return; }
@@ -414,7 +420,8 @@ namespace NovaBlade
             if (G.mode == Main.Mode.Lobby) { LobbyIdle(); return; }
             if (G.mode != Main.Mode.Game && G.mode != Main.Mode.Result) return;
             float dt = Time.deltaTime; var ui = G.ui;
-            inv -= dt; dodgeCD -= dt; buffT -= dt; orbAtkT -= dt; shieldT -= dt; chain -= dt; mightT -= dt; hasteT -= dt; for (int i = 0; i < 3; i++) cds[i] -= dt * (hasteT > 0 ? Jungle.HasteK : 1);
+            inv -= dt; dodgeCD -= dt; buffT -= dt; orbAtkT -= dt; shieldT -= dt; chain -= dt; mightT -= dt; hasteT -= dt; wardT -= dt; for (int i = 0; i < 3; i++) cds[i] -= dt * (hasteT > 0 ? Jungle.HasteK : 1) * (Perk("haste") ? Perks.HasteK : 1);
+            TickChannel(dt);   // recall / tower warp (HeroTravel)
             if (flashT > 0) { flashT -= dt; if (flashT <= 0) look.Flash(0); }
             if (bubble) { bubble.SetActive(shieldT > 0); bubble.transform.position = Pos + Vector3.up * (def.rig ? 1 : .65f); }
             trail.on = def.blade && (state == St.Atk || (state == St.Skill && skillId != "shield" && skillId != "cry" && skillId != "missile" && skillId != "heal" && skillId != "laser"));
@@ -469,7 +476,7 @@ namespace NovaBlade
                 if (buf > 0) StartAtk(chain > 0 ? (lastI + 1) % 3 : 0);
                 else if (mv.magnitude > .08f)
                 {
-                    float sp = (def.spd + Gear.spd) * KitSpeed * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
+                    float sp = (def.spd + Gear.spd) * KitSpeed * (Perk("swift") ? Perks.SwiftK : 1) * (buffT > 0 ? 1.2f : 1) * mv.magnitude * (River.InWater(Pos.x, Pos.z) ? .6f : 1); var n = mv.normalized;
                     if (River.InWater(Pos.x, Pos.z) && Random.value < .5f) Fx.Burst(new Vector3(Pos.x, River.SplashY(Pos), Pos.z), 2, new Color(.7f, .9f, 1), 2, .4f, 1.5f, .1f);
                     MoveBy(n.x * sp * dt, n.y * sp * dt);
                     face += Main.AngDiff(face, Mathf.Atan2(mv.x, mv.y)) * Mathf.Min(1, dt * 14);

@@ -265,6 +265,8 @@ namespace NovaBlade
             int akt = System.Array.IndexOf(args, "-aikittest"); if (akt >= 0 && akt + 1 < args.Length) StartCoroutine(AiKitTest(args[akt + 1]));
             int ktt = System.Array.IndexOf(args, "-kittest"); if (ktt >= 0 && ktt + 1 < args.Length) StartCoroutine(KitTest(args[ktt + 1]));
             int stt = System.Array.IndexOf(args, "-skytimes"); if (stt >= 0 && stt + 1 < args.Length) StartCoroutine(SkyTimes(args[stt + 1]));
+            int ent = System.Array.IndexOf(args, "-endtest"); if (ent >= 0 && ent + 1 < args.Length) StartCoroutine(EndTest(args[ent + 1]));
+            int pkt = System.Array.IndexOf(args, "-perktest"); if (pkt >= 0 && pkt + 1 < args.Length) StartCoroutine(PerkTest(args[pkt + 1]));
             int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1]));
             int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
             int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
@@ -1185,6 +1187,43 @@ namespace NovaBlade
             }
             Application.Quit();
         }
+        // -endtest <dir>: recall from mid-lane, the warp list and a warp to a tower, the perk button, then the end screen's two pages
+        System.Collections.IEnumerator EndTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            { var ea = System.Environment.GetCommandLineArgs(); int eh = System.Array.IndexOf(ea, "-endhero"); if (eh >= 0 && eh + 1 < ea.Length) { save.hero = ea[eh + 1]; hero.Equip(); } }   // tests: the end screen for another hero's order
+            StartLane(3, 2); yield return new WaitForSecondsRealtime(2);
+            MoveTo(new Vector3(0, 0, 4)); yield return new WaitForSecondsRealtime(.5f); bool ok = hero.StartRecall(); yield return new WaitForSecondsRealtime(3.5f); Snap("recall"); yield return new WaitForSecondsRealtime(3.2f);
+            log.AppendLine($"recall started {ok}: now {hero.Pos} · from the fountain {Flat(hero.Pos - Lane.HealAt(0)).magnitude:0.0} m · in base {hero.InBase}");
+            ui.TestWarpPick(); yield return new WaitForSecondsRealtime(.8f); Snap("warp_pick"); yield return new WaitForSecondsRealtime(.6f); ui.TestWarpPick();
+            var tw = hero.WarpTowers.FirstOrDefault(t => t.towerTier == 0); ok = hero.StartWarp(tw); yield return new WaitForSecondsRealtime(2); Snap("warping"); yield return new WaitForSecondsRealtime(2.6f);
+            log.AppendLine($"warp started {ok} to {(tw ? tw.Pos.ToString() : "-")}: now {hero.Pos} · from the tower {(tw ? Flat(hero.Pos - tw.Pos).magnitude : -1):0.0} m · cooldown {hero.warpCd:0}");
+            AddXp(Data.XpFor(3) - matchXp); yield return new WaitForSecondsRealtime(1.2f); Snap("perk_button"); yield return new WaitForSecondsRealtime(.6f); ui.ShowPerks(new[] { "ward", "might", "vigor" }, 3); ui.TestOpenPerks(); yield return new WaitForSecondsRealtime(.9f); ui.TestHoverPerk(1); yield return new WaitForSecondsRealtime(.3f); Snap("perk_cards"); yield return new WaitForSecondsRealtime(.6f); ui.TestReroll(); yield return new WaitForSecondsRealtime(.9f); Snap("perk_reroll"); yield return new WaitForSecondsRealtime(.5f); ui.TestChoosePerk(1); yield return new WaitForSecondsRealtime(.25f); Snap("perk_choose"); yield return new WaitForSecondsRealtime(.8f); log.AppendLine($"perks after choosing: {string.Join(",", Perks.Taken(Perks.Me).Select(x => x.id))} · cards open {ui.PerksOpen}");
+            var me = Stat(hero.def.name, 0, true); me.k = 6; me.d = 1; me.a = 4; me.dmg = 18400; me.towers = 2; me.camps = 4; me.bosses = 1; myFirstBlood = true; bestMulti = 2; bestSpree = 4; gold = 860;
+            foreach (var s in stats.Where(x => !x.me)) { s.k = Random.Range(0, 6); s.d = Random.Range(1, 6); s.a = Random.Range(0, 8); s.dmg = Random.Range(6000, 16000); }
+            me.taken = 7200; me.heal = 3100; chron.Clear(); chron.Add((135, "firstblood", 0, "")); chron.Add((272, "double", 0, "")); chron.Add((440, "tower", 0, "")); chron.Add((520, "guardian", 0, "")); time = 579; sideTowers[0] = 7; sideTowers[1] = 2; sideCamps[0] = 9; sideCamps[1] = 5; sideBosses[0] = 2; sideBosses[1] = 1; teamKills[0] = 14; teamKills[1] = 9;
+            Finish(true); yield return new WaitForSecondsRealtime(.5f); Snap("end_intro"); yield return new WaitForSecondsRealtime(2.2f); Snap("end_page1"); yield return new WaitForSecondsRealtime(.8f); ui.TestEndPage2(true); yield return new WaitForSecondsRealtime(1); Snap("end_page2"); yield return new WaitForSecondsRealtime(.8f);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "end.txt"), log.ToString()); Application.Quit();
+        }
+        // -perktest <dir>: the level 3 pick panel (shot), a pick and what it changes, AI picks at level 9 and after a respawn
+        System.Collections.IEnumerator PerkTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            StartLane(3, 2); yield return new WaitForSecondsRealtime(2);
+            AddXp(Data.XpFor(3) - matchXp); yield return new WaitForSecondsRealtime(1); Snap("perk_button"); yield return new WaitForSecondsRealtime(.8f);
+            log.AppendLine($"level {hero.Level}: pick due {ui.PerkPending}, cards open {ui.PerksOpen}"); ui.TestOpenPerks(); yield return new WaitForSecondsRealtime(.8f); Snap("perk_panel"); yield return new WaitForSecondsRealtime(.8f); log.AppendLine($"cards open {ui.PerksOpen}");
+            float a0 = hero.AtkPow, m0 = hero.max; ui.PickPerk(0); yield return new WaitForSecondsRealtime(.5f);
+            log.AppendLine($"picked: {string.Join(",", Perks.Taken(Perks.Me).Select(p => p.id))} · attack {a0:0} -> {hero.AtkPow:0} · max hp {m0:0} -> {hero.max:0} · panel open {ui.PerksOpen}");
+            AddXp(Data.XpFor(6) - matchXp); yield return new WaitForSecondsRealtime(1); log.AppendLine($"level {hero.Level}: pick due {ui.PerkPending}"); yield return new WaitForSecondsRealtime(32);
+            log.AppendLine($"after waiting: auto-picked {string.Join(",", Perks.Taken(Perks.Me).Select(p => p.id))} · panel open {ui.PerksOpen}");
+            TeamXp(1, Data.XpFor(9)); yield return null;
+            foreach (var f in foes.Where(f => f && f.alive && f.d.kind == "champ")) log.AppendLine($"AI {f.d.name} T{f.team} lv {f.aiLv}: {string.Join(",", Perks.Taken(Perks.Key(f.team, f.d.name)).Select(p => p.id))} hp {f.maxHp:0}");
+            var victim = foes.FirstOrDefault(f => f && f.alive && f.team == 1 && f.d.kind == "champ"); string vn = victim ? victim.d.name : "";
+            if (victim) { victim.Damage(1e7f, victim.Pos); yield return new WaitForSecondsRealtime(Lane.RespawnTime(9) + 5); var back = foes.FirstOrDefault(f => f && f.alive && f.d.name == vn && f.team == 1); log.AppendLine($"respawned {vn}: {(back ? string.Join(",", Perks.Taken(Perks.Key(1, vn)).Select(p => p.id)) + $" hp {back.maxHp:0} vigor {back.vigorOn}" : "not back")}"); }
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "perks.txt"), log.ToString()); Application.Quit();
+        }
         // -jungletest <dir>: the camps come up on time, a camp fights back and leashes home, the player clears the Giant and gets its buff
         System.Collections.IEnumerator JungleTest(string dir)
         {
@@ -1729,7 +1768,8 @@ namespace NovaBlade
             if (mode != Mode.Game) return;
             mode = Mode.Result; save.gold += gold - banked; banked = gold; if (hero.soul) hero.soul.End();
             if (win) { save.best = Mathf.Max(save.best, stage); QuestBump("clear"); }
-            if (lane) { int was = save.rankPts; save.rankPts = Mathf.Max(0, save.rankPts + (win ? 25 + (save.aiLevel - 1) * 10 : -15)); var (rn, _, _) = Ui.RankOf(save.rankPts); ui.Banner(win ? Loc.S("ชนะ!", "Victory!") : Loc.S("แพ้", "Defeat"), Loc.S($"แต้มอันดับ {save.rankPts - was:+0;-0} · {rn}", $"Rank points {save.rankPts - was:+0;-0} · {rn}")); }
+            if (lane) Chron(win ? "victory" : "defeat", win ? 0 : 1);
+            if (lane) { int was = save.rankPts; rankWas = was; save.rankPts = Mathf.Max(0, save.rankPts + (win ? 25 + (save.aiLevel - 1) * 10 : -15)); var (rn, _, _) = Ui.RankOf(save.rankPts); ui.Banner(win ? Loc.S("ชนะ!", "Victory!") : Loc.S("แพ้", "Defeat"), Loc.S($"แต้มอันดับ {save.rankPts - was:+0;-0} · {rn}", $"Rank points {save.rankPts - was:+0;-0} · {rn}")); }
             Persist();
             ui.ShowResult(win);
         }
@@ -1791,9 +1831,16 @@ namespace NovaBlade
         // lane battles: the score (hero kills per side), the player's kills / deaths / assists, and the calls on screen when a hero falls
         public readonly int[] teamKills = new int[2]; public int myK, myD, myA; int mySpree, myMulti; float myLastKill = -99;
         const float KillReach = 12, MultiWindow = 10;
-        void ResetScore() { teamKills[0] = teamKills[1] = 0; teamXp[0] = teamXp[1] = 0; myK = myD = myA = mySpree = myMulti = 0; myLastKill = -99; stats.Clear(); respawnAt = 0; if (hero && hero.def != null) Stat(hero.def.name, 0, true); }
+        void ResetScore() { chron.Clear(); sideTowers[0] = sideTowers[1] = sideCamps[0] = sideCamps[1] = sideBosses[0] = sideBosses[1] = 0; bestMulti = bestSpree = 0; myFirstBlood = false; teamKills[0] = teamKills[1] = 0; teamXp[0] = teamXp[1] = 0; myK = myD = myA = mySpree = myMulti = 0; myLastKill = -99; stats.Clear(); respawnAt = 0; if (hero && hero.def != null) Stat(hero.def.name, 0, true); }
         // the scoreboard: every hero in the match, its kills, deaths and assists (the player's row marked)
-        public class HeroStat { public string name; public int team, k, d, a; public bool me; }
+        public class HeroStat { public string name; public int team, k, d, a, towers, camps, bosses; public float dmg, taken, heal; public bool me; public float Score => k * 3 + a * 1.5f - d + dmg / 1500f + towers + bosses * 2; }
+        // the end screen's numbers (owner, 2026-11-12): damage by hero, structures, camps and the Guardian per side, the player's feats
+        public readonly int[] sideTowers = new int[2], sideCamps = new int[2], sideBosses = new int[2]; public int bestMulti, bestSpree, rankWas; public bool myFirstBlood;
+        // the Battle Chronicle: the match's big moments in order (first blood, the player's multi-kills, towers, the Guardian, the end)
+        public readonly List<(float t, string kind, int side, string who)> chron = new();
+        public void Chron(string kind, int side, string who = "") { if (lane) chron.Add((time, kind, side, who)); }
+        public void CreditAi(Foe f, float dmg) { if (lane && f && f.d.kind == "champ" && dmg > 0) Stat(f.d.name, f.team).dmg += dmg; }
+        public void CreditMe(float dmg) { if (lane && hero && dmg > 0) Stat(hero.def.name, 0, true).dmg += dmg; }
         public readonly List<HeroStat> stats = new(); public float respawnAt;
         // Sky Lanes: each side's XP this match, from the enemy units that die (the AI heroes' level: they don't keep a level of their own)
         public readonly int[] teamXp = new int[2];
@@ -1804,7 +1851,7 @@ namespace NovaBlade
         {
             if (!SkyMatch || !f || f.d.kind != "champ") return; int lv = Data.Level(teamXp[f.team]); if (lv == f.aiLv) return;
             float hk = (1 + (lv - 1) * Data.LevelHp) / (1 + (f.aiLv - 1) * Data.LevelHp), dk = (1 + (lv - 1) * Data.LevelAtk) / (1 + (f.aiLv - 1) * Data.LevelAtk);
-            f.maxHp *= hk; f.hp *= hk; f.d.dmg *= dk; bool up = lv > f.aiLv; f.aiLv = lv;
+            f.maxHp *= hk; f.hp *= hk; f.d.dmg *= dk; bool up = lv > f.aiLv; f.aiLv = lv; Perks.AiCatchUp(f, lv);
             if (up && f.alive) { f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * LaneLevelHeal); Fx.Burst(f.Pos + Vector3.up, 18, new Color(1, .85f, .35f), 3, .6f, 1, .12f, true); }   // a gold flash: level up, and the same tenth of health the player gets
         }
         public int LevelOf(HeroStat s) => s.me && hero ? hero.Level : SkyMatch ? Data.Level(teamXp[s.team]) : 0;   // 0: no match level outside Sky Lanes
@@ -1822,7 +1869,8 @@ namespace NovaBlade
             foreach (var f in foes) if (f && f.alive && f.team == side && f.d.kind == "champ" && f.d.name != killer && Flat(f.Pos - at).magnitude < KillReach) Stat(f.d.name, side).a++;   // assists: the killer's teammates close by
             if (victimIsPlayer) { myD++; mySpree = 0; myMulti = 0; TeamXp(side, 40); }   // the player is worth a hero's XP to the other side
             if (playerKilled || side == 0 && hero && !hero.dead && Flat(hero.Pos - at).magnitude < KillReach) hero.KitTakedown();
-            if (playerKilled) { myK++; mySpree++; myMulti = time - myLastKill < MultiWindow ? myMulti + 1 : 1; myLastKill = time; }
+            if (playerKilled) { myK++; mySpree++; myMulti = time - myLastKill < MultiWindow ? myMulti + 1 : 1; myLastKill = time; bestMulti = Mathf.Max(bestMulti, myMulti); bestSpree = Mathf.Max(bestSpree, mySpree); if (first) myFirstBlood = true; if (myMulti == 2) Chron("double", 0, hero.def.name); else if (myMulti >= 3) Chron("triple", 0, hero.def.name); }
+            if (first) Chron("firstblood", side, killer ?? "");
             else if (side == 0 && hero && !hero.dead && Flat(hero.Pos - at).magnitude < KillReach) { myA++; Stat(hero.def.name, 0, true).a++; }
             string head = first ? Loc.S("เลือดแรก!", "FIRST BLOOD!")
                 : playerKilled && myMulti >= 3 ? Loc.S("ทริปเปิลคิล!", "TRIPLE KILL!") : playerKilled && myMulti == 2 ? Loc.S("ดับเบิลคิล!", "DOUBLE KILL!")
@@ -1834,10 +1882,13 @@ namespace NovaBlade
         }
         public int matchXp;   // Sky Lanes: XP of this match only, the hero's level in it (starts at level 1)
         public bool SkyMatch => lane && Lane.Lanes == 2;
+        // the player's level-up pick: offered when the match level is due one (3, 6, 9) and no panel is up
+        public void PerkCheck() { if (!SkyMatch || !hero || ui.PerkPending || Perks.Count(Perks.Me) >= Perks.Due(hero.Level)) return; var o = Perks.Offer(Perks.Me); if (o.Length > 0) ui.ShowPerks(o, Perks.At[Mathf.Min(Perks.Count(Perks.Me), Perks.At.Length - 1)]); }
         public void AddXp(int n)
         {
             if (n <= 0 || !hero) return; int before = hero.Level; save.AddHeroXp(hero.def.id, n); runXp += n; if (SkyMatch) matchXp += n; if (hero.Level <= before) return;
             if (!SkyMatch) foreach (var q in Quests.All) if (q.kind == "level" && q.goal == hero.Level && !Quests.Claimed(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
+            if (SkyMatch) PerkCheck();
             hero.RefreshGear(); hero.hp = lane ? Mathf.Min(hero.max, hero.hp + hero.max * LaneLevelHeal) : hero.max;   // lane battles (MOBA): the health share is kept, plus a tenth; elsewhere a full heal
             Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5);
             ui.Banner(Loc.S($"เลเวล {hero.Level}!", $"LEVEL {hero.Level}!"), Loc.S("พลังชีวิตและพลังโจมตีเพิ่มขึ้น", "More health and attack")); Persist();
@@ -2082,6 +2133,7 @@ namespace NovaBlade
                 SpawnUnit(Lane.Core, new Vector3(0, 0, Lane.Side(t) * Lane.CoreZ), t).towerTier = SkyLanes.Towers;
             }
             Jungle.Begin();   // the jungle camps (stage B)
+            Perks.Begin(); ui.HidePerks();   // level-up picks
             var others = TakeAllies() is { Count: > 0 } pa ? pa : Data.Heroes.Where(h => h.rig && h.id != hero.def.id).OrderBy(_ => Random.value).ToList();   // the VS screen's team when there was one
             for (int i = 0; i < size - 1; i++) { var u = SpawnUnit(Lane.Champ(others[i % others.Count]), Lane.SpawnOf(0) + new Vector3(i == 0 ? -1.5f : 1.5f, 0, 0), 0); if (u) u.laneIdx = SkyLaneOf[i]; }
             var foesH = TakeEnemies() is { Count: > 0 } pe ? pe : Data.Heroes.Where(h => h.rig).OrderBy(_ => Random.value).ToList();
@@ -2140,7 +2192,7 @@ namespace NovaBlade
         // each side's core heals its own heroes standing near it (the player too): a reason to go home, and where a hurt AI hero runs to
         void Fountains(float dt)
         {
-            if (hero && !hero.dead && hero.hp < hero.max && Flat(hero.Pos - Lane.HealAt(0)).magnitude < Lane.HealR) hero.Heal(hero.max * Lane.HealRate * dt, true);
+            if (hero && !hero.dead && hero.hp < hero.max && Flat(hero.Pos - Lane.HealAt(0)).magnitude < Lane.HealR) { hero.fountainHeal = true; hero.Heal(hero.max * Lane.HealRate * dt, true); hero.fountainHeal = false; }
             foreach (var f in foes) if (f && f.alive && f.d.kind == "champ" && f.hp < f.maxHp && Flat(f.Pos - Lane.HealAt(f.team)).magnitude < Lane.HealR) f.hp = Mathf.Min(f.maxHp, f.hp + f.maxHp * Lane.HealRate * dt);
         }
         public int TowersLeft(int team) => foes.Count(f => f && f.alive && f.team == team && f.d.kind == "tower");

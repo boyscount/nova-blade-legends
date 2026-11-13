@@ -357,7 +357,7 @@ namespace NovaBlade
         public void ShowLobby()
         {
             lobby.style.display = DisplayStyle.Flex; hud.style.display = DisplayStyle.None; pauseOv.style.display = resultOv.style.display = DisplayStyle.None;
-            RenderInfo(); RenderCards(); BattleLabel();
+            RenderInfo(); RenderCards(); BattleLabel(); HideLaneResult();
         }
         void RenderInfo()
         {
@@ -1569,6 +1569,7 @@ namespace NovaBlade
         Button resultBack, pauseBack;
         public void ShowHud()
         {
+            HideLaneResult();
             ApplyCityHud();
             string back = G.cameFromCity && !G.city ? Loc.S("กลับเมือง", "Back to City") : Loc.S("กลับล็อบบี้", "Back to Lobby"); if (pauseBack != null) pauseBack.text = back; if (resultBack != null) resultBack.text = G.cameFromCity ? Loc.S("เมือง", "City") : Loc.S("ล็อบบี้", "Lobby");
             lobby.style.display = DisplayStyle.None; hud.style.display = DisplayStyle.Flex; resultOv.style.display = pauseOv.style.display = DisplayStyle.None; bossW.style.display = DisplayStyle.None;
@@ -2001,6 +2002,7 @@ namespace NovaBlade
         }
         public void ShowResult(bool win)
         {
+            if (G.lane) { ShowLaneResult(win); return; }   // lane battles: the two-page end screen (UiMatchEnd)
             resultOv.style.display = DisplayStyle.Flex; resX.text = "+" + G.runXp; resH.text = win ? Loc.S("ชนะแล้ว!", "Victory!") : Loc.S("พ่ายแพ้…", "Defeated…"); resH.style.color = win ? Gold : Red;
             var T = G.Theme;
             if (G.lane)
@@ -2034,14 +2036,14 @@ namespace NovaBlade
         float dragX; bool dragging;
         void Update()
         {
-            if (fpsT >= 0) CountFps(); UpdVs(Time.unscaledDeltaTime);
+            if (fpsT >= 0) CountFps(); UpdVs(Time.unscaledDeltaTime); UpdPerks(Time.deltaTime); UpdTravel(); UpdEnd(Time.unscaledDeltaTime);
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
             if (bagOv != null && G && G.mode != Main.Mode.Lobby && !G.city && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);
             if (potBtn != null && G) { var pd = G.lane ? DisplayStyle.None : DisplayStyle.Flex; if (potBtn.style.display != pd) potBtn.style.display = pd; }   // no potion button in lane battles (MOBA)
             if (potBtn != null && G && G.hero) { int pn = G.save.potions; potN.text = pn.ToString(); potBtn.style.opacity = pn > 0 && G.hero.potCD <= 0 ? 1 : .45f; }
             if (G == null || G.hero == null) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) { if (FieldBagOpen) CloseFieldBag(); else TogglePause(); }
-            if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame && G.mode == Main.Mode.Game) { if (FieldBagOpen) CloseFieldBag(); else OpenFieldBag(); }
+            if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame && G.mode == Main.Mode.Game && !G.lane) { if (FieldBagOpen) CloseFieldBag(); else OpenFieldBag(); }
             float dt = Time.unscaledDeltaTime;
             if (G.mode == Main.Mode.Lobby)
             {   // drag on empty space rotates the hero
