@@ -133,6 +133,7 @@ namespace NovaBlade
                 var p = c.at + c.offs[i]; var f = G.SpawnUnit(c.defs[i], p, Neutral); if (!f) continue;
                 f.camp = c; f.home = p; f.face = Main.Ang(c.faceTo - p); c.members.Add(f);
             }
+            if (c.buff == "boss") Sfx.Play("guardian"); if (c.buff == "boss") Sfx.Play("vo_guardian");
             if (c.buff == "boss") G.ui.Banner(Loc.S($"{BossName}ตื่นแล้ว!", $"The {BossName} awakens!"), Loc.S("ทีมที่ล้มได้ ฮีโร่และทหารแรงขึ้น 2 นาที", "The side that fells it: stronger heroes and soldiers for 2 minutes"));
             else if (c.buff != null && first) G.ui.Banner(Loc.S("มอนสเตอร์บัฟปรากฏในป่า!", "Buff monsters in the jungle!"), Loc.S("ยักษ์กูล: ตีแรงขึ้น · ราชาเห็ด: สกิลเร็วขึ้น", "Ghoul Giant: more damage · Spore King: faster skills"));
         }
@@ -175,6 +176,7 @@ namespace NovaBlade
             bool might = c.buff == "might"; string name = might ? Loc.S("พลังยักษ์", "Giant's Might") : Loc.S("สปอร์เร่ง", "Spore Haste"), what = might ? Loc.S("ตีแรงขึ้น 20%", "+20% damage") : Loc.S("สกิลคูลดาวน์เร็วขึ้น 30%", "skills recharge 30% faster");
             if (by is Hero h) { if (might) h.mightT = BuffTime; else h.hasteT = BuffTime; G.ui.Banner(Loc.S($"ได้{name}!", $"{name}!"), Loc.S($"{what} · 90 วินาที", $"{what} · 90 s")); }
             else if (by is Foe ch) { if (might) ch.mightT = BuffTime; else ch.hasteT = BuffTime; G.ui.Banner(side == 0 ? Loc.S($"เพื่อนได้{name}", $"Ally took {name}") : Loc.S($"ศัตรูได้{name}!", $"Enemy took {name}!"), ch.d.name); }
+            if (by is Hero) Sfx.Play("buff");
             Fx.Ring(by.Pos, 3, might ? new Color(1f, .35f, .2f) : new Color(.35f, .9f, 1f), .6f, .2f);
         }
         // ---------- getting in and out ----------

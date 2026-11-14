@@ -155,7 +155,7 @@ namespace NovaBlade
                 var crest = MvpEmblem(big * (touchUi ? .85f : .9f)); crest.style.position = Position.Absolute; crest.style.left = Length.Percent(50); crest.style.top = 6;
                 crest.style.translate = new Translate(Length.Percent(-50), 0); left.Add(crest);
                 pose.style.top = 150 * big;   // the hero stands under the emblem, not behind it
-                endPop.Add((crest, .5f)); crest.style.opacity = 0;
+                endPop.Add((crest, .5f)); crest.style.opacity = 0; crest.schedule.Execute(() => Sfx.Play("ui_mvp")).StartingIn(500);
             }
             if (hd != null)
             {

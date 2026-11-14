@@ -227,7 +227,7 @@ namespace NovaBlade
                     if (!key && !btn) continue;
                     ui.aimDown[i] = false;
                     if (cds[i] > 0) continue;
-                    if (mp < SkillCostOf(i)) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); continue; }
+                    if (mp < SkillCostOf(i)) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); Sfx.Play("ui_error", 1, 0, .4f); continue; }
                     aimI = i; aimMouse = key && m != null; ui.aimDrag = Vector2.zero; ui.aimCancel = false;   // a cancel left over from before does not count
                 }
                 if (aimI < 0) { if (Time.frameCount - testAimFrame > 2) aim.Hide(); return; }
@@ -239,7 +239,7 @@ namespace NovaBlade
             if (!release) return;
             ui.aimUp[aimI] = false; int k = aimI; aimI = -1; aim.Hide();
             if (!KitReady(k)) return;
-            mp -= SkillCostOf(k); cds[k] = s.cd; skillCo = StartCoroutine(KitRun(k, s, at));
+            mp -= SkillCostOf(k); cds[k] = s.cd; Sfx.Play(Sfx.SkillSound(def.skills[k])); if (k == 2) G.UltMoment(); skillCo = StartCoroutine(KitRun(k, s, at));
         }
         Vector3 AimPoint(KSkill s)
         {

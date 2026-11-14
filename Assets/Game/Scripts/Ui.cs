@@ -86,7 +86,7 @@ namespace NovaBlade
         }
         Button Btn(string text, System.Action onClick, bool primary = true)
         {
-            var b = new Button(onClick) { text = text }; b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced;
+            var b = new Button(() => { Sfx.Play("ui_click", .8f, .04f); onClick?.Invoke(); }) { text = text }; b.style.unityFontDefinition = fontBold; b.style.unityTextGenerator = TextGeneratorType.Advanced;
             b.style.fontSize = (primary ? 30 : 24) * TextK; b.style.color = Color.white; b.style.backgroundColor = primary ? new Color(.78f, .38f, .1f) : new Color(.06f, .14f, .17f, .92f);
             if (primary) { b.style.backgroundImage = new StyleBackground(Grad(new Color(1, .62f, .2f), new Color(.72f, .2f, .06f), true)); Shadow(b, 4, .6f); }
             Border(b, primary ? new Color(1, .84f, .45f) : new Color(.37f, .96f, 1, .55f), 2); b.style.borderTopLeftRadius = b.style.borderTopRightRadius = b.style.borderBottomLeftRadius = b.style.borderBottomRightRadius = 12;
@@ -1678,6 +1678,7 @@ namespace NovaBlade
         // (a slime, a knight's helm, a horned demon), a gold Choose Hero and a violet Close
         public void ShowBattleSettings()
         {
+            if (battleOv == null || battleOv.style.display == DisplayStyle.None) Sfx.Play("ui_open"); else Sfx.Play("ui_select");
             if (battleOv == null)
             {
                 battleOv = Box(new Color(0, 0, 0, .6f)); Abs(battleOv, 0, 0, 0, 0); battleOv.style.alignItems = Align.Center; battleOv.style.justifyContent = Justify.Center; battleOv.pickingMode = PickingMode.Position; root.Add(battleOv);
@@ -1741,7 +1742,15 @@ namespace NovaBlade
             {
                 var c = Box(on ? new Color(.42f, .3f, .1f, .92f) : new Color(.2f, .16f, .38f, .9f), 14);
                 var art = on ? cardOnArt : cardArt;
-                if (art) Slice(c, art, 40, 40, 40, 40); else Border(c, on ? gold : new Color(lilac.r, lilac.g, lilac.b, .45f), on ? 3 : 1.5f);
+                if (art)
+                {   // the frame on a layer behind the content: the chosen card's frame has a glow round it (card_on.png is ~7% bigger than card.png),
+                    // so its layer reaches out by the glow and the gold edge sits where the other cards' edge is (stretched to the card it looked shrunk)
+                    c.style.backgroundColor = Color.clear; Border(c, Color.clear, 0);
+                    var fr = Box(); fr.pickingMode = PickingMode.Ignore; Slice(fr, art, 40, 40, 40, 40);
+                    float gx = on ? 3.5f : 0, gy = on ? 3.6f : 0;   // % of the card: card_on.png is 308x385 against card.png's 288x359 (Unity resizes both on import, so not their sizes)
+                    fr.style.position = Position.Absolute; fr.style.left = fr.style.right = Length.Percent(-gx); fr.style.top = fr.style.bottom = Length.Percent(-gy); c.Add(fr);
+                }
+                else Border(c, on ? gold : new Color(lilac.r, lilac.g, lilac.b, .45f), on ? 3 : 1.5f);
                 if (art) { c.style.paddingLeft = c.style.paddingRight = 12; c.style.paddingBottom = 22; c.style.paddingTop = 6; }   // keep the words off the painted gold edge
                 c.pickingMode = PickingMode.Position; c.style.overflow = Overflow.Visible; return c;
             }
@@ -1939,16 +1948,19 @@ namespace NovaBlade
         }
 
         // ---------- numbers & enemy bars ----------
-        class Num { public Label l; public Vector3 p; public float t; }
+        class Num { public Label l; public Vector3 p; public float t, vx; public bool big; }
         readonly List<Num> numList = new(); readonly Stack<Label> numPool = new(); readonly List<VisualElement> barPool = new();
         public void Number(Vector3 p, string txt, string cls)
         {
             var l = numPool.Count > 0 ? numPool.Pop() : null;
             if (l == null) { l = L("", 30, Color.white, true); l.style.position = Position.Absolute; l.style.unityTextOutlineWidth = .25f; l.style.unityTextOutlineColor = Color.black; nums.Add(l); }
             l.text = txt; l.style.display = DisplayStyle.Flex;
-            l.style.color = cls switch { "crit" => new Color(1, .82f, .23f), "hurt" => new Color(1, .35f, .41f), "heal" => Green, "gold" => Gold, _ => Color.white };
-            l.style.fontSize = (cls == "crit" ? 42 : cls == "gold" ? 24 : 30) * TextK;
-            numList.Add(new Num { l = l, p = p + new Vector3(Random.Range(-.3f, .3f), 0, Random.Range(-.2f, .2f)) });
+            bool crit = cls == "crit", num = txt.Length > 0 && char.IsDigit(txt[0]);
+            l.style.color = cls switch { "crit" => new Color(1, .8f, .2f), "skill" => new Color(.6f, .88f, 1f), "hurt" => new Color(1, .35f, .41f), "heal" => Green, "gold" => Gold, _ => Color.white };
+            l.style.fontSize = (crit ? 48 : cls == "skill" ? 34 : cls == "gold" ? 24 : 30) * TextK;
+            l.style.unityTextOutlineWidth = crit ? .32f : .25f; l.style.unityTextOutlineColor = crit ? new Color(.45f, .12f, 0) : cls == "skill" ? new Color(.02f, .1f, .3f) : Color.black;
+            if (crit && num) l.text = txt + "!";
+            numList.Add(new Num { l = l, p = p + new Vector3(Random.Range(-.3f, .3f), 0, Random.Range(-.2f, .2f)), vx = num ? Random.Range(-40f, 40f) : 0, big = crit });
         }
         public void ClearNums() { foreach (var n in numList) { n.l.style.display = DisplayStyle.None; numPool.Push(n.l); } numList.Clear(); }
         Vector2 ToPanel(Vector3 w) => RuntimePanelUtils.CameraTransformWorldToPanel(root.panel, w, G.cam);
@@ -1962,6 +1974,20 @@ namespace NovaBlade
             var resume = Btn(Loc.S("เล่นต่อ", "Resume"), TogglePause); StyleGold(resume, true); row.Add(resume);
             pauseBagBtn = Btn("", () => OpenFieldBag(), false); StyleGold(pauseBagBtn, false); pauseBagBtn.style.marginLeft = 14; pauseBagText = BagIcon(pauseBagBtn, 40); row.Add(pauseBagBtn);
             var q = Btn(Loc.S("กลับล็อบบี้", "Back to Lobby"), () => { G.BankGold(); TogglePause(); G.LeaveStage(); }, false); pauseBack = q; StyleGold(q, false); q.style.marginLeft = 14; row.Add(q); FrameOrnaments(pb, 120, -20);
+            {   // sound: music and effects, each with - and + (10% steps), kept in the save
+                var vol = Box(); vol.style.marginTop = 22; vol.style.alignItems = Align.Center; pb.Add(vol);
+                void VolRow(string th, string en, System.Func<float> get, System.Action<float> set)
+                {
+                    var r = Box(); r.style.flexDirection = FlexDirection.Row; r.style.alignItems = Align.Center; r.style.marginTop = 8; vol.Add(r);
+                    var n = L(Loc.S(th, en), 26, Ink, true); n.style.width = 180; r.Add(n);
+                    var val = L("", 26, Gold, true); val.style.width = 90; val.style.unityTextAlign = TextAnchor.MiddleCenter;
+                    void Show() => val.text = Mathf.RoundToInt(get() * 100) + "%";
+                    var minus = Btn("-", () => { set(Mathf.Clamp01(Mathf.Round((get() - .1f) * 10) / 10)); Show(); Sfx.Volumes(); G.Persist(); }, false); minus.style.minWidth = 64; r.Add(minus); r.Add(val);
+                    var plus = Btn("+", () => { set(Mathf.Clamp01(Mathf.Round((get() + .1f) * 10) / 10)); Show(); Sfx.Volumes(); G.Persist(); }, false); plus.style.minWidth = 64; r.Add(plus); Show();
+                }
+                VolRow("เพลง", "Music", () => G.save.musicVol, v => G.save.musicVol = v);
+                VolRow("เสียงเอฟเฟกต์", "Effects", () => G.save.sfxVol, v => G.save.sfxVol = v);
+            }
             confirmOv = Box(new Color(0, 0, 0, .7f)); Abs(confirmOv, 0, 0, 0, 0); confirmOv.style.alignItems = Align.Center; confirmOv.style.justifyContent = Justify.Center; confirmOv.pickingMode = PickingMode.Position; root.Add(confirmOv);
             var cb = Box(); GoldPanel(cb); cb.style.alignItems = Align.Center; cb.style.width = 700; confirmOv.Add(cb);
             cb.Add(L(Loc.S("ยืนยันการซื้อ", "Confirm Purchase"), 44, Ink, true)); confirmT = L("", 24, Muted); confirmT.style.whiteSpace = WhiteSpace.Normal; confirmT.style.unityTextAlign = TextAnchor.MiddleCenter; confirmT.style.marginTop = 10; cb.Add(confirmT);
@@ -2020,6 +2046,7 @@ namespace NovaBlade
             again.text = win ? (Loc.En ? $"Stage {G.stage + 1} ▶" : $"ด่าน {G.stage + 1} ▶") : Loc.S("ลองอีกครั้ง", "Try Again");
             if (againAct != null) again.clicked -= againAct; int st = G.stage; againAct = () => G.StartGame(win ? st + 1 : st, win); again.clicked += againAct;
         }
+        public void TestPause() { if (battleOv != null) battleOv.style.display = DisplayStyle.None; TogglePause(); }
         void TogglePause() { if (G.mode != Main.Mode.Game) return; G.paused = !G.paused; UnityEngine.Cursor.lockState = G.soul && !G.paused && !Main.IsPhone ? UnityEngine.CursorLockMode.Locked : UnityEngine.CursorLockMode.None; Time.timeScale = G.paused ? 0 : 1; pauseOv.style.display = G.paused ? DisplayStyle.Flex : DisplayStyle.None; if (G.paused) PauseBagLabel(); }
         void OnApplicationPause(bool p) { if (p && G && G.mode == Main.Mode.Game && !G.paused) TogglePause(); }
 
@@ -2104,8 +2131,11 @@ namespace NovaBlade
             // damage numbers
             for (int i = numList.Count - 1; i >= 0; i--)
             {
-                var n = numList[i]; n.t += dt; var pp = ToPanel(n.p + Vector3.up * n.t * 1.6f);
-                float s = n.t < .12f ? 1.4f - n.t * 3 : 1; n.l.style.left = pp.x - 40; n.l.style.top = pp.y - 20; n.l.style.scale = new Scale(Vector3.one * s); n.l.style.opacity = Mathf.Min(1, (1 - n.t) * 2.5f);
+                var n = numList[i]; n.t += dt; var pp = ToPanel(n.p + Vector3.up * n.t * (n.big ? 1.2f : 1.6f));
+                // a pop in (crits bigger, with a little bounce and shake), a drift to the side, a fade
+                float s = n.big ? (n.t < .1f ? 2.1f - n.t * 9 : n.t < .2f ? 1.2f + (n.t - .1f) * 1.5f : 1.35f) : n.t < .12f ? 1.4f - n.t * 3 : 1;
+                float jx = n.big && n.t < .25f ? Mathf.Sin(n.t * 90) * 4 : 0;
+                n.l.style.left = pp.x - 40 + n.vx * n.t + jx; n.l.style.top = pp.y - 20; n.l.style.scale = new Scale(Vector3.one * s); n.l.style.opacity = Mathf.Min(1, (1 - n.t) * 2.5f);
                 if (n.t > 1) { n.l.style.display = DisplayStyle.None; numPool.Push(n.l); numList.RemoveAt(i); }
             }
             // overhead bars: HP (+ power for heroes); towers and heroes always, other units once hurt

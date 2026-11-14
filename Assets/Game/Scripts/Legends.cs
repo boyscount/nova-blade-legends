@@ -236,6 +236,7 @@ namespace NovaBlade
             legend = l; legendStep = Mathf.Clamp(step, 0, l.steps.Length - 1); legendHardOn = hard;
             legendTheme = new ThemeDef { id = st.theme, name = st.Title, waves = st.waves, boss = st.boss };
             save.hero = l.hero; Persist();
+            Sfx.Music("music_story"); Sfx.Ambience(Sfx.AmbienceOf(st.theme));
             stage = legendStep + 1; SetTheme(Mathf.Max(0, System.Array.FindIndex(Data.Themes, t => t.id == st.theme)));
             kills = 0; gold = 0; time = 0; banked = 0; between = 0; wave = 0;
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); PreloadStage();

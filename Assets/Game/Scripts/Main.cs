@@ -135,7 +135,17 @@ namespace NovaBlade
         public bool lane; public int laneSize = 3; float minionT; readonly bool[] brutesOn = new bool[2];
         public bool soul;   // Soulslike mode (third-person, lock-on, block/parry/stamina) — see SoulController   // lane battle mode (see Lane.cs)
         public int stage = 1, wave, kills, gold, banked;
-        public float time, between, hitStop, shake;
+        public float time, between, hitStop, shake, slowMo, zoomPunch;
+        float feltAt;   // the last hit stop from a hit (so a crowd of hits does not freeze the game)
+        // weight on the player's blows: a crit or a heavy blow stops the game for a few frames and shakes the camera a little
+        public void HitFeel(Foe f, bool crit, bool heavy)
+        {
+            if (!crit && !heavy) return; float now = Time.unscaledTime; if (now - feltAt < .12f) return; feltAt = now;
+            hitStop = Mathf.Max(hitStop, heavy ? .07f : .05f); shake = Mathf.Max(shake, heavy ? .14f : .09f);
+            if (crit && f) Fx.Ring(f.Pos + Vector3.up * .05f, 1.2f, new Color(1f, .85f, .35f), .25f, .08f);
+        }
+        // the ultimate (third skill): a short slow-motion and the camera leaning in
+        public void UltMoment() { slowMo = .32f; zoomPunch = .55f; shake = Mathf.Max(shake, .12f); }
         public readonly List<Foe> foes = new();
         public readonly List<Shot> shots = new();
         readonly List<Drop> drops = new();
@@ -154,6 +164,7 @@ namespace NovaBlade
         [System.Serializable]
         public class Save
         {
+            public float musicVol = .6f, sfxVol = .8f;   // sound (Sfx)
             public string legendProg = "";   // hero legends cleared (Legends.Cleared)
             public string caveDay = "";   // the local date the secret cave's chest was last opened
             public string legendDay = "";   // the local date the lurking legend of the zone was beaten (once per day)
@@ -270,6 +281,8 @@ namespace NovaBlade
             int ent = System.Array.IndexOf(args, "-endtest"); if (ent >= 0 && ent + 1 < args.Length) StartCoroutine(EndTest(args[ent + 1]));
             int pkt = System.Array.IndexOf(args, "-perktest"); if (pkt >= 0 && pkt + 1 < args.Length) StartCoroutine(PerkTest(args[pkt + 1]));
             if (System.Array.IndexOf(args, "-levelcaptest") is int lct and >= 0 && lct + 1 < args.Length) StartCoroutine(LevelCapTest(args[lct + 1]));
+            int fet = System.Array.IndexOf(args, "-feeltest"); if (fet >= 0 && fet + 1 < args.Length) StartCoroutine(FeelTest(args[fet + 1]));
+            int sdt = System.Array.IndexOf(args, "-soundtest"); if (sdt >= 0 && sdt + 1 < args.Length) StartCoroutine(SoundTest(args[sdt + 1]));
             int lgt = System.Array.IndexOf(args, "-legendtest"); if (lgt >= 0 && lgt + 1 < args.Length) StartCoroutine(LegendTest(args[lgt + 1], lgt + 2 < args.Length && !args[lgt + 2].StartsWith("-") ? args[lgt + 2] : "monk"));
             int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1], jgt + 2 < args.Length && args[jgt + 2] == "lane3" ? 3 : 2));
             int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
@@ -1229,6 +1242,49 @@ namespace NovaBlade
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "perks.txt"), log.ToString()); Application.Quit();
         }
         // -jungletest <dir>: the camps come up on time, a camp fights back and leashes home, the player clears the Giant and gets its buff
+        // -feeltest <dir>: the weight of a fight: numbers (plain, skill, crit), hit stop on a heavy blow, the ultimate's slow-motion and zoom, a monster's death burst
+        System.Collections.IEnumerator FeelTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            save.hero = "monk"; StartGame(1); yield return new WaitForSecondsRealtime(1); queue.Clear(); foreach (var f in foes.ToArray()) if (f) { f.alive = false; Destroy(f.gameObject); } foes.Clear();
+            MoveTo(Vector3.zero); hero.face = Mathf.PI; var gs = new List<Foe>(); for (int i = 0; i < 3; i++) gs.Add(SpawnFoe("orc", new Vector3(-1.6f + i * 1.6f, 0, -2.4f)));
+            foreach (var g in gs) { g.maxHp = g.hp = 1e5f; } yield return new WaitForSecondsRealtime(1.2f);
+            gs[0].Damage(120, hero.Pos, new Hit { melee = true }); gs[1].Damage(260, hero.Pos, new Hit { skill = true }); ui.Number(gs[2].Pos + Vector3.up * 2.2f, "512", "crit"); HitFeel(gs[2], true, false);
+            yield return new WaitForSecondsRealtime(.12f); Snap("numbers"); yield return null;
+            gs[0].Damage(150, hero.Pos, new Hit { melee = true, kb = 6 }); yield return null; log.AppendLine($"heavy blow: hit stop {hitStop:0.00} s, timeScale {Time.timeScale:0.00}, shake {shake:0.00}");
+            yield return new WaitForSecondsRealtime(1);
+            hero.mp = hero.mpMax; for (int i = 0; i < 3; i++) hero.cds[i] = 0; ui.skP[2] = true; yield return null; yield return null;
+            log.AppendLine($"ultimate: slowMo {slowMo:0.00} zoomPunch {zoomPunch:0.00} timeScale {Time.timeScale:0.00}"); yield return new WaitForSecondsRealtime(.12f); Snap("ultimate");
+            yield return new WaitForSecondsRealtime(1.5f);
+            foreach (var g in gs) if (g && g.alive) g.Damage(1e7f, hero.Pos, new Hit { melee = true });
+            yield return new WaitForSecondsRealtime(1.15f); Snap("death"); yield return null;
+            yield return new WaitForSecondsRealtime(1); log.AppendLine($"after the deaths: {foes.Count(f => f)} left");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "feel.txt"), log.ToString()); Application.Quit();
+        }
+        // -soundtest <dir>: the sounds the game asks for through a short tour (lobby, settings, a Sky Lanes fight, pause, the end), and the pause menu's volume rows
+        System.Collections.IEnumerator SoundTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            Sfx.Logging = true; Sfx.Asked.Clear();
+            ShowLobby(); yield return new WaitForSecondsRealtime(.5f); ui.ShowBattleSettings(); yield return new WaitForSecondsRealtime(.3f); ui.ShowBattleSettings(); yield return new WaitForSecondsRealtime(.3f);
+            log.AppendLine("lobby: " + string.Join(", ", Sfx.Asked)); Sfx.Asked.Clear();
+            StartLane(3, 2); yield return new WaitForSecondsRealtime(1.5f);
+            var foe = SpawnUnit(Data.Foe("goblin"), hero.Pos + new Vector3(0, 0, -1.5f), 1); yield return new WaitForSecondsRealtime(.6f);
+            for (int i = 0; i < 4; i++) { ui.atkP = true; yield return new WaitForSecondsRealtime(.35f); }
+            hero.mp = hero.mpMax; ui.skP[0] = true; ui.aimDown[0] = true; yield return null; yield return null; ui.aimUp[0] = true; yield return new WaitForSecondsRealtime(1.2f); ui.dodgeP = true; yield return new WaitForSecondsRealtime(.5f);
+            hero.Hurt(10, hero.Pos + Vector3.forward); yield return new WaitForSecondsRealtime(.3f); AddXp(Data.XpFor(3)); yield return new WaitForSecondsRealtime(.5f);
+            log.AppendLine("fight: " + string.Join(", ", Sfx.Asked)); Sfx.Asked.Clear();
+            ui.TestPause(); yield return new WaitForSecondsRealtime(.6f); Snap("pause_volume"); yield return null; yield return null; ui.TestPause();
+            Finish(true); yield return new WaitForSecondsRealtime(3);
+            log.AppendLine("end: " + string.Join(", ", Sfx.Asked)); log.AppendLine($"volumes: music {save.musicVol} effects {save.sfxVol} · clips in Resources/Audio: {Resources.LoadAll<AudioClip>("Audio").Length}");
+            var all = new[] { "music_lobby", "music_story", "music_moba", "music_boss", "music_victory", "music_defeat", "ui_click", "ui_open", "ui_close", "ui_select", "ui_levelup", "ui_perk", "ui_reward", "ui_mvp", "ui_error", "ui_dialogue",
+                "swing", "swing_heavy", "hit_light", "hit_heavy", "hit_crit", "bow_shot", "magic_cast", "magic_hit", "block", "parry", "dodge", "hurt", "hurt_m", "hurt_f", "hero_death", "foe_death", "heal", "shield_up", "slam", "whirl", "cry", "dash", "explode", "boss_roar", "coin", "potion",
+                "tower_shot", "tower_down", "core_down", "recall", "warp", "buff", "guardian", "respawn", "vo_firstblood", "vo_double", "vo_triple", "vo_spree", "vo_tower", "vo_lost_tower", "vo_victory", "vo_defeat", "vo_guardian", "amb_forest", "amb_river", "amb_castle", "amb_town", "amb_sky" };
+            log.AppendLine($"found {all.Count(Sfx.Has)} of {all.Length}; missing: {string.Join(", ", all.Where(x => !Sfx.Has(x)))}");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "sound.txt"), log.ToString()); Application.Quit();
+        }
         // -levelcaptest <dir>: a Sky Lanes match stops levelling at Data.MatchMaxLevel, for the player and the AI
         System.Collections.IEnumerator LevelCapTest(string dir)
         {
@@ -1692,7 +1748,7 @@ namespace NovaBlade
 
         public void ShowLobby()
         {
-            cameFromCity = false; EndLegend();
+            cameFromCity = false; EndLegend(); Sfx.Music("music_lobby"); Sfx.Ambience(null);
             ClearWorld(); mode = Mode.Lobby; paused = false; Time.timeScale = 1; lane = false; soul = false; if (hero && hero.soul) hero.soul.End();
             stage = Mathf.Clamp(save.stage, 1, MaxStage);
             SetTheme(Data.ThemeOf(1)); LobbyNight.Set(true);   // lobby backdrop: the forest at night, whatever stage is picked
@@ -1703,7 +1759,7 @@ namespace NovaBlade
 
         public void StartGame(int st, bool carry = false)
         {
-            Crumb.Mark($"stage {st}: pressed"); EndLegend(); ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
+            Crumb.Mark($"stage {st}: pressed"); EndLegend(); ClearWorld(); Sfx.Music("music_story"); Sfx.Ambience(Sfx.AmbienceOf(Data.Themes[Data.ThemeOf(st)].id)); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
             stage = st; save.stage = st; Persist(); SetTheme(Data.ThemeOf(st)); Crumb.Mark($"stage {st}: scene on");
             if (!carry) { kills = 0; gold = 0; time = 0; banked = 0; }
             between = 0; wave = 0;
@@ -1760,7 +1816,7 @@ namespace NovaBlade
                 between += dt; if (between < 1.8f) return; between = 0;
                 if (wave + 1 < Theme.waves.Length) StartWave(wave + 1);
                 else if (Theme.boss == null) { wave = Theme.waves.Length; Finish(true); }   // a legend step without a boss ends with its last wave
-                else { wave = Theme.waves.Length; ui.Banner(Theme.boss.name, Loc.S("บอสปรากฏตัว!", "The boss appears!")); SpawnBoss(); }
+                else { wave = Theme.waves.Length; ui.Banner(Theme.boss.name, Loc.S("บอสปรากฏตัว!", "The boss appears!")); SpawnBoss(); Sfx.Music("music_boss"); Sfx.Play("boss_roar"); }
             }
         }
 
@@ -1800,6 +1856,7 @@ namespace NovaBlade
             if (lane) Chron(win ? "victory" : "defeat", win ? 0 : 1);
             if (lane) { int was = save.rankPts; rankWas = was; save.rankPts = Mathf.Max(0, save.rankPts + (win ? 25 + (save.aiLevel - 1) * 10 : -15)); var (rn, _, _) = Ui.RankOf(save.rankPts); ui.Banner(win ? Loc.S("ชนะ!", "Victory!") : Loc.S("แพ้", "Defeat"), Loc.S($"แต้มอันดับ {save.rankPts - was:+0;-0} · {rn}", $"Rank points {save.rankPts - was:+0;-0} · {rn}")); }
             Persist();
+            Sfx.Sting(win ? "music_victory" : "music_defeat"); if (lane) Sfx.Play(win ? "vo_victory" : "vo_defeat");
             if (LegendRun) { LegendFinish(win); return; }
             ui.ShowResult(win);
         }
@@ -1908,7 +1965,8 @@ namespace NovaBlade
                 : killer == null ? Loc.S("ถูกประหาร!", "EXECUTED!") : victimIsPlayer ? Loc.S("คุณถูกสังหาร!", "YOU HAVE BEEN SLAIN!") : Loc.S("สังหาร!", "SLAIN!");
             static string Blue(string n) => $"<color=#7fcfff>{n}</color>"; static string Red(string n) => $"<color=#ff7a6e>{n}</color>";   // names in their side's colour
             string vic = victimTeam == 0 ? Blue(victimName) : Red(victimName), kil = killer == null ? null : side == 0 ? Blue(killer) : Red(killer);
-            ui.KillCall(head, kil, vic, Color.white);   // "killer [swords] victim", the swords drawn by the HUD
+            ui.KillCall(head, kil, vic, Color.white);
+            Sfx.Play(first ? "vo_firstblood" : playerKilled && myMulti >= 3 ? "vo_triple" : playerKilled && myMulti == 2 ? "vo_double" : playerKilled && mySpree >= 3 ? "vo_spree" : null);   // "killer [swords] victim", the swords drawn by the HUD
         }
         public int matchXp;   // Sky Lanes: XP of this match only, the hero's level in it (starts at level 1)
         public bool SkyMatch => lane && Lane.Lanes == 2;
@@ -1920,7 +1978,7 @@ namespace NovaBlade
             if (!SkyMatch) foreach (var q in Quests.All) if (q.kind == "level" && q.goal == hero.Level && !Quests.Claimed(save, q)) PickupText(Loc.S("เควสต์สำเร็จ: ", "Quest done: ") + q.name, "crit");
             if (SkyMatch) PerkCheck();
             hero.RefreshGear(); hero.hp = lane ? Mathf.Min(hero.max, hero.hp + hero.max * LaneLevelHeal) : hero.max;   // lane battles (MOBA): the health share is kept, plus a tenth; elsewhere a full heal
-            Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5);
+            Fx.Ring(hero.Pos, 3.5f, new Color(1, .85f, .4f), .7f, .2f); Fx.Burst(hero.Pos + Vector3.up, 40, new Color(1, .85f, .45f), 5); Sfx.Play("ui_levelup");
             ui.Banner(Loc.S($"เลเวล {hero.Level}!", $"LEVEL {hero.Level}!"), Loc.S("พลังชีวิตและพลังโจมตีเพิ่มขึ้น", "More health and attack")); Persist();
         }
         // leaving a stage early keeps the gold picked up so far
@@ -2000,7 +2058,7 @@ namespace NovaBlade
                             case "mana": hero.mp = Mathf.Min(hero.mpMax, hero.mp + 30); PickupText("+30 MP", "heal"); break;
                             case "fury": hero.orbAtkT = 10; PickupText(Loc.S("พลังโจมตี +25%", "ATK +25%"), "crit"); break;
                             case "quick": for (int c = 0; c < 3; c++) hero.cds[c] = Mathf.Max(0, hero.cds[c] - 3); PickupText(Loc.S("สกิลเร็วขึ้น -3 วิ", "Skills -3s"), "crit"); break;
-                            default: int v = Mathf.RoundToInt(d.v * (pet.def != null && pet.def.gold ? 1.5f : 1)); gold += v; goldPend += v; break;
+                            default: int v = Mathf.RoundToInt(d.v * (pet.def != null && pet.def.gold ? 1.5f : 1)); gold += v; goldPend += v; Sfx.Play("coin", .6f, .1f, .08f); break;
                         }
                     }
                 }
@@ -2022,7 +2080,8 @@ namespace NovaBlade
             if (paused || mode == Mode.Load) return;
             // hit stop: a few frames of near-freeze on heavy hits (animators and particles slow down too)
             if (hitStop > 0) hitStop -= dt;
-            Time.timeScale = (hitStop > 0 ? .06f : 1) * TestSpeed;
+            if (slowMo > 0) slowMo -= dt; if (zoomPunch > 0) zoomPunch -= dt;
+            Time.timeScale = (hitStop > 0 ? .06f : slowMo > 0 ? .3f : 1) * TestSpeed;
             if (skyPetals && lane && Lane.Lanes == 2 && hero) skyPetals.position = hero.Pos + new Vector3(0, 6, -7);
             if (mode == Mode.Game) { float gdt = dt * TestSpeed; time += gdt; if (lane) UpdLane(gdt); else if (!city && !wilds && !house && !sky) UpdWaves(gdt); UpdDrops(dt); }   // the match clock and waves follow a test's speed-up too
             for (int i = foes.Count - 1; i >= 0; i--) if (!foes[i]) foes.RemoveAt(i);
@@ -2059,6 +2118,7 @@ namespace NovaBlade
                 if (ms != null && mode == Mode.Game && !ui.PointerOverUi) { float sc = ms.scroll.ReadValue().y; if (Mathf.Abs(sc) > .01f) gameZoom = Mathf.Clamp(gameZoom - Mathf.Sign(sc) * .1f, .6f, 1.8f); }
                 float far = (cam.aspect < 1.3f ? 1.3f : 1) * (boss ? 1.15f : 1) * gameZoom * (lane ? 1.35f : 1);   // lanes: higher and further back so whole towers fit
                 if (hero.dead) far *= .42f;   // death: close in on the fallen hero
+                if (zoomPunch > 0) far *= 1 - .16f * Mathf.Sin(Mathf.Clamp01(zoomPunch / .55f) * Mathf.PI);   // the ultimate: lean in and back
                 // camera height: high (top-down), mid, or low (three-quarter: the top of the screen shows the skyline)
                 int style = lane ? 0 : ViewStyle == 3 ? 3 : stageLook && stageLook.lowCam ? 2 : ViewStyle;
                 var off = style == 3 ? new Vector3(0, 2.6f, 5.6f) : style == 2 ? new Vector3(0, 4.1f, 9.6f) : style == 1 ? new Vector3(0, 6.2f, 8.8f) : new Vector3(0, 8.6f, 7.4f);
@@ -2127,7 +2187,7 @@ namespace NovaBlade
         // lanes: 1 or 3 on the ground maps, 2 = Sky Lanes (the floating 3v3 map, SKY-LANES-3V3.md)
         public void StartLane(int size, int lanes = 1)
         {
-            EndLegend(); if (lanes == 2) { StartSkyLanes(); return; }
+            EndLegend(); Sfx.Music("music_moba"); Sfx.Ambience(lanes == 2 ? "amb_sky" : "amb_forest"); if (lanes == 2) { StartSkyLanes(); return; }
             ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = lanes; Lane.Lanes = lanes;
             kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0; ResetScore();
             SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == (lanes == 3 ? "Stage_lane3" : "Stage_lane")));   // by name: the zone, house and Sky Court come after the lane maps (the phone build leaves some out)
@@ -2231,7 +2291,7 @@ namespace NovaBlade
         {
             if (!lane || mode != Mode.Game) return;
             if (f.d.id == "core") { ui.Banner(f.team == 1 ? Loc.S("ชัยชนะ!", "Victory!") : Loc.S("พ่ายแพ้", "Defeat"), f.team == 1 ? Loc.S("คริสตัลฝ่ายศัตรูถูกทำลาย", "The enemy crystal was destroyed") : Loc.S("คริสตัลของเราถูกทำลาย", "Our crystal was destroyed")); StartCoroutine(After(2.2f, () => Finish(f.team == 1))); }
-            else if (f.d.id == "tower") ui.Banner(f.team == 1 ? Loc.S("ทำลายป้อมศัตรู!", "Enemy tower destroyed!") : Loc.S("ป้อมของเราถูกทำลาย", "Our tower was destroyed"), "");
+            else if (f.d.id == "tower" && Sfx.Speak(f.team == 1 ? "vo_tower" : "vo_lost_tower")) ui.Banner(f.team == 1 ? Loc.S("ทำลายป้อมศัตรู!", "Enemy tower destroyed!") : Loc.S("ป้อมของเราถูกทำลาย", "Our tower was destroyed"), "");
             else if (f.d.kind == "champ") { var def = f.baseDef ?? f.d; int team = f.team, li = f.laneIdx; StartCoroutine(After(Lane.RespawnTime(SkyMatch ? Data.MatchLevel(teamXp[team]) : 1) + 4, () => { if (lane && mode == Mode.Game) { var u = SpawnUnit(def, Lane.SpawnOf(team) + new Vector3(Random.Range(-1.5f, 1.5f), 0, 0), team); if (u) u.laneIdx = li; } })); }
         }
         System.Collections.IEnumerator After(float s, System.Action a) { yield return new WaitForSeconds(s); a(); }

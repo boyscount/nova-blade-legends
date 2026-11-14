@@ -17,12 +17,12 @@ namespace NovaBlade
         public bool StartRecall()
         {
             if (!G.lane || dead || chanKind != null || InBase) return false;
-            chanKind = "recall"; chanT = 0; chanFx = 0; G.Number(Pos + Vector3.up * 2.4f, Loc.S("กำลังกลับบ้าน…", "Recalling…"), "crit"); return true;
+            chanKind = "recall"; chanT = 0; chanFx = 0; Sfx.Play("recall"); G.Number(Pos + Vector3.up * 2.4f, Loc.S("กำลังกลับบ้าน…", "Recalling…"), "crit"); return true;
         }
         public bool StartWarp(Foe tower)
         {
             if (!G.lane || dead || chanKind != null || !InBase || warpCd > 0 || !tower || !tower.alive || tower.team != 0) return false;
-            chanKind = "warp"; chanTower = tower; chanT = 0; chanFx = 0; G.Number(Pos + Vector3.up * 2.4f, Loc.S("กำลังวาป…", "Warping…"), "crit"); return true;
+            chanKind = "warp"; chanTower = tower; chanT = 0; chanFx = 0; Sfx.Play("recall"); G.Number(Pos + Vector3.up * 2.4f, Loc.S("กำลังวาป…", "Warping…"), "crit"); return true;
         }
         public void CancelChannel(bool quiet = false)
         {
@@ -48,6 +48,7 @@ namespace NovaBlade
             transform.position = G.Clamp(to); StopWalk(); G.pet.transform.position = transform.position + new Vector3(1, 0, 1);
             Fx.Ring(Pos, recall ? 3 : 4, col, .6f, .25f); Fx.Burst(Pos + Vector3.up, 60, col, 7, .7f, -.6f, .16f, true); G.shake = Mathf.Max(G.shake, recall ? .1f : .25f);
             if (!recall) warpCd = WarpEvery;
+            Sfx.Play("warp");
             chanKind = null; chanTower = null;
         }
         // beside the tower on our own side of it

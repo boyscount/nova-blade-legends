@@ -153,7 +153,7 @@ namespace NovaBlade
         void ChoosePerk(int k)
         {
             if (perkChosen >= 0 || perkIds == null || k < 0 || k >= perkCards.Count) return;
-            perkChosen = k; perkChooseT = 0;
+            perkChosen = k; perkChooseT = 0; Sfx.Play("ui_perk");
         }
         void AnimChoose(float dt)
         {

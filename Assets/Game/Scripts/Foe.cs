@@ -10,6 +10,7 @@ namespace NovaBlade
         public FoeDef d, baseDef; public BossDef bd; public bool isBoss;   // baseDef: an AI hero's def before the difficulty was applied (respawns start from it)
         public void Spirit(Color c, Color lift) => look?.Spirit(c, lift);
         public Vector3 home; public float leash; bool aggro; const float AggroRange = 10, LoseRange = 22;   // open world: stays around home until the hero comes close or strikes it; leash 0 = always hunts
+        bool soulOut; float deathScale;
         public float hp, maxHp, rad, h, face, slow, pull, stag, burn, burnD, burnT, atkCD, st, t, flash, kx, kz, y;
         public bool alive = true, spawning = true;
         public float poise, poiseMax, brokenT;   // stagger meter: full -> broken (open to a finisher)
@@ -141,12 +142,14 @@ namespace NovaBlade
             if (guarding && !o.byFoe && Mathf.Abs(Main.AngDiff(face, Main.Ang(Main.Flat(from - Pos)))) < 1.5f)
             {   // a raised guard turns blows from the front aside and answers them; a kick or a counter breaks it
                 if (o.poise >= 25 || o.kb >= 5) { guarding = false; G.Number(Pos + Vector3.up * (y + h + .3f), Loc.S("ทำลายการ์ด!", "Guard broken!"), "crit"); Break(); }
-                else { dmg *= .1f; poiseK = .35f; Fx.Burst(Pos + Vector3.up * 1.3f + Main.Dir(face) * .5f, 12, Color.white, 4); G.Number(Pos + Vector3.up * (y + h), Loc.S("กัน!", "Blocked!"), ""); if (bossMode == "guard") Riposte(); }
+                else { dmg *= .1f; poiseK = .35f; Fx.Burst(Pos + Vector3.up * 1.3f + Main.Dir(face) * .5f, 12, Color.white, 4); G.Number(Pos + Vector3.up * (y + h), Loc.S("กัน!", "Blocked!"), ""); Sfx.At("block", Pos); if (bossMode == "guard") Riposte(); }
             }
             bool crit = !o.skill && Random.value < (o.byFoe ? .05f : (o.melee && sw.crit > 0 ? sw.crit : .12f) + hero.CritBonus);
             dmg = Mathf.Round(CombatRules.Current.ModifyDamage(dmg) * (crit ? 1.8f : 1) * (brokenT > 0 ? 1.3f : 1) * Random.Range(.9f, 1.1f)); hp -= dmg; flash = .12f; if (kitHit) hero.KitHit(this, o, dmg);
             if (o.poise > 0 && brokenT <= 0) { poise += CombatRules.Current.ModifyStun(o.poise) * poiseK; if (poise >= poiseMax) Break(); }
-            G.Number(Pos + Vector3.up * (y + h), dmg.ToString(), crit ? "crit" : "");
+            G.Number(Pos + Vector3.up * (y + h), dmg.ToString(), crit ? "crit" : o.skill && !o.byFoe ? "skill" : "");
+            if (!o.byFoe) G.HitFeel(this, crit, o.poise >= 25 || o.kb >= 5);   // the player's blows land with weight (Main.HitFeel)
+            if (!o.byFoe) Sfx.At(crit ? "hit_crit" : o.poise >= 25 || o.kb >= 5 ? "hit_heavy" : !o.melee && !o.skill ? "magic_hit" : "hit_light", Pos, 1, .06f);   // the player's blows
             if (o.melee && sw.slow) slow = 2; if (o.slow > 0) slow = Mathf.Max(slow, o.slow);
             if (o.melee && sw.burn != null) { burn = 3; burnD = dmg * .14f; burnC = sw.burn == "poison" ? new Color(.6f, 1, .35f) : new Color(1, .48f, .06f); }
             if (o.melee && sw.steal > 0) hero.Heal(dmg * sw.steal, true);
@@ -167,8 +170,9 @@ namespace NovaBlade
         void Kill()
         {
             if (camp != null) Jungle.Down(this);
+            Sfx.At(d.id == "core" ? "core_down" : d.kind == "tower" ? "tower_down" : isBoss ? "boss_roar" : "foe_death", Pos, d.kind == "tower" || isBoss ? 1 : .7f, .1f);
             if (G.lane && d.kind == "tower" && team is 0 or 1) { G.sideTowers[1 - team]++; if (G.sideTowers[1 - team] == 1) G.Chron("tower", 1 - team); if (Time.time - lastByMe < 2 && G.hero) G.Stat(G.hero.def.name, 0, true).towers++; }
-            alive = false; s = S.Dead; st = 0; if (d.kind == "champ") G.HeroKilled(Pos, team, d.name, false); G.TeamXp(1 - team, isBoss ? Data.BossXp : d.gold); if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
+            alive = false; s = S.Dead; st = 0; flash = .25f; deathScale = transform.localScale.x; if (d.kind == "champ") G.HeroKilled(Pos, team, d.name, false); G.TeamXp(1 - team, isBoss ? Data.BossXp : d.gold); if (team == 1) { G.kills++; G.QuestBump("kill"); if (isBoss) G.QuestBump("boss"); if (G.hero && !G.hero.dead) G.AddXp(isBoss ? Data.BossXp : d.gold); if (G.hero && !G.hero.dead) G.save.AddMastery(G.hero.sword.id, isBoss ? Data.BossMasteryXp : 1); }   // mastery for the weapon in hand
             Fx.Burst(Pos + Vector3.up * h * .5f, isBoss ? 140 : 26, isBoss ? bd.color : new Color(1, .48f, .29f), isBoss ? 10 : 6);
             Fx.Dust(Pos, isBoss ? 1.8f : .8f, isBoss ? 26 : 10); Fx.Burst(Pos + Vector3.up * h * .45f, isBoss ? 40 : 14, new Color(1, .55f, .25f), isBoss ? 6 : 4, .45f, 1.6f, .08f);
             if (team == 1) G.DropLoot(Pos, isBoss, d.gold);
@@ -203,6 +207,11 @@ namespace NovaBlade
                 if (d.kind == "tower") transform.position += Vector3.down * dt * 3;
                 else if (!clipAnim && !anim) { transform.localScale = Vector3.one * Mathf.Max(.01f, 1 - k); transform.Rotate(0, dt * 570, 0); transform.position += Vector3.up * dt; }
                 else if (k > .7f) transform.position += Vector3.down * dt * .8f;
+                else if (k > .62f && !isBoss && d.kind != "tower")
+                {   // animated monsters: after the fall, a burst of light and they shrink away instead of sinking through the floor
+                    if (!soulOut) { soulOut = true; Fx.Burst(Pos + Vector3.up * h * .4f, 26, Color.Lerp(new Color(1f, .85f, .55f), Color.white, .3f), 3.5f, .6f, -1.6f, .12f, true); Fx.Ring(Pos + Vector3.up * .05f, 1.6f * Mathf.Max(.6f, d.scale), new Color(1f, .8f, .45f), .45f, .12f); }
+                    transform.localScale = Vector3.one * Mathf.Max(.01f, (1 - k) / .38f) * (deathScale > 0 ? deathScale : 1);
+                }
                 if (k >= 1 && !isBoss) Destroy(gameObject); else if (k >= 1) gameObject.SetActive(false);
                 return;
             }
@@ -297,6 +306,7 @@ namespace NovaBlade
                 if (d.id == "siege" && tgt is Foe ttw && ttw.d.kind == "tower") dmg *= Lane.SiegeVsTower;
                 var from = Pos + (tower ? Vector3.up * Lane.TopY : Vector3.up + Main.Dir(face) * .5f);
                 var dir = (tgt.Pos + Vector3.up - from).normalized;
+                if (tower) Sfx.At("tower_shot", Pos, .8f, .15f);
                 Shot.Fire(from, dir * (tower ? 16 : 9), dmg, tower ? Lane.TeamColor(team) / 2.2f : new Color(1, .42f, .12f), tower ? "big" : "orb", 2.5f, enemy: team == 1, trail: true, byFoe: true);
             }
         }

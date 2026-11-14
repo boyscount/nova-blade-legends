@@ -272,7 +272,7 @@ namespace NovaBlade
         {
             if (dead || potCD > 0 || G.save.potions <= 0 || G.mode != Main.Mode.Game || G.lane) return;   // no potions in lane battles (MOBA): health comes back at the base and on level-ups
             if (G.sky) { if (G.duelPotions <= 0) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("ยาในศึกหมดแล้ว", "No potions left this duel"), "hurt"); return; } G.duelPotions--; G.Number(Pos + Vector3.up * 2.6f, Loc.S($"ยาเหลือ {G.duelPotions}", $"{G.duelPotions} left"), "heal"); }   // a duel allows a few
-            G.save.potions--; potCD = 3; Heal(max * .35f); Fx.Burst(Pos + Vector3.up, 26, new Color(1, .35f, .4f), 4); Fx.Spawn("mx_heal_circle", Pos + Vector3.up * .05f, .8f, 1.2f); G.Persist();
+            G.save.potions--; potCD = 3; Sfx.Play("potion"); Heal(max * .35f); Fx.Burst(Pos + Vector3.up, 26, new Color(1, .35f, .4f), 4); Fx.Spawn("mx_heal_circle", Pos + Vector3.up * .05f, .8f, 1.2f); G.Persist();
         }
         // off-hand: a second owned weapon swapped in mid-fight (X on PC, the swap button on phones); a short cooldown
         public bool offActive; float swapCD;
@@ -332,6 +332,7 @@ namespace NovaBlade
         public void Hurt(float dmg, Vector3 from)
         {
             if (inv > 0 || dead || G.mode != Main.Mode.Game) return;
+            Sfx.Play(Sfx.Has(def.female ? "hurt_f" : "hurt_m") ? (def.female ? "hurt_f" : "hurt_m") : "hurt", .9f, .08f, .3f);   // a voice for the hero's sex when there is one
             if (G.soul && soul) { dmg = soul.Intercept(dmg, from); if (dmg <= 0) return; }
             if (Perk("armor")) dmg *= Perks.ArmorK;
             CancelChannel();   // a hit stops a recall or a warp
@@ -361,12 +362,12 @@ namespace NovaBlade
             Play("death", .1f, 1.1f, 1.4f); Fx.Dust(Pos, .9f, 12);
             if (G.lane) { G.HeroKilled(Pos, 0, def.name, true); float back = Lane.RespawnTime(Level); G.respawnAt = Time.time + back; Invoke(nameof(Respawn), back); } else Invoke(nameof(Lose), 2.6f);
         }
-        void Lose() { if (G.mode != Main.Mode.Game) return; if (G.wilds || G.house || G.sky) G.FallInZone(); else G.Finish(false); }
+        void Lose() { if (G.mode != Main.Mode.Game) return; Sfx.Play("hero_death"); if (G.wilds || G.house || G.sky) G.FallInZone(); else G.Finish(false); }
         // lane mode: back at our base after a short wait
         void Respawn()
         {
             if (!G.lane || G.mode != Main.Mode.Game) return;
-            transform.position = Lane.SpawnOf(0); dead = false; hp = max; inv = 2; state = St.Idle; Play("idle", .05f);
+            transform.position = Lane.SpawnOf(0); dead = false; hp = max; inv = 2; state = St.Idle; Play("idle", .05f); Sfx.Play("respawn");
             Fx.Ring(Pos, 2, Lane.TeamColor(0) / 2.2f, .6f); G.ui.Banner(Loc.S("กลับสู่สนาม", "Back in the fight"), "");
         }
 
@@ -376,7 +377,7 @@ namespace NovaBlade
             if (def.ranged)
             {   // archers draw and loose, casters alternate one- and two-hand casts; the shot leaves at ht
                 AimAuto(11); float rd = (i == 2 ? .8f : .55f) / WSpd;
-                atk = (i, 0, rd, rd * .5f, false); inAtk = true; state = St.Atk; buf = 0;
+                atk = (i, 0, rd, rd * .5f, false); inAtk = true; state = St.Atk; buf = 0; Sfx.Play(def.ranged ? "bow_shot" : "swing", .8f);
                 Play(def.cls == "archer" ? (i == 2 ? "bowdraw" : "bowshot") : i == 2 ? "cast2" : "cast1", .06f, 1.25f * WSpd); return;
             }
             AimAuto(5); float ts = 1.3f * WSpd;
@@ -388,7 +389,7 @@ namespace NovaBlade
                 d = (end - from) / ts; ht = (c.hit - from) / ts;
             }
             else { d = new[] { .42f, .42f, .56f }[i] / WSpd; ht = d * .45f; }
-            atk = (i, 0, d, ht, false); inAtk = true; state = St.Atk; buf = 0;
+            atk = (i, 0, d, ht, false); inAtk = true; state = St.Atk; buf = 0; Sfx.Play(def.ranged ? "bow_shot" : i >= 2 ? "swing_heavy" : "swing", .8f);
             Play("atk" + i, .06f, ts, from);
         }
         void MeleeHit(int i)
@@ -447,7 +448,7 @@ namespace NovaBlade
             else for (int i = 0; i < 3; i++) if (ui.skP[i])
             {
                 ui.skP[i] = false; if (i >= G.SkillsOpen || cds[i] > 0 || state == St.Skill || state == St.Dodge) continue;   // a legend opens the skills one stage at a time
-                float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); continue; }
+                float cost = SkillCost(Data.Skill(def.skills[i]).cd); if (mp < cost) { G.Number(Pos + Vector3.up * 2.2f, Loc.S("พลังไม่พอ", "Not enough power"), "hurt"); Sfx.Play("ui_error", 1, 0, .4f); continue; }
                 mp -= cost; CastSkill(i);
             }
             if (G.city) { ui.atkP = ui.dodgeP = false; for (int i = 0; i < ui.skP.Length; i++) ui.skP[i] = false; }   // nobody fights in the city
@@ -550,14 +551,14 @@ namespace NovaBlade
         void StartDodge(Vector2 mv)
         {
             float a = mv.magnitude > .2f ? Mathf.Atan2(mv.x, mv.y) : face; face = a; dodgeDir = new Vector2(Mathf.Sin(a), Mathf.Cos(a)); dodgeT = 0;
-            dodgeCD = DodgeCd; inv = Mathf.Max(inv, DodgeTime + .03f); inAtk = false; state = St.Dodge;
+            dodgeCD = DodgeCd; inv = Mathf.Max(inv, DodgeTime + .03f); inAtk = false; state = St.Dodge; Sfx.Play("dodge");
             Play("roll", .04f, 2.2f, .93f); Fx.Burst(Pos + Vector3.up * .5f, 14, new Color(.62f, .9f, 1), 3, .5f, 1, .14f, true);
         }
 
         // ---------- skills ----------
         void CastSkill(int i)
         {
-            skillId = def.skills[i]; cds[i] = Data.Skill(skillId).cd; inAtk = false; AimAuto(9); state = St.Skill;
+            skillId = def.skills[i]; cds[i] = Data.Skill(skillId).cd; inAtk = false; AimAuto(9); state = St.Skill; Sfx.Play(Sfx.SkillSound(skillId)); if (i == 2) G.UltMoment();
             skillCo = StartCoroutine(Run(skillId));
         }
         IEnumerator Run(string id)

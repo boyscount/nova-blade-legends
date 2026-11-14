@@ -179,10 +179,10 @@ namespace NovaBlade
                     if (attacker) attacker.Parried();
                     counterT = 1.2f; stamina = Mathf.Min(staminaMax, stamina + 10); G.hitStop = .14f; G.shake = .2f;
                     Fx.Burst(h.Pos + Vector3.up * 1.3f + Main.Dir(h.face) * .6f, 30, new Color(1, .9f, .5f), 7); Fx.Spawn("hit_yellow", h.Pos + Vector3.up * 1.3f + Main.Dir(h.face) * .6f, 1, 2);
-                    G.Number(h.Pos + Vector3.up * 2.2f, Loc.S("ปัดป้อง!", "Parry!"), "crit"); h.PlayAnim("blockhit", .04f, 1.4f); loop = null;
+                    Sfx.Play("parry"); G.Number(h.Pos + Vector3.up * 2.2f, Loc.S("ปัดป้อง!", "Parry!"), "crit"); h.PlayAnim("blockhit", .04f, 1.4f); loop = null;
                     return 0;
                 }
-                stamina -= dmg * .35f; regenWait = .9f; h.PlayAnim("blockhit", .04f, 1.3f); loop = null; Fx.Burst(h.Pos + Vector3.up * 1.2f + Main.Dir(h.face) * .5f, 10, Color.white, 4);
+                Sfx.Play("block"); stamina -= dmg * .35f; regenWait = .9f; h.PlayAnim("blockhit", .04f, 1.3f); loop = null; Fx.Burst(h.Pos + Vector3.up * 1.2f + Main.Dir(h.face) * .5f, 10, Color.white, 4);
                 if (stamina <= 0) { stamina = 0; act = Act.GuardBreak; t = 0; dur = 1.1f; h.PlayAnim("hurt", .05f, 1); G.Number(h.Pos + Vector3.up * 2.2f, Loc.S("การ์ดแตก!", "Guard broken!"), "hurt"); return dmg * .5f; }
                 return dmg * .15f;
             }

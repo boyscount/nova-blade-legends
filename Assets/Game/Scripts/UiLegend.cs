@@ -46,6 +46,7 @@ namespace NovaBlade
         {
             if (!first && Time.unscaledTime - dlgShown < .25f) return;   // the tap that opened it, or a double tap, does not skip a line
             dlgAt++; if (dlgLines == null || dlgAt >= dlgLines.Length) { CloseDialogue(); return; }
+            if (!first) Sfx.Play("ui_dialogue", .7f);
             var ln = dlgLines[dlgAt]; var h = System.Array.Find(Data.Heroes, x => x.id == ln.who);
             dlgName.text = h != null ? h.name : ln.who; dlgText.text = ln.Text; dlgShown = Time.unscaledTime;
             var tex = Resources.Load<Texture2D>("UI/Cards/hero_" + ln.who);
@@ -67,7 +68,7 @@ namespace NovaBlade
             if (legOv == null) BuildLegends();
             int mine = System.Array.FindIndex(Legends.All, x => x.hero == G.save.hero); if (mine >= 0) legSel = mine;   // the hero in play first
             var l = LegSel; if (legHard && Legends.Cleared(G.save, l, false) < l.steps.Length) legHard = false;
-            RenderLegends(); legOv.style.display = DisplayStyle.Flex; legOv.BringToFront();
+            RenderLegends(); legOv.style.display = DisplayStyle.Flex; legOv.BringToFront(); Sfx.Play("ui_open");
         }
         public void CloseLegends() { if (legOv != null) legOv.style.display = DisplayStyle.None; }
         public bool LegendsOpen => legOv != null && legOv.style.display == DisplayStyle.Flex;
