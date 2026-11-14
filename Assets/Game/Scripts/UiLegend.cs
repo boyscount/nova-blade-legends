@@ -39,6 +39,7 @@ namespace NovaBlade
         public void Dialogue(Legends.Line[] lines, System.Action done)
         {
             if (dlgOv == null) BuildDialogue();
+            if (CurtainUp) { root.schedule.Execute(() => Dialogue(lines, done)).StartingIn(150); return; }   // after the title card has lifted (UiFlow)
             if (lines == null || lines.Length == 0) { done?.Invoke(); return; }
             dlgLines = lines; dlgAt = -1; dlgDone = done; dlgOv.style.display = DisplayStyle.Flex; dlgOv.BringToFront(); NextLine(true);
         }

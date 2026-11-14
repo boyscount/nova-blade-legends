@@ -30,7 +30,7 @@ namespace NovaBlade
         UIDocument doc; VisualElement root, lobby, hud, pauseOv, resultOv, cards, nums, bars, joyBase, joyKnob, joyZone, bossW, bossFill, hpFill, mini, banner, buffs;
         Label heroT, heroN, heroD, detail, goldL, goldH, waveT, waveT2, waveT3, hpT, hudName, bossN, bannerA, bannerB, resH, resS, resK, resG, resT, petN;
         VisualElement[] stats; readonly VisualElement[] sk = new VisualElement[5]; VisualElement porImg, petImg; Button again;
-        FontDefinition font, fontBold; string tab = "hero";
+        FontDefinition font, fontBold, fontTitle, fontTitleEn; string tab = "hero";   // titles (premium plan step 4): Taviraj Bold for Thai, Cinzel Bold for English (Resources/Fonts, OFL)
         Main G => Main.G;
         public bool touchUi; float J = 1;
         // control schemes: phones = joystick + big buttons; web on a PC = right-click to move, Q W E skills, R / Space dodge (MOBA style);
@@ -42,11 +42,13 @@ namespace NovaBlade
         public float TextK => touchUi ? 1.25f : 1.15f;
         Label L(string t, float size, Color c, bool bold = false)
         {
-            var l = new Label(t); l.style.unityFontDefinition = bold ? fontBold : font; l.style.unityTextGenerator = TextGeneratorType.Advanced;
+            var l = new Label(t); l.style.unityFontDefinition = bold ? (size >= 36 ? TitleFont(t) : fontBold) : font; l.style.unityTextGenerator = TextGeneratorType.Advanced;
             // the small print grows; big titles stay as they were
             l.style.fontSize = size * (size >= 40 ? 1 : TextK); l.style.color = c; l.pickingMode = PickingMode.Ignore; l.style.marginLeft = l.style.marginRight = l.style.marginTop = l.style.marginBottom = 0;
             l.style.paddingLeft = l.style.paddingRight = l.style.paddingTop = l.style.paddingBottom = 0; return l;
         }
+        // big bold words are titles: Cinzel for Latin text (it has no Thai), Taviraj otherwise
+        FontDefinition TitleFont(string t) { foreach (char c in t ?? "") if (c >= '฀' && c <= '๿') return fontTitle; return fontTitleEn; }
         static VisualElement Box(Color? bg = null, float radius = 0)
         {
             var v = new VisualElement(); v.pickingMode = PickingMode.Ignore; if (bg.HasValue) v.style.backgroundColor = bg.Value;
@@ -97,6 +99,7 @@ namespace NovaBlade
         {
             font = FontDefinition.FromFont(Resources.Load<Font>("Fonts/Mali-SemiBold"));
             fontBold = FontDefinition.FromFont(Resources.Load<Font>("Fonts/Mali-Bold"));
+            var tv = Resources.Load<Font>("Fonts/Taviraj-Bold"); var cz = Resources.Load<Font>("Fonts/Cinzel-Bold"); fontTitle = tv ? FontDefinition.FromFont(tv) : fontBold; fontTitleEn = cz ? FontDefinition.FromFont(cz) : fontTitle;
             doc = gameObject.AddComponent<UIDocument>(); doc.panelSettings = Resources.Load<PanelSettings>("UI/Panel");
             root = doc.rootVisualElement; root.pickingMode = PickingMode.Ignore; Abs(root, 0, 0, 0, 0);
             if (Resources.Load<StyleSheet>("UI/Theme") is StyleSheet theme) root.styleSheets.Add(theme);   // scroll bars in the game's gold theme
@@ -2067,6 +2070,7 @@ namespace NovaBlade
         float dragX; bool dragging;
         void Update()
         {
+            UpdFlow(Time.unscaledDeltaTime);   // the curtain and the splash (UiFlow)
             if (fpsT >= 0) CountFps(); UpdVs(Time.unscaledDeltaTime); UpdPerks(Time.deltaTime); UpdTravel(); UpdEnd(Time.unscaledDeltaTime);
             if (skillOv != null && G && G.mode != Main.Mode.Lobby && skillOv.style.display == DisplayStyle.Flex) skillOv.style.display = DisplayStyle.None;   // never over a fight
             if (bagOv != null && G && G.mode != Main.Mode.Lobby && !G.city && bagOv.style.display == DisplayStyle.Flex) ShowBag(false);

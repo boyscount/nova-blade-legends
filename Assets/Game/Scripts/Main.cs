@@ -233,8 +233,9 @@ namespace NovaBlade
             pet = new GameObject("Pet").AddComponent<Pet>();
             ui = gameObject.AddComponent<Ui>();
             ShowLobby();
-            var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-novashot");
-            if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
+            var args = System.Environment.GetCommandLineArgs();
+            if (!System.Array.Exists(args, a => a.StartsWith("-") && !a.StartsWith("-screen") && !a.StartsWith("-force") && !a.StartsWith("-logFile") && a != "-fps")) ui.Splash();   // the opening logo (not in test runs) int ai = System.Array.IndexOf(args, "-novashot");
+            int ai = System.Array.IndexOf(args, "-novashot"); if (ai >= 0 && ai + 1 < args.Length) StartCoroutine(AutoShot(args[ai + 1]));
             int ci = System.Array.IndexOf(args, "-clip"); if (ci >= 0 && ci + 1 < args.Length) StartCoroutine(Clip(args[ci + 1]));
             int sc = System.Array.IndexOf(args, "-storyclip"); if (sc >= 0 && sc + 1 < args.Length) StartCoroutine(StoryClip(args[sc + 1]));
             int kt = System.Array.IndexOf(args, "-skilltest"); if (kt >= 0 && kt + 1 < args.Length) StartCoroutine(SkillTest(args[kt + 1]));
@@ -281,6 +282,7 @@ namespace NovaBlade
             int ent = System.Array.IndexOf(args, "-endtest"); if (ent >= 0 && ent + 1 < args.Length) StartCoroutine(EndTest(args[ent + 1]));
             int pkt = System.Array.IndexOf(args, "-perktest"); if (pkt >= 0 && pkt + 1 < args.Length) StartCoroutine(PerkTest(args[pkt + 1]));
             if (System.Array.IndexOf(args, "-levelcaptest") is int lct and >= 0 && lct + 1 < args.Length) StartCoroutine(LevelCapTest(args[lct + 1]));
+            int flt = System.Array.IndexOf(args, "-flowtest"); if (flt >= 0 && flt + 1 < args.Length) StartCoroutine(FlowTest(args[flt + 1]));
             int fet = System.Array.IndexOf(args, "-feeltest"); if (fet >= 0 && fet + 1 < args.Length) StartCoroutine(FeelTest(args[fet + 1]));
             int sdt = System.Array.IndexOf(args, "-soundtest"); if (sdt >= 0 && sdt + 1 < args.Length) StartCoroutine(SoundTest(args[sdt + 1]));
             int lgt = System.Array.IndexOf(args, "-legendtest"); if (lgt >= 0 && lgt + 1 < args.Length) StartCoroutine(LegendTest(args[lgt + 1], lgt + 2 < args.Length && !args[lgt + 2].StartsWith("-") ? args[lgt + 2] : "monk"));
@@ -1242,6 +1244,19 @@ namespace NovaBlade
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "perks.txt"), log.ToString()); Application.Quit();
         }
         // -jungletest <dir>: the camps come up on time, a camp fights back and leashes home, the player clears the Giant and gets its buff
+        // -flowtest <dir>: the opening splash, the title cards going into a story stage, a legend chapter and a MOBA match, the lobby with the title fonts
+        System.Collections.IEnumerator FlowTest(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(2);
+            void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
+            ui.Splash(); yield return new WaitForSecondsRealtime(1.6f); Snap("splash"); yield return null; log.AppendLine($"splash on {ui.SplashOn}"); yield return new WaitForSecondsRealtime(2.2f); log.AppendLine($"splash after 3.8 s: on {ui.SplashOn}");
+            Snap("lobby"); yield return new WaitForSecondsRealtime(.5f);
+            StartGame(2); yield return new WaitForSecondsRealtime(.5f); Snap("card_stage"); yield return null; log.AppendLine($"stage card up {ui.CurtainUp}"); yield return new WaitForSecondsRealtime(1.6f); log.AppendLine($"stage card after 2.1 s: up {ui.CurtainUp}");
+            StartLegend(Legends.Leon, 1, false); yield return new WaitForSecondsRealtime(.5f); Snap("card_legend"); yield return null; yield return new WaitForSecondsRealtime(2); while (ui.DialogueOpen) { ui.TestDialogueNext(); yield return null; }
+            save.laneMode = 3; StartLane(3, 2); yield return new WaitForSecondsRealtime(.5f); Snap("card_moba"); yield return null;
+            ShowLobby(); yield return new WaitForSecondsRealtime(1.2f); ui.ShowBattleSettings(); yield return new WaitForSecondsRealtime(.6f); Snap("titles"); yield return null;
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "flow.txt"), log.ToString()); Application.Quit();
+        }
         // -feeltest <dir>: the weight of a fight: numbers (plain, skill, crit), hit stop on a heavy blow, the ultimate's slow-motion and zoom, a monster's death burst
         System.Collections.IEnumerator FeelTest(string dir)
         {
@@ -1748,7 +1763,7 @@ namespace NovaBlade
 
         public void ShowLobby()
         {
-            cameFromCity = false; EndLegend(); Sfx.Music("music_lobby"); Sfx.Ambience(null);
+            cameFromCity = false; EndLegend(); Sfx.Music("music_lobby"); Sfx.Ambience(null); ui?.Curtain();
             ClearWorld(); mode = Mode.Lobby; paused = false; Time.timeScale = 1; lane = false; soul = false; if (hero && hero.soul) hero.soul.End();
             stage = Mathf.Clamp(save.stage, 1, MaxStage);
             SetTheme(Data.ThemeOf(1)); LobbyNight.Set(true);   // lobby backdrop: the forest at night, whatever stage is picked
@@ -1759,7 +1774,7 @@ namespace NovaBlade
 
         public void StartGame(int st, bool carry = false)
         {
-            Crumb.Mark($"stage {st}: pressed"); EndLegend(); ClearWorld(); Sfx.Music("music_story"); Sfx.Ambience(Sfx.AmbienceOf(Data.Themes[Data.ThemeOf(st)].id)); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
+            Crumb.Mark($"stage {st}: pressed"); EndLegend(); ClearWorld(); ui.Curtain(Data.Themes[Data.ThemeOf(st)].name, Loc.S($"ด่าน {st}", $"STAGE {st}"), true); Sfx.Music("music_story"); Sfx.Ambience(Sfx.AmbienceOf(Data.Themes[Data.ThemeOf(st)].id)); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = false; soul = false; ClearPreview();
             stage = st; save.stage = st; Persist(); SetTheme(Data.ThemeOf(st)); Crumb.Mark($"stage {st}: scene on");
             if (!carry) { kills = 0; gold = 0; time = 0; banked = 0; }
             between = 0; wave = 0;
@@ -2187,7 +2202,7 @@ namespace NovaBlade
         // lanes: 1 or 3 on the ground maps, 2 = Sky Lanes (the floating 3v3 map, SKY-LANES-3V3.md)
         public void StartLane(int size, int lanes = 1)
         {
-            EndLegend(); Sfx.Music("music_moba"); Sfx.Ambience(lanes == 2 ? "amb_sky" : "amb_forest"); if (lanes == 2) { StartSkyLanes(); return; }
+            EndLegend(); ui.Curtain(lanes == 2 ? Loc.S("สนามรบลอยฟ้า", "Sky Lanes") : lanes == 3 ? Loc.S("สนามรบ 3 เลน", "Three Lanes") : Loc.S("สนามรบเลนเดียว", "Lane Battle"), Loc.S($"MOBA · {size} ต่อ {size}", $"MOBA · {size} VS {size}"), true); Sfx.Music("music_moba"); Sfx.Ambience(lanes == 2 ? "amb_sky" : "amb_forest"); if (lanes == 2) { StartSkyLanes(); return; }
             ClearWorld(); mode = Mode.Game; paused = false; Time.timeScale = 1; lane = true; soul = false; ClearPreview(); laneSize = size; laneCount = lanes; Lane.Lanes = lanes;
             kills = 0; gold = 0; time = 0; banked = 0; minionT = 3; wave = 0; ResetScore();
             SetTheme(System.Array.FindIndex(stageRoots, r => r && r.name == (lanes == 3 ? "Stage_lane3" : "Stage_lane")));   // by name: the zone, house and Sky Court come after the lane maps (the phone build leaves some out)

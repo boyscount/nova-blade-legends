@@ -236,7 +236,7 @@ namespace NovaBlade
             legend = l; legendStep = Mathf.Clamp(step, 0, l.steps.Length - 1); legendHardOn = hard;
             legendTheme = new ThemeDef { id = st.theme, name = st.Title, waves = st.waves, boss = st.boss };
             save.hero = l.hero; Persist();
-            Sfx.Music("music_story"); Sfx.Ambience(Sfx.AmbienceOf(st.theme));
+            Sfx.Music("music_story"); Sfx.Ambience(Sfx.AmbienceOf(st.theme)); ui.Curtain(st.Title, Loc.S($"{l.th} · บทที่ {legendStep + 1}", $"{l.en.ToUpperInvariant()} · CHAPTER {legendStep + 1}"), true);
             stage = legendStep + 1; SetTheme(Mathf.Max(0, System.Array.FindIndex(Data.Themes, t => t.id == st.theme)));
             kills = 0; gold = 0; time = 0; banked = 0; between = 0; wave = 0;
             hero.Equip(); pet.Equip(); hero.ResetForGame(); pet.ResetForGame(); PreloadStage();
@@ -275,7 +275,7 @@ namespace NovaBlade
             var l = Legends.For(heroId) ?? Legends.Ming; log.AppendLine($"legend {l.en} ({l.hero})");
             for (int k = 0; k < l.steps.Length; k++)
             {
-                StartLegend(l, k, false); yield return new WaitForSecondsRealtime(1.2f);
+                StartLegend(l, k, false); yield return new WaitForSecondsRealtime(2.4f);   // the title card first, then the dialogue
                 log.AppendLine($"chapter {k + 1} {l.steps[k].en}: hero {hero.def.id} · skills open {SkillsOpen} · paused {paused} · dialogue \"{ui.TestDialogueText}\"");
                 if (k == 0 || k == 3) Snap($"dlg{k + 1}");
                 int guard = 0; while (ui.DialogueOpen && guard++ < 20) { ui.TestDialogueNext(); yield return null; }
@@ -297,13 +297,14 @@ namespace NovaBlade
                 yield return new WaitForSecondsRealtime(.6f); if (k == 3) Snap("result4"); log.AppendLine($"  progress {save.legendProg} gold {save.gold}");
             }
             ui.TestOpenLegends(true, System.Array.IndexOf(Legends.All, l)); yield return new WaitForSecondsRealtime(.8f); Snap("picker_hard"); yield return null; yield return null; ui.CloseLegends();
-            StartLegend(l, 3, true); yield return new WaitForSecondsRealtime(.5f); while (ui.DialogueOpen) { ui.TestDialogueNext(); yield return null; }
+            StartLegend(l, 3, true); yield return new WaitForSecondsRealtime(2.4f); while (ui.DialogueOpen) { ui.TestDialogueNext(); yield return null; }
             foreach (var f in foes.ToList()) if (f && f.alive) f.Damage(1e7f, hero.Pos); TestSpeed = 3; float r1 = Time.realtimeSinceStartup;
             while (!boss && Time.realtimeSinceStartup - r1 < 30) { foreach (var f in foes.ToList()) if (f && f.alive && !f.spawning && f.team == 1) f.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(.3f); }
             TestSpeed = 1; log.AppendLine($"hard boss: {(boss ? $"hp {boss.maxHp:0} dmg {boss.d.dmg:0}" : "none")} · potion button hidden {legendHard}");
             var mh = System.Array.Find(Data.Heroes, x => x.id == heroId); int li = Enumerable.Range(0, Data.SkinCount(mh)).FirstOrDefault(i => Data.ModelOf(mh, i).EndsWith("_legend"));
             string lk = $"{heroId}:{li}"; log.AppendLine($"legend skin {Data.ModelOf(mh, li)} owned before {Shop.Owns(ItemKind.HeroSkin, lk)} · buy refused {!Shop.Buy(ItemKind.HeroSkin, lk, out var bm)} ({bm}) · leon legend free {Shop.Owns(ItemKind.HeroSkin, "spartan:" + Enumerable.Range(0, Data.SkinCount(System.Array.Find(Data.Heroes, x => x.id == "spartan"))).First(i => Data.ModelOf(System.Array.Find(Data.Heroes, x => x.id == "spartan"), i).EndsWith("_legend")))}");
-            if (boss) { boss.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(3); int g2 = 0; while (ui.DialogueOpen && g2++ < 20) { ui.TestDialogueNext(); yield return null; } }
+            if (boss) { for (int tries = 0; tries < 20 && boss && boss.alive; tries++) { boss.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(.2f); }   // a duelling boss may be mid-sidestep (no damage then)
+                yield return new WaitForSecondsRealtime(3); int g2 = 0; while (ui.DialogueOpen && g2++ < 20) { ui.TestDialogueNext(); yield return null; } }
             log.AppendLine($"after the hard clear: owned {Shop.Owns(ItemKind.HeroSkin, lk)} · progress {save.legendProg}");
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "legend.txt"), log.ToString()); Application.Quit();
         }
