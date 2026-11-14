@@ -1771,7 +1771,7 @@ namespace NovaBlade
                     else
                     {
                         var tag = Box(new Color(.55f, .36f, .06f, .98f), 12); Border(tag, gold, 1.5f); tag.style.position = Position.Absolute; tag.style.top = -13 * big; tag.style.right = 8; tag.style.paddingLeft = tag.style.paddingRight = 10; tag.style.paddingTop = 1; tag.style.paddingBottom = 2; tag.pickingMode = PickingMode.Ignore;
-                        tag.Add(L(Loc.S("★ แนะนำ", "★ Recommended"), 14 * big, new Color(1f, .93f, .7f), true)); c.Add(tag);
+                        tag.Add(L(Loc.S("◆ แนะนำ", "◆ Recommended"), 14 * big, new Color(1f, .93f, .7f), true)); c.Add(tag);
                     }
                 }
                 mrow.Add(c);

@@ -60,11 +60,13 @@ namespace NovaBlade
         public string TestDialogueText => DialogueOpen ? $"{dlgName.text}: {dlgText.text}" : null;
 
         // ---------- the legend picker (from the lobby, beside the story banner) ----------
-        VisualElement legOv, legList; Label legDiffN, legDiffH, legReward; bool legHard;
+        VisualElement legOv, legList, legCard, legHeroes; Label legDiffN, legDiffH, legReward, legName; bool legHard; int legSel;
+        Legends.Legend LegSel => Legends.All[Mathf.Clamp(legSel, 0, Legends.All.Length - 1)];
         public void OpenLegends()
         {
             if (legOv == null) BuildLegends();
-            var l = Legends.Ming; if (legHard && Legends.Cleared(G.save, l, false) < l.steps.Length) legHard = false;
+            int mine = System.Array.FindIndex(Legends.All, x => x.hero == G.save.hero); if (mine >= 0) legSel = mine;   // the hero in play first
+            var l = LegSel; if (legHard && Legends.Cleared(G.save, l, false) < l.steps.Length) legHard = false;
             RenderLegends(); legOv.style.display = DisplayStyle.Flex; legOv.BringToFront();
         }
         public void CloseLegends() { if (legOv != null) legOv.style.display = DisplayStyle.None; }
@@ -81,27 +83,37 @@ namespace NovaBlade
             var x = L("X", touchUi ? 34 : 28, Color.white, true); x.pickingMode = PickingMode.Position; x.style.paddingLeft = x.style.paddingRight = 12; x.RegisterCallback<PointerUpEvent>(_ => CloseLegends()); head.Add(x);
             var sub = L(Loc.S("เล่นเรื่องของฮีโร่ทีละบท ปลดสกิลทีละตัว จบด้วยบอส", "Play a hero's story chapter by chapter: one skill a chapter, a boss at the end"), touchUi ? 19 : 16, Muted); sub.style.whiteSpace = WhiteSpace.Normal; sub.style.marginTop = 4; p.Add(sub);
 
+            legHeroes = Box(); legHeroes.style.flexDirection = FlexDirection.Row; legHeroes.style.marginTop = 12; legHeroes.style.flexWrap = Wrap.Wrap; p.Add(legHeroes);
+            for (int i = 0; i < Legends.All.Length; i++)
+            {   // one tab a legend: the hero's name
+                int k = i; var lg = Legends.All[i]; var h = System.Array.Find(Data.Heroes, x => x.id == lg.hero);
+                var b = L(h != null ? h.name : lg.hero, touchUi ? 22 : 19, Color.white, true); b.pickingMode = PickingMode.Position; Pad(b, 8); b.style.paddingLeft = b.style.paddingRight = 18; Round(b, 10); b.style.marginRight = 8;
+                b.RegisterCallback<PointerUpEvent>(_ => { legSel = k; if (legHard && Legends.Cleared(G.save, LegSel, false) < LegSel.steps.Length) legHard = false; RenderLegends(); }); legHeroes.Add(b);
+            }
             var body = Box(); body.style.flexDirection = FlexDirection.Row; body.style.marginTop = 14; body.style.flexShrink = 1; p.Add(body);
             var card = Box(new Color(.1f, .08f, .14f), 16); Border(card, new Color(1f, .8f, .45f), 3); card.style.width = touchUi ? 210 : 230; card.style.height = touchUi ? 300 : 330; card.style.flexShrink = 0;
-            var ct = Resources.Load<Texture2D>("UI/Cards/herofull_monk") ?? Resources.Load<Texture2D>("UI/Cards/hero_monk"); if (ct) card.style.backgroundImage = new StyleBackground(ct); card.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop; body.Add(card);
+            card.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop; body.Add(card); legCard = card;
             var right = Box(); right.style.flexGrow = 1; right.style.flexShrink = 1; right.style.marginLeft = 18; body.Add(right);
-            var nm = L(Loc.S("หมิง · ", "Ming · ") + Legends.Ming.Name, touchUi ? 30 : 28, Color.white, true); nm.style.whiteSpace = WhiteSpace.Normal; right.Add(nm);
+            var nm = L("", touchUi ? 30 : 28, Color.white, true); nm.style.whiteSpace = WhiteSpace.Normal; right.Add(nm); legName = nm;
             var diff = Box(); diff.style.flexDirection = FlexDirection.Row; diff.style.marginTop = 10; right.Add(diff);
             Label Tab(string text, bool hard)
             {
                 var b = L(text, touchUi ? 21 : 18, Color.white, true); b.pickingMode = PickingMode.Position; Pad(b, 8); b.style.paddingLeft = b.style.paddingRight = 16; Round(b, 10); b.style.marginRight = 8;
-                b.RegisterCallback<PointerUpEvent>(_ => { if (hard && Legends.Cleared(G.save, Legends.Ming, false) < Legends.Ming.steps.Length) { Banner(Loc.S("ระดับตำนานยังล็อก", "Legend difficulty is locked"), Loc.S("จบระดับปกติให้ครบ 4 บทก่อน", "Finish all 4 chapters on normal first")); return; } legHard = hard; RenderLegends(); });
+                b.RegisterCallback<PointerUpEvent>(_ => { if (hard && Legends.Cleared(G.save, LegSel, false) < LegSel.steps.Length) { Banner(Loc.S("ระดับตำนานยังล็อก", "Legend difficulty is locked"), Loc.S("จบระดับปกติให้ครบ 4 บทก่อน", "Finish all 4 chapters on normal first")); return; } legHard = hard; RenderLegends(); });
                 diff.Add(b); return b;
             }
             legDiffN = Tab(Loc.S("ปกติ", "Normal"), false); legDiffH = Tab(Loc.S("ตำนาน (ยาก)", "Legend (hard)"), true);
             legList = Box(); legList.style.marginTop = 10; right.Add(legList);
             legReward = L("", touchUi ? 18 : 16, DlgInk); legReward.style.whiteSpace = WhiteSpace.Normal; legReward.style.marginTop = 10; right.Add(legReward);
-            var soon = L(Loc.S("เร็วๆ นี้: ตำนานของเลออน \"ประตูที่ไม่เคยปิด\"", "Coming soon: Leon's legend, \"The Gate That Never Closed\""), touchUi ? 17 : 15, Muted); soon.style.marginTop = 12; soon.style.whiteSpace = WhiteSpace.Normal; p.Add(soon);
+            var soon = L(Loc.S("ตำนานของฮีโร่ตัวอื่นจะตามมา", "More heroes' legends are on the way"), touchUi ? 17 : 15, Muted); soon.style.marginTop = 12; soon.style.whiteSpace = WhiteSpace.Normal; p.Add(soon);
             legOv.style.display = DisplayStyle.None;
         }
         void RenderLegends()
         {
-            var l = Legends.Ming; int done = Legends.Cleared(G.save, l, legHard);
+            var l = LegSel; int done = Legends.Cleared(G.save, l, legHard);
+            var hd = System.Array.Find(Data.Heroes, x => x.id == l.hero); legName.text = (hd != null ? hd.name + " · " : "") + l.Name;
+            var ct = Resources.Load<Texture2D>("UI/Cards/herofull_" + l.hero) ?? Resources.Load<Texture2D>("UI/Cards/hero_" + l.hero); legCard.style.backgroundImage = ct ? new StyleBackground(ct) : new StyleBackground((Texture2D)null);
+            for (int i = 0; i < legHeroes.childCount; i++) { var b = legHeroes[i]; bool on = i == legSel; b.style.backgroundColor = on ? new Color(.45f, .22f, .08f) : new Color(1, 1, 1, .06f); Border(b, on ? DlgInk : new Color(1, 1, 1, .2f), 2); }
             foreach (var (b, on) in new[] { (legDiffN, !legHard), (legDiffH, legHard) })
             { b.style.backgroundColor = on ? (legHard ? new Color(.55f, .12f, .12f) : new Color(.7f, .42f, .1f)) : new Color(1, 1, 1, .08f); Border(b, on ? DlgInk : new Color(1, 1, 1, .2f), 2); }
             bool hardLocked = Legends.Cleared(G.save, l, false) < l.steps.Length; legDiffH.style.opacity = hardLocked ? .5f : 1; if (hardLocked) legDiffH.text = Loc.S("ตำนาน (ยาก) · ล็อก", "Legend (hard) · locked"); else legDiffH.text = Loc.S("ตำนาน (ยาก)", "Legend (hard)");
@@ -121,7 +133,7 @@ namespace NovaBlade
             }
             legReward.text = (legHard ? Loc.S("รางวัลเมื่อจบระดับตำนาน: ", "Legend reward: ") + Loc.S(l.rewardTh, l.rewardEn) : Loc.S($"ทองบทละ {Legends.StepGold} · จบครบ 4 บทเพื่อเปิดระดับตำนาน", $"{Legends.StepGold} gold a chapter · finish all 4 to open Legend difficulty"));
         }
-        public void TestOpenLegends(bool hard) { OpenLegends(); legHard = hard; RenderLegends(); }
+        public void TestOpenLegends(bool hard, int pick = -1) { OpenLegends(); if (pick >= 0) legSel = pick; legHard = hard; RenderLegends(); }
 
         // ---------- the result of a chapter ----------
         void ShowLegendResult(bool win)

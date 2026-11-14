@@ -108,7 +108,7 @@ namespace NovaBlade
                     var ic = Box(); ic.style.width = ic.style.height = 70 * big; ic.pickingMode = PickingMode.Ignore; string pid = pk.id; Color pc = Color.Lerp(pk.col, Color.white, .25f); ic.generateVisualContent += ctx => PerkIcon(ctx, pid, pc); ring.Add(ic);
                 }
                 c.Add(tile);
-                var rr = L("★ " + RareName(pk.rare), 14 * big, RareCol(pk.rare), true); rr.style.marginTop = 8; rr.pickingMode = PickingMode.Ignore; c.Add(rr);
+                var rr = L("◆ " + RareName(pk.rare), 14 * big, RareCol(pk.rare), true); rr.style.marginTop = 8; rr.pickingMode = PickingMode.Ignore; c.Add(rr);
                 var n = L(Loc.En ? pk.name.ToUpperInvariant() : pk.name, 28 * big, Color.white, true); n.style.letterSpacing = 1; n.pickingMode = PickingMode.Ignore; c.Add(n);
                 var t = L(pk.desc, 16 * big, new Color(.86f, .86f, .96f)); t.style.whiteSpace = WhiteSpace.Normal; t.style.unityTextAlign = TextAnchor.UpperCenter; t.style.marginTop = 2; t.style.minHeight = 40 * big; t.pickingMode = PickingMode.Ignore; c.Add(t);
                 var pv = Box(new Color(.1f, .3f, .16f, .7f), 8); pv.style.alignSelf = Align.Stretch; pv.style.marginTop = 4; pv.style.paddingTop = pv.style.paddingBottom = 3; pv.pickingMode = PickingMode.Ignore;   // what changes for this hero

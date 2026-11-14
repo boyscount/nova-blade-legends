@@ -151,10 +151,10 @@ namespace NovaBlade
             if (endPose == null && hd != null && hd.rig) { var poses = Studio.VsPoses(new List<(HeroDef, float, string)> { (hd, -.01f, G.hero.modelKey) }); endPose = poses.Count > 0 ? poses[0] : null; }
             var pose = Box(); Abs(pose, 0, 2, 0, 18); pose.style.backgroundImage = new StyleBackground(endPose ? endPose : (me != null ? HeroArt(me) : null)); pose.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit; pose.pickingMode = PickingMode.Ignore; left.Add(pose); In(pose, .15f, 0);
             if (mvp != null && mvp == me)
-            {   // the MVP crest: a crown over a gold plate
-                var crest = Box(); crest.style.position = Position.Absolute; crest.style.left = 28; crest.style.top = 24; crest.style.alignItems = Align.Center; left.Add(crest);
-                crest.Add(Icon(ctx => Crown(ctx, new Color(1f, .82f, .35f)), 66 * big));
-                var pl = Box(new Color(.35f, .15f, .45f, .95f), 10); Border(pl, EndGold, 2.5f); pl.style.paddingLeft = pl.style.paddingRight = 16; pl.style.marginTop = -6; pl.Add(L("MVP", 38 * big, new Color(1f, .9f, .6f), true)); crest.Add(pl);
+            {   // the MVP emblem (UiMvp): winged, over the hero's head
+                var crest = MvpEmblem(big * (touchUi ? .85f : .9f)); crest.style.position = Position.Absolute; crest.style.left = Length.Percent(50); crest.style.top = 6;
+                crest.style.translate = new Translate(Length.Percent(-50), 0); left.Add(crest);
+                pose.style.top = 150 * big;   // the hero stands under the emblem, not behind it
                 endPop.Add((crest, .5f)); crest.style.opacity = 0;
             }
             if (hd != null)
@@ -289,7 +289,7 @@ namespace NovaBlade
                 foreach (var s in G.stats.Where(x => x.team == t).OrderByDescending(x => x.Score))
                 {
                     var r = Box(s.me ? new Color(1, .84f, .45f, .14f) : Color.clear, 8); r.style.flexDirection = FlexDirection.Row; r.style.alignItems = Align.Center; r.style.marginTop = 4; r.style.paddingTop = r.style.paddingBottom = 3; p.Add(r);
-                    Cell(r, (s == mvp ? "★ " : "") + s.name + (s.me ? Loc.S(" (คุณ)", " (you)") : ""), 40, s == mvp ? EndGold : Color.white, true, 18);
+                    Cell(r, (s == mvp ? "◆ " : "") + s.name + (s.me ? Loc.S(" (คุณ)", " (you)") : ""), 40, s == mvp ? EndGold : Color.white, true, 18);
                     Cell(r, G.LevelOf(s).ToString(), 10, Color.white); Cell(r, $"{s.k}/{s.d}/{s.a}", 22, Color.white, true);
                     var dc = Box(); dc.style.width = Length.Percent(28); r.Add(dc); dc.Add(L(Dmg(s.dmg), 15 * big, Color.white));
                     var bar = Box(t == 0 ? EndBlue : EndRed, 3); bar.style.height = 6; bar.style.width = Length.Percent(Mathf.Clamp01(s.dmg / top) * 100); dc.Add(bar);

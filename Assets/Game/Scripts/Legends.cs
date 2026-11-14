@@ -6,7 +6,7 @@ namespace NovaBlade
     // Hero legends (HERO-STORIES.md): a short story mode per hero, four stages of 3-5 minutes. The hero starts with plain attacks and gets one
     // skill a stage; the last stage is a boss fight with all three. A dialogue with the speakers' cards before and after each stage.
     // Normal: anyone can finish it. Legend (hard): the bosses hit harder and have more health, no potions; finishing it earns the legend reward.
-    // The pilot is Ming's "Embers Still Warm"; Leon's follows the same shape.
+    // Ming's "Embers Still Warm" and Leon's "The Gate That Never Closed".
     public static class Legends
     {
         public class Line { public string who, th, en; public string Text => Loc.S(th, en); }
@@ -112,7 +112,94 @@ namespace NovaBlade
             },
         };
 
-        public static readonly Legend[] All = { Ming };
+        // a stage boss made lighter for an early chapter
+        static BossDef Lighter(BossDef b, float hp)
+        {
+            var c = (BossDef)typeof(object).GetMethod("MemberwiseClone", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(b, null); c.hp = hp; return c;
+        }
+
+        public static readonly Legend Leon = new()
+        {
+            hero = "spartan", th = "ประตูที่ไม่เคยปิด", en = "The Gate That Never Closed", rewardTh = "สกินตำนาน \"ผู้เฝ้าประตูนิรันดร์\"", rewardEn = "The legend skin \"Warden of the Endless Gate\"",
+            steps = new[]
+            {
+                new Step
+                {
+                    theme = "kingdom", th = "คืนนั้น", en = "That Night", skills = 0,
+                    waves = new[] { new[] { ("demon", 2), ("bat", 2) }, new[] { ("demon", 3), ("skeleton", 2) } },
+                    before = new[]
+                    {
+                        S("spartan", "คืนนั้นข้าเฝ้าประตูห้องบรรทมเหมือนทุกคืน ไม่มีใครผ่านข้าไปได้", "That night I stood at the king's door as on every night. No one got past me."),
+                        S("spartan", "แล้วก็มีเสียง… ข้างในห้อง ทั้งที่ประตูยังปิดอยู่", "Then a sound… inside the room, with the door still shut."),
+                        S("spartan", "เงาพวกนี้มาจากไหน! ปกป้องพระราชา!", "Where did these shadows come from? Guard the king!"),
+                    },
+                    after = new[]
+                    {
+                        S("spartan", "ข้าพังประตูเข้าไป… ไม่มีใครอยู่ในห้อง มีแค่ลมเย็นๆ กับกลีบซากุระบนพื้น", "I broke the door in… No one inside. Only a cold wind, and cherry petals on the floor."),
+                        S("spartan", "ทุกคนบอกว่าเป็นงานของเงาซากุระ ข้าจะตามล่าพวกมันให้ถึงที่สุด", "Everyone says it was the Shadow Blossom. I will hunt them to the end."),
+                    },
+                },
+                new Step
+                {
+                    theme = "forest", th = "ล่าเงา", en = "Hunting a Shadow", skills = 1,
+                    waves = new[] { new[] { ("ghost", 3), ("bat", 2) }, new[] { ("ghost", 3), ("demon", 2) } },
+                    boss = HeroBoss("hood", "เรเวน มือสังหารผ้าคลุม", "Raven, the Hooded Killer", new Color(.55f, .4f, .9f), 38, 8,
+                        new[] { "combo", "sidestep", "combo", "lunge" }, new[] { "lunge", "lunge", "combo" }),
+                    before = new[]
+                    {
+                        S("spartan", "เรเวน ศิษย์ทรยศของเงาซากุระ ทุกคนบอกว่าเจ้าคือคนลงมือ", "Raven. The Shadow Blossom's traitor. They all say it was your hand."),
+                        S("hood", "ทุกคนบอก… แล้วเจ้าเห็นเองรึเปล่าล่ะ องครักษ์", "They all say… Did you see it yourself, guard?"),
+                        S("spartan", "(ได้สกิลแรก) โล่ของข้าจะหมุนเป็นพายุ แล้วเจ้าจะบอกความจริงเอง", "(First skill learned) My blade will turn into a storm, and you will tell me the truth."),
+                    },
+                    after = new[]
+                    {
+                        S("hood", "เจ้าตามผิดคนแล้ว คืนนั้นข้าเห็นคนลงมือ… และข้าหนีเพราะกลัวมัน", "You're chasing the wrong one. That night I saw who did it… and I ran because I feared him."),
+                        S("spartan", "ใคร!", "Who?"),
+                        S("hood", "ไปถามนักบวชของเจ้าดู แสงของวิหารเห็นอะไรบางอย่างคืนนั้น", "Ask your priestess. The temple's light saw something that night."),
+                    },
+                },
+                new Step
+                {
+                    theme = "river", th = "หุบธาร", en = "The Moonstream", skills = 2,
+                    waves = new[] { new[] { ("skeleton", 3), ("ghost", 2) }, new[] { ("skeleton", 3), ("zombie", 2) }, new[] { ("skeleton", 2), ("ghost", 3), ("zombie", 2) } },
+                    boss = Lighter(Data.River.boss, 5000),   // about 8,000 health after the stage scaling, near the other chapter bosses
+                    before = new[]
+                    {
+                        S("sunpriest", "เลออน แผลพวกนี้ต้องรักษาก่อน ข้าจะไปกับเจ้าเอง", "Leon, those wounds need tending first. I'm coming with you."),
+                        S("sunpriest", "คืนนั้นแสงบนหอวิหารเห็นลมสีดำพัดผ่านหน้าต่างห้องพระราชา ก่อนเจ้าจะได้ยินเสียง", "That night the temple tower's light saw a black wind pass the king's window, before you heard a thing."),
+                        S("spartan", "ลมดำ… ศพในหุบธารนี่ก็ลุกขึ้นมาเพราะลมแบบเดียวกัน", "A black wind… The dead in this valley rise with the same wind."),
+                        S("spartan", "(ได้สกิลที่สอง) ทุบให้แผ่นดินสะเทือน ให้พวกมันกลับลงไปนอน", "(Second skill learned) Strike the ground and send them back to sleep."),
+                    },
+                    after = new[]
+                    {
+                        S("sunpriest", "กัปตันวิญญาณถือจดหมายของเงาซากุระ… คนส่งคือไนต์แห่งหอคอย", "The Phantom Captain carried a Shadow Blossom letter… sent by Night of the Spire."),
+                        S("spartan", "งั้นคนที่รู้เรื่องคืนนั้นดีที่สุดคือคาเงะ ผู้รับงานของมัน", "Then the one who knows that night best is Kage, who took Night's work."),
+                    },
+                },
+                new Step
+                {
+                    theme = "castle", th = "เงาราตรี", en = "Shadow of Night", skills = 3,
+                    waves = new[] { new[] { ("skeleton", 3), ("bat", 3), ("demon", 1) } },
+                    boss = HeroBoss("ninja", "คาเงะ เงาราตรี", "Kage, Shadow of Night", new Color(.35f, .45f, 1f), 48, 7,
+                        new[] { "combo", "sidestep", "combo", "guard", "lunge" }, new[] { "lunge", "lunge", "combo" }),
+                    before = new[]
+                    {
+                        S("ninja", "องครักษ์ผู้เฝ้าประตู มาไกลถึงปราสาทร้างเลยรึ", "The guard of the gate. You came all the way to the ruined castle?"),
+                        S("spartan", "เจ้ารับงานจากไนต์ งานนั้นคือชีวิตพระราชาใช่ไหม", "You took work from Night. Was the work the king's life?"),
+                        S("ninja", "ประตูที่เจ้าเฝ้า ไม่เคยปิดสนิทหรอก ชนะข้าก่อนแล้วข้าจะเล่า", "The door you guard never quite closes. Beat me, and I'll tell you."),
+                        S("spartan", "(ได้สกิลสุดท้าย) เสียงคำรามของหุบเหล็กจะปลุกเจ้าให้ตื่นจากเงา", "(Last skill learned) The Iron Vale's war cry will shake you out of the shadows."),
+                    },
+                    after = new[]
+                    {
+                        S("ninja", "…ใช่ เรารับงานนั้น แต่เราไม่ได้ทำ", "…Yes. We took that work. But we never did it."),
+                        S("ninja", "คืนนั้นมีคนทำแทนเราก่อน ลมดำพัดเข้าห้อง แล้วพระราชาก็สิ้นลม", "Someone got there first. A black wind went into the room, and the king was gone."),
+                        S("spartan", "ศัตรูจริงไม่ใช่เงาซากุระ… ประตูนั้นข้าเฝ้าผิดด้านมาตลอด", "The real enemy was never the Shadow Blossom… All this time I guarded the wrong side of that door."),
+                    },
+                },
+            },
+        };
+
+        public static readonly Legend[] All = { Ming, Leon };
         public static Legend For(string hero) => All.FirstOrDefault(l => l.hero == hero);
 
         // progress in the save: "monk=2;monk!=1" = two steps of Ming's legend cleared on normal, one on legend difficulty
@@ -178,13 +265,13 @@ namespace NovaBlade
             ui.Dialogue(legend.steps[legendStep].after, () => ui.ShowResult(true));
         }
         // -legendtest <dir>: Ming's legend start to end: the picker, each chapter's dialogue and skill lock, waves cleared, the bosses, the save
-        public System.Collections.IEnumerator LegendTest(string dir)
+        public System.Collections.IEnumerator LegendTest(string dir, string heroId = "monk")
         {
             System.IO.Directory.CreateDirectory(dir); var log = new System.Text.StringBuilder(); yield return new WaitForSecondsRealtime(3);
             void Snap(string n) => ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, n + ".png"));
-            save.legendProg = ""; ui.TestOpenLegends(false); yield return new WaitForSecondsRealtime(.8f); Snap("picker"); log.AppendLine($"picker open {ui.LegendsOpen}");
+            save.legendProg = ""; save.owned.RemoveAll(k => k.Contains("_legend") || k.StartsWith("HeroSkin:" + heroId)); ui.TestOpenLegends(false, System.Array.IndexOf(Legends.All, Legends.For(heroId) ?? Legends.Ming)); yield return new WaitForSecondsRealtime(.8f); Snap("picker"); yield return null; yield return null; log.AppendLine($"picker open {ui.LegendsOpen}");
             ui.CloseLegends();
-            var l = Legends.Ming;
+            var l = Legends.For(heroId) ?? Legends.Ming; log.AppendLine($"legend {l.en} ({l.hero})");
             for (int k = 0; k < l.steps.Length; k++)
             {
                 StartLegend(l, k, false); yield return new WaitForSecondsRealtime(1.2f);
@@ -208,13 +295,13 @@ namespace NovaBlade
                 guard = 0; while (ui.DialogueOpen && guard++ < 20) { ui.TestDialogueNext(); yield return null; }
                 yield return new WaitForSecondsRealtime(.6f); if (k == 3) Snap("result4"); log.AppendLine($"  progress {save.legendProg} gold {save.gold}");
             }
-            ui.TestOpenLegends(true); yield return new WaitForSecondsRealtime(.8f); Snap("picker_hard"); ui.CloseLegends();
+            ui.TestOpenLegends(true, System.Array.IndexOf(Legends.All, l)); yield return new WaitForSecondsRealtime(.8f); Snap("picker_hard"); yield return null; yield return null; ui.CloseLegends();
             StartLegend(l, 3, true); yield return new WaitForSecondsRealtime(.5f); while (ui.DialogueOpen) { ui.TestDialogueNext(); yield return null; }
             foreach (var f in foes.ToList()) if (f && f.alive) f.Damage(1e7f, hero.Pos); TestSpeed = 3; float r1 = Time.realtimeSinceStartup;
             while (!boss && Time.realtimeSinceStartup - r1 < 30) { foreach (var f in foes.ToList()) if (f && f.alive && !f.spawning && f.team == 1) f.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(.3f); }
             TestSpeed = 1; log.AppendLine($"hard boss: {(boss ? $"hp {boss.maxHp:0} dmg {boss.d.dmg:0}" : "none")} · potion button hidden {legendHard}");
-            var mh = System.Array.Find(Data.Heroes, x => x.id == "monk"); int li = Enumerable.Range(0, Data.SkinCount(mh)).FirstOrDefault(i => Data.ModelOf(mh, i).EndsWith("_legend"));
-            string lk = $"monk:{li}"; log.AppendLine($"legend skin {Data.ModelOf(mh, li)} owned before {Shop.Owns(ItemKind.HeroSkin, lk)} · buy refused {!Shop.Buy(ItemKind.HeroSkin, lk, out var bm)} ({bm}) · leon legend free {Shop.Owns(ItemKind.HeroSkin, "spartan:" + Enumerable.Range(0, Data.SkinCount(System.Array.Find(Data.Heroes, x => x.id == "spartan"))).First(i => Data.ModelOf(System.Array.Find(Data.Heroes, x => x.id == "spartan"), i).EndsWith("_legend")))}");
+            var mh = System.Array.Find(Data.Heroes, x => x.id == heroId); int li = Enumerable.Range(0, Data.SkinCount(mh)).FirstOrDefault(i => Data.ModelOf(mh, i).EndsWith("_legend"));
+            string lk = $"{heroId}:{li}"; log.AppendLine($"legend skin {Data.ModelOf(mh, li)} owned before {Shop.Owns(ItemKind.HeroSkin, lk)} · buy refused {!Shop.Buy(ItemKind.HeroSkin, lk, out var bm)} ({bm}) · leon legend free {Shop.Owns(ItemKind.HeroSkin, "spartan:" + Enumerable.Range(0, Data.SkinCount(System.Array.Find(Data.Heroes, x => x.id == "spartan"))).First(i => Data.ModelOf(System.Array.Find(Data.Heroes, x => x.id == "spartan"), i).EndsWith("_legend")))}");
             if (boss) { boss.Damage(1e7f, hero.Pos); yield return new WaitForSecondsRealtime(3); int g2 = 0; while (ui.DialogueOpen && g2++ < 20) { ui.TestDialogueNext(); yield return null; } }
             log.AppendLine($"after the hard clear: owned {Shop.Owns(ItemKind.HeroSkin, lk)} · progress {save.legendProg}");
             System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "legend.txt"), log.ToString()); Application.Quit();

@@ -270,7 +270,7 @@ namespace NovaBlade
             int ent = System.Array.IndexOf(args, "-endtest"); if (ent >= 0 && ent + 1 < args.Length) StartCoroutine(EndTest(args[ent + 1]));
             int pkt = System.Array.IndexOf(args, "-perktest"); if (pkt >= 0 && pkt + 1 < args.Length) StartCoroutine(PerkTest(args[pkt + 1]));
             if (System.Array.IndexOf(args, "-levelcaptest") is int lct and >= 0 && lct + 1 < args.Length) StartCoroutine(LevelCapTest(args[lct + 1]));
-            int lgt = System.Array.IndexOf(args, "-legendtest"); if (lgt >= 0 && lgt + 1 < args.Length) StartCoroutine(LegendTest(args[lgt + 1]));
+            int lgt = System.Array.IndexOf(args, "-legendtest"); if (lgt >= 0 && lgt + 1 < args.Length) StartCoroutine(LegendTest(args[lgt + 1], lgt + 2 < args.Length && !args[lgt + 2].StartsWith("-") ? args[lgt + 2] : "monk"));
             int jgt = System.Array.IndexOf(args, "-jungletest"); if (jgt >= 0 && jgt + 1 < args.Length) StartCoroutine(JungleTest(args[jgt + 1], jgt + 2 < args.Length && args[jgt + 2] == "lane3" ? 3 : 2));
             int mlt = System.Array.IndexOf(args, "-matchlen"); if (mlt >= 0 && mlt + 1 < args.Length) StartCoroutine(MatchLenTest(args[mlt + 1], mlt + 2 < args.Length && int.TryParse(args[mlt + 2], out var mlr) ? mlr : 3));
             int slt = System.Array.IndexOf(args, "-skylanestest"); if (slt >= 0 && slt + 1 < args.Length) StartCoroutine(SkyLanesTest(args[slt + 1]));
