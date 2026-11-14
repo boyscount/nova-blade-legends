@@ -1,0 +1,37 @@
+ManifestFileVersion: 0
+UnityVersion: 6000.6.7f1
+CRC: 1804478983
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 304f64312a42b3f2f3f5cb979177e898
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 5b44ca00c324cdb078811c43dcdd954b
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: 78c550856de4f26d767e4a91c5df53a9
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 28
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 90
+  Script: {instanceID: 0}
+- Class: 95
+  Script: {instanceID: 0}
+- Class: 137
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/Game/SkinPacks/Hero_sorceress_classic.prefab
+Dependencies: []

@@ -1,0 +1,37 @@
+ManifestFileVersion: 0
+UnityVersion: 6000.6.7f1
+CRC: 3499312954
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 7fb5c1591de195ffb7a139468f11afed
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 5b44ca00c324cdb078811c43dcdd954b
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: d34433bc99552dca75e271464320d0b1
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 28
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 90
+  Script: {instanceID: 0}
+- Class: 95
+  Script: {instanceID: 0}
+- Class: 137
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/Game/SkinPacks/Hero_warrior_classic.prefab
+Dependencies: []

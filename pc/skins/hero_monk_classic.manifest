@@ -1,0 +1,37 @@
+ManifestFileVersion: 0
+UnityVersion: 6000.6.7f1
+CRC: 4238740924
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: a92964067e2f8f1911f60e34864b8a42
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 5b44ca00c324cdb078811c43dcdd954b
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: 235689d916b7785185f0d81bc423ff47
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 28
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 90
+  Script: {instanceID: 0}
+- Class: 95
+  Script: {instanceID: 0}
+- Class: 137
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/Game/SkinPacks/Hero_monk_classic.prefab
+Dependencies: []

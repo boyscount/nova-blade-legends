@@ -1,0 +1,78 @@
+ManifestFileVersion: 0
+UnityVersion: 6000.6.7f1
+CRC: 3255712718
+HashAppended: 0
+AssetBundleManifest:
+  AssetBundleInfos:
+    Info_0:
+      Name: hero_darkmage_classic
+      Dependencies: {}
+    Info_1:
+      Name: hero_darkmage_legend
+      Dependencies: {}
+    Info_2:
+      Name: hero_elf_classic
+      Dependencies: {}
+    Info_3:
+      Name: hero_flamepriest_classic
+      Dependencies: {}
+    Info_4:
+      Name: hero_flamepriest_legend
+      Dependencies: {}
+    Info_5:
+      Name: hero_harpy_classic
+      Dependencies: {}
+    Info_6:
+      Name: hero_hood_classic
+      Dependencies: {}
+    Info_7:
+      Name: hero_knight_classic
+      Dependencies: {}
+    Info_8:
+      Name: hero_lyra_classic
+      Dependencies: {}
+    Info_9:
+      Name: hero_mage_classic
+      Dependencies: {}
+    Info_10:
+      Name: hero_monk_classic
+      Dependencies: {}
+    Info_11:
+      Name: hero_monk_legend
+      Dependencies: {}
+    Info_12:
+      Name: hero_ninja_classic
+      Dependencies: {}
+    Info_13:
+      Name: hero_ninja_legend
+      Dependencies: {}
+    Info_14:
+      Name: hero_rowan_classic
+      Dependencies: {}
+    Info_15:
+      Name: hero_samurai_classic
+      Dependencies: {}
+    Info_16:
+      Name: hero_sorceress_classic
+      Dependencies: {}
+    Info_17:
+      Name: hero_spartan_classic
+      Dependencies: {}
+    Info_18:
+      Name: hero_spartan_legend
+      Dependencies: {}
+    Info_19:
+      Name: hero_sunpriest_classic
+      Dependencies: {}
+    Info_20:
+      Name: hero_tenzin_classic
+      Dependencies: {}
+    Info_21:
+      Name: hero_tiger_classic
+      Dependencies: {}
+    Info_22:
+      Name: hero_tiger_legend
+      Dependencies: {}
+    Info_23:
+      Name: hero_warrior_classic
+      Dependencies: {}

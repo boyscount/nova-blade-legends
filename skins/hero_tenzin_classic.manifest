@@ -1,0 +1,37 @@
+ManifestFileVersion: 0
+UnityVersion: 6000.6.7f1
+CRC: 3267447228
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 0957ed1c86791a4f0b6ab2c51bdec9c3
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 5b44ca00c324cdb078811c43dcdd954b
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: c387f3497b657472396afebe012a8af8
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 28
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 90
+  Script: {instanceID: 0}
+- Class: 95
+  Script: {instanceID: 0}
+- Class: 137
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/Game/SkinPacks/Hero_tenzin_classic.prefab
+Dependencies: []
