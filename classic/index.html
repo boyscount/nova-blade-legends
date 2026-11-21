@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Nova Blade Legends</title>
+<style>
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+#c { width: 100%; height: 100%; display: block; }
+#l { position: absolute; top: 50%; width: 100%; text-align: center; color: #ccc; font: 16px sans-serif; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="l">Loading...</div>
+<script src="Build/ea2475d40be658c9f259fd90e4c15174.loader.js"></script>
+<script>
+  // a plain test page (the premium classic map): full screen, phones a little below native resolution as in the game
+  var mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var label = document.querySelector("#l");
+  var config = {
+    dataUrl: "Build/10e9075ca3bfdd7a1138613b4b4f9549.data.unityweb",
+    frameworkUrl: "Build/ead8d1a614b27c69d0e527fb652559b2.framework.js.unityweb",
+    codeUrl: "Build/1b1504db37eea32deb353e0b5db23f6b.wasm.unityweb",
+    streamingAssetsUrl: "StreamingAssets",
+    companyName: "home-redar",
+    productName: "Nova Blade Legends",
+    productVersion: "1.0",
+    matchWebGLToCanvasSize: true,
+    devicePixelRatio: mobile ? Math.min(window.devicePixelRatio || 1, 1.5) : undefined
+  };
+  // the build sets this when the data file was cut into parts (GitHub Pages: 100 MB per file)
+  var dataParts = 2;
+  var blobUrl = null;
+  function fetchData() {
+    if (!dataParts) return Promise.resolve();
+    var done = 0, urls = [];
+    for (var i = 0; i < dataParts; i++) urls.push(config.dataUrl + ".part" + i);
+    return Promise.all(urls.map(function (u) {
+      return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.arrayBuffer(); })
+        .then(function (b) { done++; label.textContent = "Loading " + Math.round(done / dataParts * 80) + "%"; return b; });
+    })).then(function (bufs) { blobUrl = config.dataUrl = URL.createObjectURL(new Blob(bufs)); });
+  }
+  fetchData()
+    .then(function () { return createUnityInstance(document.querySelector("#c"), config, function (p) { label.textContent = "Loading " + Math.round(dataParts ? 80 + p * 20 : p * 100) + "%"; }); })
+    .then(function () { if (blobUrl) URL.revokeObjectURL(blobUrl); label.remove(); })
+    .catch(function (e) { label.textContent = "Error: " + e; });
+</script>
+</body>
+</html>
