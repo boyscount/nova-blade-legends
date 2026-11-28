@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0b0716">
+  <!-- the same title faces as the game (Cinzel, Taviraj; OFL) so the page and the game's opening logo look alike -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Taviraj:wght@500&display=swap" rel="stylesheet">
+  <title>Nova Blade Legends</title>
+  <style>
+    /* Full-screen game canvas with a loading bar and a "rotate your phone" prompt. The violet and gold of the game's opening logo (2026-11-14). */
+    html, body { margin: 0; height: 100%; background: #07050d; color: #f3f0e6; font-family: "Segoe UI", Tahoma, sans-serif; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #07050d; }
+    #load { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: radial-gradient(ellipse at 50% 45%, #2b1552 0%, #120a26 45%, #050309 80%); z-index: 2; }
+    #load::before { content: ""; position: absolute; width: min(70vw, 760px); height: min(40vw, 420px); background: radial-gradient(ellipse, rgba(140,80,255,.28), transparent 70%); animation: glow 3s ease-in-out infinite; pointer-events: none; }
+    @keyframes glow { 50% { opacity: .55; transform: scale(1.06); } }
+    .logo { position: relative; font-family: "Cinzel", Georgia, serif; font-weight: 700; letter-spacing: .08em; font-size: clamp(34px, 7vw, 76px); text-align: center; line-height: .95;
+            background: linear-gradient(180deg, #fff3cf 0%, #ffd27a 45%, #c9852a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 16px rgba(255,140,40,.45)); animation: rise 1.2s ease-out both; }
+    .logo span { display: block; font-size: .36em; letter-spacing: .6em; margin-top: 10px; background: linear-gradient(180deg, #efe6ff, #b9a3ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(1.06); } }
+    .line { width: min(420px, 72vw); height: 2px; background: linear-gradient(90deg, transparent, #ffcf70, transparent); }
+    .bar { position: relative; width: min(420px, 72vw); height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,207,112,.35); overflow: hidden; }
+    .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffdf8a, #ff9a3c); box-shadow: 0 0 12px rgba(255,170,60,.8); transition: width .25s; }
+    #msg { color: #d9cdf2; font-size: 15px; font-family: "Taviraj", "Segoe UI", Tahoma, sans-serif; }
+    #tip { color: #a99cc6; font-size: 14px; font-family: "Taviraj", "Segoe UI", Tahoma, sans-serif; max-width: min(560px, 86vw); text-align: center; min-height: 2.6em; transition: opacity .4s; }
+    #rot { position: fixed; inset: 0; display: none; flex-direction: column; gap: 10px; align-items: center; justify-content: center; background: #070b0c; z-index: 5; text-align: center; padding: 0 24px; }
+    #rot .ph { width: 46px; height: 78px; border: 3px solid #f3f0e6; border-radius: 9px; animation: r 1.8s ease-in-out infinite; }
+    @keyframes r { 40%, 100% { transform: rotate(-90deg); } }
+    @media (orientation: portrait) and (pointer: coarse) { #rot { display: flex; } }
+    #err { position: fixed; left: 16px; right: 16px; bottom: 16px; display: none; padding: 10px; border: 1px solid #ff4d5e; background: rgba(30,6,10,.94); color: #ffd0d6; font-size: 13px; border-radius: 6px; z-index: 6; }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+  <div id="load"><div class="logo">NOVA BLADE<span>LEGENDS</span></div><div class="line"></div><div class="bar"><i id="fill"></i></div><div id="msg">กำลังโหลดเกม… <b id="pct">0%</b></div><div id="tip"></div></div>
+  <div id="rot"><div class="ph"></div><b>หมุนโทรศัพท์เป็นแนวนอน</b><span style="color:#b9c3bd;font-size:14px">เกมนี้เล่นแนวนอน · แตะจอเพื่อเต็มจอ</span></div>
+  <div id="err"></div>
+  <script>
+    var canvas = document.getElementById("unity-canvas");
+    // the loading bar with its percentage, and a tip that changes every few seconds while the game downloads
+    function setFill(v) { v = Math.max(0, Math.min(100, Math.round(v))); document.getElementById("fill").style.width = v + "%"; document.getElementById("pct").textContent = v + "%"; }
+    var tips = ["เคล็ดลับ: กดหลบ (R / Space) ตอนศัตรูง้างท่า แล้วสวนกลับ", "เคล็ดลับ: สกิลที่ 3 คือท่าไม้ตาย เก็บไว้ตอนศัตรูรวมกลุ่ม", "เคล็ดลับ: ในโหมด MOBA ฆ่ามอนป่าเพื่อรับบัฟ ล้มผู้พิทักษ์เพื่อพรทั้งทีม",
+                "เคล็ดลับ: กด B กลับบ้านเพื่อฟื้นเลือด กด T วาปไปป้อม", "เคล็ดลับ: จบตำนานระดับยากเพื่อรับสกินตำนาน", "ครั้งแรกโหลดนานหน่อย ครั้งต่อไปจะเร็วขึ้นมาก"];
+    var tipAt = Math.floor(Math.random() * tips.length), tipEl = document.getElementById("tip"); tipEl.textContent = tips[tipAt];
+    var tipTimer = setInterval(function () { tipEl.style.opacity = 0; setTimeout(function () { tipAt = (tipAt + 1) % tips.length; tipEl.textContent = tips[tipAt]; tipEl.style.opacity = 1; }, 400); }, 4500);
+    // keys only reach the game while the canvas has focus; right-click is used to move, so no browser menu
+    canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+    window.addEventListener("load", function () { canvas.focus(); });
+    // (iPads report themselves as a Mac, so they are told apart by touch)
+    var mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    // two builds: this page at the site root is the phone build; PC browsers go to the sharper PC build in pc/
+    if (!mobile && !/\/pc\/?/.test(location.pathname) && !/[?&]phone/.test(location.search)) location.replace("pc/" + location.search);
+    var config = {
+      dataUrl: "Build/f2616e2271078ac4a1fa44224e6e786d.data.unityweb",
+      frameworkUrl: "Build/ead8d1a614b27c69d0e527fb652559b2.framework.js.unityweb",
+      codeUrl: "Build/92494489a3d2d2171d2991c42b2cc0fc.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "home-redar",
+      productName: "Nova Blade Legends",
+      productVersion: "1.0",
+      matchWebGLToCanvasSize: true,
+      // the joined data blob has a new URL every visit: keep it out of the IndexedDB cache (the parts sit in the browser cache)
+      cacheControl: function (url) { return url.indexOf("blob:") === 0 ? "no-store" : "must-revalidate"; },
+      // phones: render a little below native resolution to keep the frame rate up
+      devicePixelRatio: mobile ? Math.min(window.devicePixelRatio || 1, 1.5) : undefined,
+      showBanner: function (msg, type) { if (type === "error") { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = msg; } }
+    };
+    // tap once to go full screen (and lock landscape where the browser allows it)
+    document.addEventListener("pointerdown", function () {
+      if (!mobile || document.fullscreenElement) return;
+      var el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {}); }).catch(function () {});
+    }, { passive: true });
+    // the build sets this when the data file was cut into parts (GitHub Pages: 100 MB per file)
+    var dataParts = 4;
+    var blobUrl = null;   // the joined download: let go of it as soon as the game has loaded it (phones have little memory to spare)
+    function fetchData() {
+      if (!dataParts) return Promise.resolve();
+      var done = 0, urls = [];
+      for (var i = 0; i < dataParts; i++) urls.push(config.dataUrl + ".part" + i);
+      return Promise.all(urls.map(function (u) {
+        return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.arrayBuffer(); })
+          .then(function (b) { done++; setFill(done / dataParts * 80); return b; });
+      })).then(function (bufs) { blobUrl = config.dataUrl = URL.createObjectURL(new Blob(bufs)); });
+    }
+    var script = document.createElement("script");
+    script.src = "Build/140d3464cd5dbfba25be07cedb7d54f5.loader.js";
+    // a new build: drop the old builds' files from Unity's IndexedDB cache first (each update left ~13 MB of code behind, and builds
+    // before the blob fix whole data files; on iPhone a home-screen icon used for months filled up and quit at the start of a match,
+    // 2026-11-17). Saved games live in another database (/idbfs) and stay.
+    function clearOldCache() {
+      var key = "novaBuildData", now = "f2616e2271078ac4a1fa44224e6e786d.data.unityweb", was = null;
+      try { was = localStorage.getItem(key); } catch (e) {}
+      if (was === now) return Promise.resolve();
+      return new Promise(function (done) {
+        var finish = function () { try { localStorage.setItem(key, now); } catch (e) {} done(); };
+        try {
+          var req = indexedDB.deleteDatabase("UnityCache");
+          req.onsuccess = req.onerror = req.onblocked = finish;
+          setTimeout(finish, 3000);
+        } catch (e) { finish(); }
+      });
+    }
+    script.onload = function () {
+      clearOldCache().then(fetchData).then(function () { return createUnityInstance(canvas, config, function (p) { setFill(dataParts ? 80 + p * 20 : p * 100); }); })
+        .then(function () { if (blobUrl) URL.revokeObjectURL(blobUrl); clearInterval(tipTimer); document.getElementById("load").style.display = "none"; })
+        .catch(function (m) { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: " + m; });
+    };
+    script.onerror = function () { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "โหลดไม่สำเร็จ: ไม่พบไฟล์เกม " + script.src; };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
